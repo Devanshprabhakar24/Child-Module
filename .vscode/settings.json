@@ -1,0 +1,8 @@
+{
+    "chat.tools.terminal.autoApprove": {
+        "/^cd \"c:\\\\Users\\\\dev24\\\\Desktop\\\\Child Module Code\\\\backend\" ; node dist/main\\.js 2>&1$/": {
+            "approve": true,
+            "matchCommandLine": true
+        }
+    }
+}

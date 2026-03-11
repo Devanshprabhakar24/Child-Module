@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>WombTo18 – Channel Partner</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <header class="top-header">
+    <span class="logo">WombTo18</span>
+    <nav>
+      <a href="index.html">Home</a>
+      <a href="auth.html">Auth</a>
+      <a href="registration.html">Registration</a>
+      <a href="dashboard.html">Dashboard</a>
+      <a href="channel-partner.html">Channel Partner</a>
+      <a href="payments.html">Payments</a>
+    </nav>
+  </header>
+  <div class="auth-bar">
+    <span class="server-dot"></span><span class="server-text">Checking…</span>
+    <label>Token:</label><input id="auth-token" placeholder="Paste JWT token…" spellcheck="false">
+    <span id="auth-status" class="text-muted">—</span>
+  </div>
+
+  <h1 class="page-title">Channel Partner Module</h1>
+  <p class="page-subtitle">Manage channel partners. All endpoints require ADMIN role.</p>
+
+  <div class="container">
+    <div class="grid grid-2">
+
+      <!-- 1. Register Channel Partner -->
+      <div class="card card-large">
+        <div class="card-header"><h3>Register Channel Partner</h3><span class="method-tag method-post">POST</span></div>
+        <div class="card-body">
+          <p class="hint mb-1">POST /channel-partner/register — Requires auth (ADMIN role)</p>
+          <div class="form-row">
+            <div class="form-group"><label>Partner Name *</label><input id="cp-partnerName" value="Dr. Mehta Clinic"></div>
+            <div class="form-group"><label>Organization Name *</label><input id="cp-orgName" value="Mehta Healthcare Pvt Ltd"></div>
+          </div>
+          <div class="form-row">
+            <div class="form-group"><label>Email *</label><input id="cp-email" type="email" value="mehta@hospital.com"></div>
+            <div class="form-group"><label>Phone * (+91XXXXXXXXXX)</label><input id="cp-phone" value="+919876543299"></div>
+          </div>
+          <div class="form-group"><label>Region (optional)</label><input id="cp-region" value="Mumbai West"></div>
+          <button class="btn btn-primary btn-full" onclick="doRegisterCP()">Register Partner</button>
+          <div class="response-panel" id="rp-registercp">
+            <div class="response-header"><span class="res-status text-muted">—</span><span class="res-time"></span></div>
+            <div class="response-body text-muted">—</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 2. List All Partners -->
+      <div class="card">
+        <div class="card-header"><h3>List All Partners</h3><span class="method-tag method-get">GET</span></div>
+        <div class="card-body">
+          <p class="hint mb-1">GET /channel-partner/list — Requires auth (ADMIN role)</p>
+          <button class="btn btn-blue btn-full" onclick="doListCP()">List Partners</button>
+          <div class="response-panel" id="rp-listcp">
+            <div class="response-header"><span class="res-status text-muted">—</span><span class="res-time"></span></div>
+            <div class="response-body text-muted">—</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 3. Get Partner by ID -->
+      <div class="card">
+        <div class="card-header"><h3>Get Partner</h3><span class="method-tag method-get">GET</span></div>
+        <div class="card-body">
+          <p class="hint mb-1">GET /channel-partner/:id — Requires auth (ADMIN role)</p>
+          <div class="form-group"><label>Partner ID * (MongoDB ObjectId)</label><input id="gcp-id" placeholder="Use ID from List"></div>
+          <button class="btn btn-blue btn-full" onclick="doGetCP()">Get Partner</button>
+          <div class="response-panel" id="rp-getcp">
+            <div class="response-header"><span class="res-status text-muted">—</span><span class="res-time"></span></div>
+            <div class="response-body text-muted">—</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 4. Partner Dashboard -->
+      <div class="card">
+        <div class="card-header"><h3>Partner Dashboard</h3><span class="method-tag method-get">GET</span></div>
+        <div class="card-body">
+          <p class="hint mb-1">GET /channel-partner/:id/dashboard — Requires auth (ADMIN role)</p>
+          <div class="form-group"><label>Partner ID *</label><input id="cpd-id" placeholder="MongoDB ObjectId"></div>
+          <button class="btn btn-blue btn-full" onclick="doCPDash()">Get Dashboard</button>
+          <div class="response-panel" id="rp-cpdash">
+            <div class="response-header"><span class="res-status text-muted">—</span><span class="res-time"></span></div>
+            <div class="response-body text-muted">—</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 5. Partner Commission -->
+      <div class="card">
+        <div class="card-header"><h3>Partner Commission</h3><span class="method-tag method-get">GET</span></div>
+        <div class="card-body">
+          <p class="hint mb-1">GET /channel-partner/:id/commission — Requires auth (ADMIN role)</p>
+          <div class="form-group"><label>Partner ID *</label><input id="cpc-id" placeholder="MongoDB ObjectId"></div>
+          <button class="btn btn-blue btn-full" onclick="doCPCommission()">Get Commission</button>
+          <div class="response-panel" id="rp-cpcommission">
+            <div class="response-header"><span class="res-status text-muted">—</span><span class="res-time"></span></div>
+            <div class="response-body text-muted">—</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 6. Assign Registration -->
+      <div class="card">
+        <div class="card-header"><h3>Assign Registration</h3><span class="method-tag method-post">POST</span></div>
+        <div class="card-body">
+          <p class="hint mb-1">POST /channel-partner/:partnerId/assign/:registrationId — Requires auth (ADMIN role)</p>
+          <div class="form-row">
+            <div class="form-group"><label>Partner ID *</label><input id="cpa-id" placeholder="MongoDB ObjectId"></div>
+            <div class="form-group"><label>Registration ID *</label><input id="cpa-regId" placeholder="CHD-MH-20250115-000001"></div>
+          </div>
+          <button class="btn btn-primary btn-full" onclick="doCPAssign()">Assign</button>
+          <div class="response-panel" id="rp-cpassign">
+            <div class="response-header"><span class="res-status text-muted">—</span><span class="res-time"></span></div>
+            <div class="response-body text-muted">—</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 7. Unassign Registration -->
+      <div class="card">
+        <div class="card-header"><h3>Unassign Registration</h3><span class="method-tag method-delete">DELETE</span></div>
+        <div class="card-body">
+          <p class="hint mb-1">DELETE /channel-partner/:id/assign/:registrationId — Requires auth (ADMIN role)</p>
+          <div class="form-row">
+            <div class="form-group"><label>Partner ID *</label><input id="cpu-id" placeholder="MongoDB ObjectId"></div>
+            <div class="form-group"><label>Registration ID *</label><input id="cpu-regId" placeholder="CHD-MH-20250115-000001"></div>
+          </div>
+          <button class="btn btn-red btn-full" onclick="doCPUnassign()">Unassign</button>
+          <div class="response-panel" id="rp-cpunassign">
+            <div class="response-header"><span class="res-status text-muted">—</span><span class="res-time"></span></div>
+            <div class="response-body text-muted">—</div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+<script src="js/app.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  var regId = loadVal('regId');
+  if (regId) { setVal('cpa-regId', regId); setVal('cpu-regId', regId); }
+  var cpId = loadVal('channelPartnerId');
+  if (cpId) {
+    ['gcp-id','cpd-id','cpc-id','cpa-id','cpu-id'].forEach(function(id) { setVal(id, cpId); });
+  }
+});
+
+async function doRegisterCP() {
+  var body = {
+    partnerName: getVal('cp-partnerName'), organizationName: getVal('cp-orgName'),
+    email: getVal('cp-email'), phone: getVal('cp-phone')
+  };
+  var region = getVal('cp-region'); if (region) body.region = region;
+  var r = await api('POST', '/channel-partner/register', body);
+  showResponse('rp-registercp', r);
+  if (r.ok) {
+    var cp = r.data.data || r.data;
+    var id = cp._id || cp.id;
+    if (id) {
+      saveVal('channelPartnerId', id);
+      ['gcp-id','cpd-id','cpc-id','cpa-id','cpu-id'].forEach(function(elId) { setVal(elId, id); });
+    }
+    toast('Channel Partner registered!', 'ok');
+  }
+}
+
+async function doListCP() {
+  var r = await api('GET', '/channel-partner/list');
+  showResponse('rp-listcp', r);
+  if (r.ok) {
+    var list = r.data.data || r.data;
+    if (Array.isArray(list) && list.length > 0) {
+      var id = list[0]._id || list[0].id;
+      if (id) {
+        saveVal('channelPartnerId', id);
+        ['gcp-id','cpd-id','cpc-id','cpa-id','cpu-id'].forEach(function(elId) { setVal(elId, id); });
+      }
+    }
+  }
+}
+
+async function doGetCP() {
+  var r = await api('GET', '/channel-partner/' + encodeURIComponent(getVal('gcp-id')));
+  showResponse('rp-getcp', r);
+}
+
+async function doCPDash() {
+  var r = await api('GET', '/channel-partner/' + encodeURIComponent(getVal('cpd-id')) + '/dashboard');
+  showResponse('rp-cpdash', r);
+}
+
+async function doCPCommission() {
+  var r = await api('GET', '/channel-partner/' + encodeURIComponent(getVal('cpc-id')) + '/commission');
+  showResponse('rp-cpcommission', r);
+}
+
+async function doCPAssign() {
+  var id = getVal('cpa-id');
+  var regId = getVal('cpa-regId');
+  var r = await api('POST', '/channel-partner/' + encodeURIComponent(id) + '/assign/' + encodeURIComponent(regId), {});
+  showResponse('rp-cpassign', r);
+  if (r.ok) toast('Registration assigned!', 'ok');
+}
+
+async function doCPUnassign() {
+  var id = getVal('cpu-id');
+  var regId = getVal('cpu-regId');
+  var r = await api('DELETE', '/channel-partner/' + encodeURIComponent(id) + '/assign/' + encodeURIComponent(regId));
+  showResponse('rp-cpunassign', r);
+  if (r.ok) toast('Registration unassigned!', 'ok');
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,12 @@
+export enum MilestoneCategory {
+  VACCINATION = 'VACCINATION',
+  DEVELOPMENTAL = 'DEVELOPMENTAL',
+  HEALTH_CHECKUP = 'HEALTH_CHECKUP',
+}
+
+export enum MilestoneStatus {
+  UPCOMING = 'UPCOMING',
+  DUE = 'DUE',
+  COMPLETED = 'COMPLETED',
+  MISSED = 'MISSED',
+}

@@ -1,0 +1,484 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>WombTo18 – Home</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <header class="top-header">
+    <span class="logo">WombTo18</span>
+    <nav>
+      <a href="index.html">Home</a>
+      <a href="auth.html">Auth</a>
+      <a href="registration.html">Registration</a>
+      <a href="dashboard.html">Dashboard</a>
+      <a href="channel-partner.html">Channel Partner</a>
+      <a href="payments.html">Payments</a>
+    </nav>
+  </header>
+  <div class="auth-bar">
+    <span class="server-dot"></span><span class="server-text">Checking…</span>
+    <label>Token:</label><input id="auth-token" placeholder="Paste JWT token…" spellcheck="false">
+    <span id="auth-status" class="text-muted">—</span>
+  </div>
+
+  <h1 class="page-title">WombTo18 – Getting Started</h1>
+  <p class="page-subtitle">Follow the steps below in order. Each step unlocks the next.</p>
+
+  <div class="container">
+
+    <!-- ══════ STEPPER ══════ -->
+    <div class="stepper">
+      <div class="stepper-item active" id="si-1"><span class="stepper-num">1</span><span class="stepper-label">Register User</span></div>
+      <div class="stepper-line"></div>
+      <div class="stepper-item" id="si-2"><span class="stepper-num">2</span><span class="stepper-label">Verify Email</span></div>
+      <div class="stepper-line"></div>
+      <div class="stepper-item" id="si-3"><span class="stepper-num">3</span><span class="stepper-label">Register Child</span></div>
+      <div class="stepper-line"></div>
+      <div class="stepper-item" id="si-4"><span class="stepper-num">4</span><span class="stepper-label">First Login</span></div>
+      <div class="stepper-line"></div>
+      <div class="stepper-item" id="si-5"><span class="stepper-num">5</span><span class="stepper-label">Dashboard</span></div>
+    </div>
+
+    <!-- ═══ STEP 1: Register User ═══ -->
+    <div class="step-panel" id="step-1">
+      <div class="card">
+        <div class="card-header"><h3>Step 1 — Register User Account</h3><span class="method-tag method-post">POST</span></div>
+        <div class="card-body">
+          <p class="hint mb-1">POST /auth/register — Create your parent account first.</p>
+          <div class="form-group"><label>Full Name *</label><input id="s1-fullName" value="Priya Sharma"></div>
+          <div class="form-row">
+            <div class="form-group"><label>Email *</label><input id="s1-email" type="email" value="priya@test.com"></div>
+            <div class="form-group"><label>Phone * (+91XXXXXXXXXX)</label><input id="s1-phone" value="+919876543210"></div>
+          </div>
+          <button class="btn btn-primary btn-full" onclick="doStep1()">Register User →</button>
+          <div class="response-panel" id="rp-s1">
+            <div class="response-header"><span class="res-status text-muted">—</span><span class="res-time"></span></div>
+            <div class="response-body text-muted">Fill the form and click Register to begin.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══ STEP 2: Send OTP + Verify ═══ -->
+    <div class="step-panel hidden" id="step-2">
+      <div class="card">
+        <div class="card-header"><h3>Step 2 — Verify Your Email</h3><span class="method-tag method-post">POST</span></div>
+        <div class="card-body">
+          <p class="hint mb-1">An OTP will be sent to your email. In test mode the OTP is always 123456.</p>
+          <div class="form-row">
+            <div class="form-group"><label>Email (auto-filled)</label><input id="s2-email" readonly></div>
+            <div class="form-group"><label>OTP * (test: 123456)</label><input id="s2-otp" value="123456"></div>
+          </div>
+          <div class="btn-group">
+            <button class="btn btn-orange" onclick="doStep2Send()">1. Send OTP</button>
+            <button class="btn btn-primary" onclick="doStep2Verify()" id="s2-verify-btn" disabled>2. Verify OTP →</button>
+          </div>
+          <div class="response-panel" id="rp-s2">
+            <div class="response-header"><span class="res-status text-muted">—</span><span class="res-time"></span></div>
+            <div class="response-body text-muted">Click "Send OTP" first, then verify.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══ STEP 3: Register Child ═══ -->
+    <div class="step-panel hidden" id="step-3">
+      <div class="card card-large">
+        <div class="card-header"><h3>Step 3 — Register Your Child</h3><span class="method-tag method-post">POST</span></div>
+        <div class="card-body">
+          <p class="hint mb-1">POST /registration — Register child details. A unique Registration ID (CHD-XX-…) will be generated.</p>
+          <div class="form-row">
+            <div class="form-group"><label>Child Name *</label><input id="s3-childName" value="Aarav Sharma"></div>
+            <div class="form-group"><label>Gender *</label>
+              <select id="s3-childGender"><option value="MALE">MALE</option><option value="FEMALE">FEMALE</option><option value="OTHER">OTHER</option></select>
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group"><label>Date of Birth *</label><input id="s3-dob" type="date" value="2026-01-15"></div>
+            <div class="form-group"><label>State *</label>
+              <select id="s3-state">
+                <option value="MH">MH – Maharashtra</option>
+                <option value="DL">DL – Delhi</option>
+                <option value="KA">KA – Karnataka</option>
+                <option value="TN">TN – Tamil Nadu</option>
+                <option value="UP">UP – Uttar Pradesh</option>
+                <option value="GJ">GJ – Gujarat</option>
+                <option value="RJ">RJ – Rajasthan</option>
+                <option value="WB">WB – West Bengal</option>
+                <option value="AP">AP – Andhra Pradesh</option>
+                <option value="TS">TS – Telangana</option>
+                <option value="KL">KL – Kerala</option>
+                <option value="MP">MP – Madhya Pradesh</option>
+                <option value="BR">BR – Bihar</option>
+                <option value="PB">PB – Punjab</option>
+                <option value="HR">HR – Haryana</option>
+                <option value="JH">JH – Jharkhand</option>
+                <option value="CG">CG – Chhattisgarh</option>
+                <option value="OD">OD – Odisha</option>
+                <option value="AS">AS – Assam</option>
+                <option value="GA">GA – Goa</option>
+                <option value="HP">HP – Himachal Pradesh</option>
+                <option value="UK">UK – Uttarakhand</option>
+                <option value="JK">JK – Jammu & Kashmir</option>
+                <option value="TR">TR – Tripura</option>
+                <option value="ML">ML – Meghalaya</option>
+                <option value="MN">MN – Manipur</option>
+                <option value="NL">NL – Nagaland</option>
+                <option value="MZ">MZ – Mizoram</option>
+                <option value="AR">AR – Arunachal Pradesh</option>
+                <option value="SK">SK – Sikkim</option>
+                <option value="CH">CH – Chandigarh</option>
+                <option value="AN">AN – Andaman & Nicobar</option>
+                <option value="DN">DN – Dadra & NH</option>
+                <option value="DD">DD – Daman & Diu</option>
+                <option value="LA">LA – Ladakh</option>
+                <option value="PY">PY – Puducherry</option>
+              </select>
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group"><label>Mother Name *</label><input id="s3-motherName" readonly></div>
+            <div class="form-group"><label>Father Name (optional)</label><input id="s3-fatherName" value="Rahul Sharma"></div>
+          </div>
+          <div class="form-row">
+            <div class="form-group"><label>Email (auto-filled)</label><input id="s3-email" readonly></div>
+            <div class="form-group"><label>Phone (auto-filled)</label><input id="s3-phone" readonly></div>
+          </div>
+          <div class="form-group"><label>Registration Type</label>
+            <select id="s3-regType"><option value="DIRECT">DIRECT</option><option value="HOSPITAL">HOSPITAL</option><option value="CHANNEL_PARTNER">CHANNEL_PARTNER</option></select>
+          </div>
+          <button class="btn btn-primary btn-full" onclick="doStep3()">Register Child →</button>
+          <div class="response-panel" id="rp-s3">
+            <div class="response-header"><span class="res-status text-muted">—</span><span class="res-time"></span></div>
+            <div class="response-body text-muted">Child registration will generate a unique Registration ID.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══ STEP 4: First-Time Login ═══ -->
+    <div class="step-panel hidden" id="step-4">
+      <div class="card">
+        <div class="card-header"><h3>Step 4 — First-Time Login (Link Child to Account)</h3><span class="method-tag method-post">POST</span></div>
+        <div class="card-body">
+          <p class="hint mb-1">POST /auth/first-login — Links your child's Registration ID to your user account. Requires a fresh OTP.</p>
+          <div class="form-group"><label>Registration ID (auto-filled)</label><input id="s4-regId" readonly></div>
+          <div class="form-row">
+            <div class="form-group"><label>Email (auto-filled)</label><input id="s4-email" readonly></div>
+            <div class="form-group"><label>Phone (auto-filled)</label><input id="s4-phone" readonly></div>
+          </div>
+          <div class="form-group"><label>OTP * (test: 123456)</label><input id="s4-otp" value="123456"></div>
+          <div class="btn-group">
+            <button class="btn btn-orange" onclick="doStep4Send()">1. Send OTP</button>
+            <button class="btn btn-primary" onclick="doStep4Login()" id="s4-login-btn" disabled>2. First-Time Login →</button>
+          </div>
+          <div class="response-panel" id="rp-s4">
+            <div class="response-header"><span class="res-status text-muted">—</span><span class="res-time"></span></div>
+            <div class="response-body text-muted">This links your Registration ID to your account. Send OTP first.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══ STEP 5: Done — Dashboard ═══ -->
+    <div class="step-panel hidden" id="step-5">
+      <div class="card">
+        <div class="card-header"><h3>Step 5 — All Done! View Dashboard</h3><span class="method-tag method-get">GET</span></div>
+        <div class="card-body">
+          <div class="success-banner">
+            <h2>Registration Complete!</h2>
+            <p>Your account is set up and your child is registered.</p>
+          </div>
+          <div class="info-grid">
+            <div class="info-item"><span class="info-label">Email</span><span class="info-value" id="s5-email">—</span></div>
+            <div class="info-item"><span class="info-label">Name</span><span class="info-value" id="s5-name">—</span></div>
+            <div class="info-item"><span class="info-label">Registration ID</span><span class="info-value" id="s5-regId">—</span></div>
+            <div class="info-item"><span class="info-label">Auth Token</span><span class="info-value text-green">Active</span></div>
+          </div>
+          <div class="btn-group" style="margin-top:16px;">
+            <button class="btn btn-primary" onclick="doStep5Dash()">View Child Dashboard</button>
+            <button class="btn btn-blue" onclick="doStep5Family()">View Family Dashboard</button>
+            <button class="btn btn-purple" onclick="doStep5Vax()">Seed Vaccinations</button>
+          </div>
+          <div class="response-panel" id="rp-s5">
+            <div class="response-header"><span class="res-status text-muted">—</span><span class="res-time"></span></div>
+            <div class="response-body text-muted">Click any button to load data.</div>
+          </div>
+          <div class="section-title" style="margin-top:24px;">What's Next?</div>
+          <div class="next-links">
+            <a href="dashboard.html" class="next-link">Dashboard — Milestones & Vaccinations →</a>
+            <a href="payments.html" class="next-link">Payments & Reminders →</a>
+            <a href="channel-partner.html" class="next-link">Channel Partners (Admin) →</a>
+            <a href="auth.html" class="next-link">Auth — Login again later →</a>
+            <a href="registration.html" class="next-link">Registration — Add more children →</a>
+          </div>
+        </div>
+      </div>
+
+      <!-- Returning User: Login -->
+      <div class="card" style="margin-top:20px;">
+        <div class="card-header"><h3>Returning User? Login with Registration ID</h3><span class="method-tag method-post">POST</span></div>
+        <div class="card-body">
+          <p class="hint mb-1">POST /auth/login — Already completed first-login? Use this to log in again.</p>
+          <div class="form-group"><label>Registration ID *</label><input id="s5-loginRegId" placeholder="CHD-MH-20260311-000001"></div>
+          <div class="form-row">
+            <div class="form-group"><label>Email *</label><input id="s5-loginEmail" placeholder="your@email.com"></div>
+            <div class="form-group"><label>OTP *</label><input id="s5-loginOtp" value="123456"></div>
+          </div>
+          <div class="btn-group">
+            <button class="btn btn-orange" onclick="doReturnSendOtp()">1. Send OTP</button>
+            <button class="btn btn-primary" onclick="doReturnLogin()">2. Login</button>
+          </div>
+          <div class="response-panel" id="rp-s5login">
+            <div class="response-header"><span class="res-status text-muted">—</span><span class="res-time"></span></div>
+            <div class="response-body text-muted">For returning users who already completed first-login.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══ RESET BUTTON ═══ -->
+    <div style="text-align:center; margin-top:24px;">
+      <button class="btn btn-red btn-sm" onclick="resetFlow()">Reset Flow & Start Over</button>
+    </div>
+
+  </div>
+
+<script src="js/app.js"></script>
+<script>
+/* ─── Flow State ─── */
+var flowState = {
+  email: '', phone: '', fullName: '', regId: '', step: 1
+};
+
+function saveFlow() {
+  localStorage.setItem('wt18_flow', JSON.stringify(flowState));
+}
+
+function loadFlow() {
+  try {
+    var s = localStorage.getItem('wt18_flow');
+    if (s) flowState = JSON.parse(s);
+  } catch(e) {}
+}
+
+function goToStep(n) {
+  flowState.step = n;
+  saveFlow();
+  for (var i = 1; i <= 5; i++) {
+    var panel = document.getElementById('step-' + i);
+    var si = document.getElementById('si-' + i);
+    if (i === n) {
+      panel.classList.remove('hidden');
+      si.className = 'stepper-item active';
+    } else if (i < n) {
+      panel.classList.add('hidden');
+      si.className = 'stepper-item done';
+    } else {
+      panel.classList.add('hidden');
+      si.className = 'stepper-item';
+    }
+  }
+  document.getElementById('step-' + n).scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+function resetFlow() {
+  flowState = { email: '', phone: '', fullName: '', regId: '', step: 1 };
+  saveFlow();
+  localStorage.removeItem('wt18_token');
+  localStorage.removeItem('wt18_regId');
+  localStorage.removeItem('wt18_email');
+  localStorage.removeItem('wt18_phone');
+  syncTokenUI();
+  testAuth();
+  goToStep(1);
+  document.getElementById('s1-fullName').value = 'Priya Sharma';
+  document.getElementById('s1-email').value = 'priya@test.com';
+  document.getElementById('s1-phone').value = '+919876543210';
+  toast('Flow reset! Start from Step 1.', 'info');
+}
+
+/* ─── STEP 1: Register ─── */
+async function doStep1() {
+  var name = getVal('s1-fullName');
+  var email = getVal('s1-email');
+  var phone = getVal('s1-phone');
+  if (!name || !email || !phone) { toast('Fill all required fields', 'err'); return; }
+
+  var r = await api('POST', '/auth/register', { fullName: name, email: email, phone: phone }, { auth: false });
+  showResponse('rp-s1', r);
+  if (r.ok) {
+    flowState.email = email;
+    flowState.phone = phone;
+    flowState.fullName = name;
+    saveVal('email', email);
+    saveVal('phone', phone);
+    toast('User registered! Moving to Step 2…', 'ok');
+    setVal('s2-email', email);
+    goToStep(2);
+  }
+}
+
+/* ─── STEP 2: Send OTP + Verify ─── */
+async function doStep2Send() {
+  var email = getVal('s2-email');
+  var r = await api('POST', '/auth/send-otp', { email: email }, { auth: false });
+  showResponse('rp-s2', r);
+  if (r.ok) {
+    toast('OTP sent to ' + email + ' (test: 123456)', 'ok');
+    document.getElementById('s2-verify-btn').disabled = false;
+  }
+}
+
+async function doStep2Verify() {
+  var email = getVal('s2-email');
+  var otp = getVal('s2-otp');
+  var r = await api('POST', '/auth/verify-otp', { email: email, otp: otp }, { auth: false });
+  showResponse('rp-s2', r);
+  if (r.ok && r.data.token) {
+    setToken(r.data.token);
+    toast('Email verified! Token saved. Moving to Step 3…', 'ok');
+    testAuth();
+    setVal('s3-email', flowState.email);
+    setVal('s3-phone', flowState.phone);
+    setVal('s3-motherName', flowState.fullName);
+    goToStep(3);
+  }
+}
+
+/* ─── STEP 3: Register Child ─── */
+async function doStep3() {
+  var body = {
+    childName: getVal('s3-childName'),
+    childGender: getVal('s3-childGender'),
+    dateOfBirth: getVal('s3-dob'),
+    state: getVal('s3-state'),
+    motherName: getVal('s3-motherName'),
+    email: getVal('s3-email'),
+    phone: getVal('s3-phone'),
+    registrationType: getVal('s3-regType')
+  };
+  var fatherName = getVal('s3-fatherName');
+  if (fatherName) body.fatherName = fatherName;
+
+  var r = await api('POST', '/registration', body, { auth: false });
+  showResponse('rp-s3', r);
+  if (r.ok) {
+    var reg = r.data.data || r.data;
+    if (reg.registrationId) {
+      flowState.regId = reg.registrationId;
+      saveVal('regId', reg.registrationId);
+      toast('Child registered! ID: ' + reg.registrationId + '. Moving to Step 4…', 'ok');
+      setVal('s4-regId', reg.registrationId);
+      setVal('s4-email', flowState.email);
+      setVal('s4-phone', flowState.phone);
+      goToStep(4);
+    }
+  }
+}
+
+/* ─── STEP 4: First-Time Login ─── */
+async function doStep4Send() {
+  var email = getVal('s4-email');
+  var r = await api('POST', '/auth/send-otp', { email: email }, { auth: false });
+  showResponse('rp-s4', r);
+  if (r.ok) {
+    toast('OTP sent for first-login', 'ok');
+    document.getElementById('s4-login-btn').disabled = false;
+  }
+}
+
+async function doStep4Login() {
+  var r = await api('POST', '/auth/first-login', {
+    registrationId: getVal('s4-regId'),
+    email: getVal('s4-email'),
+    phone: getVal('s4-phone'),
+    otp: getVal('s4-otp')
+  }, { auth: false });
+  showResponse('rp-s4', r);
+  if (r.ok && r.data.token) {
+    setToken(r.data.token);
+    toast('First login complete! Registration ID linked.', 'ok');
+    testAuth();
+    document.getElementById('s5-email').textContent = flowState.email;
+    document.getElementById('s5-name').textContent = flowState.fullName;
+    document.getElementById('s5-regId').textContent = flowState.regId;
+    setVal('s5-loginRegId', flowState.regId);
+    setVal('s5-loginEmail', flowState.email);
+    goToStep(5);
+  }
+}
+
+/* ─── STEP 5: Dashboard actions ─── */
+async function doStep5Dash() {
+  var regId = flowState.regId || loadVal('regId');
+  var r = await api('GET', '/dashboard/child/' + encodeURIComponent(regId));
+  showResponse('rp-s5', r);
+}
+
+async function doStep5Family() {
+  var r = await api('GET', '/dashboard/family');
+  showResponse('rp-s5', r);
+}
+
+async function doStep5Vax() {
+  var regId = flowState.regId || loadVal('regId');
+  var r = await api('POST', '/dashboard/vaccination/seed', {
+    registrationId: regId, dateOfBirth: getVal('s3-dob') || '2026-01-15'
+  });
+  showResponse('rp-s5', r);
+  if (r.ok) toast('Vaccination milestones seeded!', 'ok');
+}
+
+/* ─── Returning user login ─── */
+async function doReturnSendOtp() {
+  var email = getVal('s5-loginEmail');
+  if (!email) { toast('Enter email', 'err'); return; }
+  var r = await api('POST', '/auth/send-otp', { email: email }, { auth: false });
+  showResponse('rp-s5login', r);
+  if (r.ok) toast('OTP sent', 'ok');
+}
+
+async function doReturnLogin() {
+  var r = await api('POST', '/auth/login', {
+    registrationId: getVal('s5-loginRegId'),
+    email: getVal('s5-loginEmail'),
+    otp: getVal('s5-loginOtp')
+  }, { auth: false });
+  showResponse('rp-s5login', r);
+  if (r.ok && r.data.token) {
+    setToken(r.data.token);
+    toast('Logged in! Token saved.', 'ok');
+    testAuth();
+  }
+}
+
+/* ─── Init ─── */
+document.addEventListener('DOMContentLoaded', function() {
+  loadFlow();
+  if (flowState.step > 1) {
+    setVal('s1-email', flowState.email || 'priya@test.com');
+    setVal('s1-phone', flowState.phone || '+919876543210');
+    setVal('s1-fullName', flowState.fullName || 'Priya Sharma');
+    setVal('s2-email', flowState.email);
+    setVal('s3-email', flowState.email);
+    setVal('s3-phone', flowState.phone);
+    setVal('s3-motherName', flowState.fullName);
+    setVal('s4-regId', flowState.regId);
+    setVal('s4-email', flowState.email);
+    setVal('s4-phone', flowState.phone);
+    if (flowState.step === 5) {
+      document.getElementById('s5-email').textContent = flowState.email;
+      document.getElementById('s5-name').textContent = flowState.fullName;
+      document.getElementById('s5-regId').textContent = flowState.regId;
+      setVal('s5-loginRegId', flowState.regId);
+      setVal('s5-loginEmail', flowState.email);
+    }
+  }
+  goToStep(flowState.step);
+});
+</script>
+</body>
+</html>
