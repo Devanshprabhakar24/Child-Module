@@ -1,27 +1,43 @@
-import {
-  Body,
-  Controller,
-  Get,
-  HttpCode,
-  HttpStatus,
-  Post,
-  Req,
-  UseGuards,
-} from '@nestjs/common';
+
+import { Body, Controller, Get, HttpCode, HttpStatus, Post, Req, UseGuards } from '@nestjs/common';
 import { AuthService } from './auth.service';
-import {
-  SendOtpDto,
-  VerifyOtpDto,
-  FirstTimeLoginDto,
-  LoginWithRegistrationIdDto,
-  RegisterUserDto,
-} from '@wombto18/shared';
+import { SendOtpDto, VerifyOtpDto, FirstTimeLoginDto, LoginWithRegistrationIdDto, RegisterUserDto, UpdateProfileDto } from '@wombto18/shared';
 import { AuthGuard } from './guards/auth.guard';
 import { AuthenticatedRequest } from './guards/auth.guard';
+import cloudinary from './cloudinary';
 
 @Controller('auth')
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
+
+  @Post('update-profile')
+  @UseGuards(AuthGuard)
+  async updateProfile(@Req() req: AuthenticatedRequest, @Body() dto: UpdateProfileDto) {
+    // Only allow updating own profile
+    const user = await this.authService.findUserByEmail(req.user.email);
+    if (!user) return { success: false, message: 'User not found' };
+    if (dto.fullName) user.fullName = dto.fullName;
+    if (dto.profilePictureUrl) user.profilePictureUrl = dto.profilePictureUrl;
+    await user.save();
+    return { success: true, data: { fullName: user.fullName, profilePictureUrl: user.profilePictureUrl } };
+  }
+
+  @Get('cloudinary-signature')
+  @UseGuards(AuthGuard)
+  getCloudinarySignature() {
+    const timestamp = Math.round(new Date().getTime() / 1000);
+    const signature = cloudinary.utils.api_sign_request(
+      { timestamp },
+      process.env.CLOUDINARY_API_SECRET as string,
+    );
+    return {
+      success: true,
+      timestamp,
+      signature,
+      apiKey: process.env.CLOUDINARY_API_KEY,
+      cloudName: process.env.CLOUDINARY_CLOUD_NAME,
+    };
+  }
 
   @Post('register')
   async register(@Body() dto: RegisterUserDto) {
@@ -108,6 +124,7 @@ export class AuthController {
       data: {
         email: user.email,
         fullName: user.fullName,
+        profilePictureUrl: user.profilePictureUrl ?? '',
         role: user.role,
         registrationIds: user.registrationIds,
         isEmailVerified: user.isEmailVerified,

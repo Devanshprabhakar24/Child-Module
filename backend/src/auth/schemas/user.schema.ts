@@ -30,6 +30,10 @@ export class User {
 
   @Prop({ type: Boolean, default: false })
   isFirstLoginComplete!: boolean;
+
+  /** Cloudinary profile picture URL */
+  @Prop({ type: String, default: '' })
+  profilePictureUrl?: string;
 }
 
 export const UserSchema = SchemaFactory.createForClass(User);

@@ -49,8 +49,7 @@ export class FirstTimeLoginDto {
 }
 
 /**
- * Subsequent login: Registration ID + (Email OR Mobile) + OTP.
- * Dashboard login via email OTP, but must enter mobile + email + wombto18 ID.
+ * Subsequent login: Registration ID + Email + OTP.
  */
 export class LoginWithRegistrationIdDto {
   @IsString()
@@ -63,11 +62,6 @@ export class LoginWithRegistrationIdDto {
   @IsEmail()
   @IsNotEmpty()
   email!: string;
-
-  @IsOptional()
-  @IsString()
-  @Matches(/^\+91\d{10}$/, { message: 'phone must be a valid Indian mobile number (+91XXXXXXXXXX)' })
-  phone?: string;
 
   @IsString()
   @IsNotEmpty()

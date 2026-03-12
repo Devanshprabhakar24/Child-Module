@@ -170,7 +170,7 @@ if ($regId) {
     Call-API "DASH: Family Dashboard" "GET" "$API/dashboard/family" $null $authHeaders
     Call-API "DASH: Vaccination Tracker" "GET" "$API/dashboard/vaccination/$regId" $null $authHeaders
 
-    # Seed Vaccination — needs dateOfBirth in body
+    # Seed Vaccination - needs dateOfBirth in body
     Call-API "DASH: Seed Vaccination" "POST" "$API/dashboard/vaccination/seed" (@{
             registrationId = $regId
             dateOfBirth    = "2026-01-15"
@@ -179,7 +179,7 @@ if ($regId) {
     Call-API "DASH: Get All Milestones" "GET" "$API/dashboard/milestones/$regId" $null $authHeaders
     Call-API "DASH: Upcoming Milestones" "GET" "$API/dashboard/milestones/$regId/upcoming" $null $authHeaders
 
-    # Create Milestone — use correct enum: HEALTH_CHECKUP (not HEALTH_CHECK)
+    # Create Milestone - use correct enum: HEALTH_CHECKUP (not HEALTH_CHECK)
     $milestoneResult = Call-API "DASH: Create Milestone" "POST" "$API/dashboard/milestones" (@{
             registrationId = $regId
             title          = "Weight Check - 3 Months"
@@ -218,9 +218,9 @@ else {
 # =============================================
 Write-Host "`n`n############ CHANNEL PARTNER MODULE ############" -ForegroundColor Magenta
 Write-Host "NOTE: Channel Partner endpoints require ADMIN role." -ForegroundColor Yellow
-Write-Host "Testing with current user (PARENT role) — expecting 403 as correct behavior." -ForegroundColor Yellow
+Write-Host "Testing with current user (PARENT role) - expecting 403 as correct behavior." -ForegroundColor Yellow
 
-# Register Partner — expects 403 (ADMIN only)
+# Register Partner - expects 403 (ADMIN only)
 Call-API "CP: Register Partner (expect 403)" "POST" "$API/channel-partner/register" (@{
         partnerName      = "Dr. Mehta"
         organizationName = "City Hospital Pune"
@@ -228,7 +228,7 @@ Call-API "CP: Register Partner (expect 403)" "POST" "$API/channel-partner/regist
         phone            = "+919988${timestamp}"
     } | ConvertTo-Json) $authHeaders -ExpectFail
 
-# List Partners — expects 403 (ADMIN only)
+# List Partners - expects 403 (ADMIN only)
 Call-API "CP: List Partners (expect 403)" "GET" "$API/channel-partner/list" $null $authHeaders -ExpectFail
 
 # =============================================
@@ -240,7 +240,7 @@ if ($regId) {
     Call-API "PAY: Get by RegID" "GET" "$API/payments/$regId" $null $authHeaders
     Call-API "PAY: Get by OrderID" "GET" "$API/payments/order/order_test_12345" $null $authHeaders
 
-    # Webhook — will fail with 401 (missing signature), that's expected behavior
+    # Webhook - will fail with 401 (missing signature), that is expected behavior
     Call-API "PAY: Webhook (expect 401 - no sig)" "POST" "$API/payments/webhook/razorpay" (@{
             event   = "payment.captured"
             payload = @{

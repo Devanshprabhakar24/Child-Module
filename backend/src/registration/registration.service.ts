@@ -20,7 +20,9 @@ import {
   SUBSCRIPTION_TOTAL_PRICE,
   CURRENCY,
   RazorpayWebhookEvent,
+  UpdateChildDto,
 } from '@wombto18/shared';
+import { BadRequestException } from '@nestjs/common';
 import { NotificationsService } from '../notifications/notifications.service';
 
 @Injectable()
@@ -100,10 +102,28 @@ export class RegistrationService {
   async registerChild(dto: RegisterChildDto): Promise<{
     registration: ChildRegistrationDocument;
     razorpayOrderId: string;
+    testMode: boolean;
   }> {
     const dob = new Date(dto.dateOfBirth);
-    const ageGroup: AgeGroup = calculateAgeGroup(dob);
     const ageInYears: number = calculateAgeInYears(dob);
+
+    // Age must not exceed 18 years
+    if (ageInYears > 18) {
+      throw new BadRequestException('Child age cannot exceed 18 years.');
+    }
+    if (ageInYears < 0) {
+      throw new BadRequestException('Date of birth cannot be in the future.');
+    }
+
+    // Mobile duplication rule: max 2 registrations per phone number
+    const existingByPhone = await this.childModel.countDocuments({ phone: dto.phone }).exec();
+    if (existingByPhone >= 2) {
+      throw new BadRequestException(
+        'This mobile number is already registered for 2 children. Maximum 2 registrations per mobile number allowed.',
+      );
+    }
+
+    const ageGroup: AgeGroup = calculateAgeGroup(dob);
 
     const registrationId = await this.generateRegistrationId(dto.state, dob);
 
@@ -145,19 +165,77 @@ export class RegistrationService {
       channelPartnerId: dto.channelPartnerId,
       subscriptionAmount: SUBSCRIPTION_TOTAL_PRICE,
       couponCode: dto.couponCode,
-      paymentStatus: this.paymentTestMode ? 'COMPLETED' : 'PENDING',
+      paymentStatus: 'PENDING',
       razorpayOrderId: orderId,
       greenCohort: true,
     });
 
     this.logger.log(`Child registered: ${registrationId} | Order: ${orderId}`);
 
-    // If payment is auto-completed (test mode), send all notifications immediately
-    if (this.paymentTestMode) {
-      await this.sendPostPaymentNotifications(registration);
+    return { registration, razorpayOrderId: orderId, testMode: this.paymentTestMode };
+  }
+
+  // ─── Confirm Test Payment ────────────────────────────────────────────
+
+  async confirmTestPayment(registrationId: string): Promise<ChildRegistrationDocument> {
+    if (!this.paymentTestMode) {
+      throw new BadRequestException('Test payment confirmation is only available in test mode.');
     }
 
-    return { registration, razorpayOrderId: orderId };
+    const registration = await this.childModel.findOne({ registrationId }).exec();
+    if (!registration) {
+      throw new BadRequestException('Registration not found.');
+    }
+
+    registration.paymentStatus = 'COMPLETED';
+    registration.razorpayPaymentId = `test_pay_${Date.now()}`;
+    await registration.save();
+
+    await this.sendPostPaymentNotifications(registration);
+
+    this.logger.log(`[TEST MODE] Payment confirmed for ${registrationId}`);
+    return registration;
+  }
+
+  // ─── Verify Razorpay Payment (Production) ─────────────────────────────
+
+  async verifyRazorpayPayment(data: {
+    razorpay_order_id: string;
+    razorpay_payment_id: string;
+    razorpay_signature: string;
+  }): Promise<ChildRegistrationDocument> {
+    const secret = this.configService.getOrThrow<string>('RAZORPAY_KEY_SECRET');
+    const body = data.razorpay_order_id + '|' + data.razorpay_payment_id;
+    const expectedSignature = crypto
+      .createHmac('sha256', secret)
+      .update(body)
+      .digest('hex');
+
+    const isValid = crypto.timingSafeEqual(
+      Buffer.from(expectedSignature, 'hex'),
+      Buffer.from(data.razorpay_signature, 'hex'),
+    );
+
+    if (!isValid) {
+      throw new BadRequestException('Payment verification failed. Invalid signature.');
+    }
+
+    const registration = await this.childModel.findOne({
+      razorpayOrderId: data.razorpay_order_id,
+    }).exec();
+
+    if (!registration) {
+      throw new BadRequestException('Registration not found for this order.');
+    }
+
+    registration.paymentStatus = 'COMPLETED';
+    registration.razorpayPaymentId = data.razorpay_payment_id;
+    await registration.save();
+
+    await this.sendPostPaymentNotifications(registration);
+
+    this.logger.log(`Payment verified for ${registration.registrationId}`);
+    return registration;
   }
 
   // ─── RazorPay Webhook Handling ────────────────────────────────────────
@@ -325,6 +403,25 @@ export class RegistrationService {
    */
   async findByPhone(phone: string): Promise<ChildRegistrationDocument[]> {
     return this.childModel.find({ phone }).exec();
+  }
+
+  // ─── Child Profile Update ─────────────────────────────────────────────
+
+  async updateChild(registrationId: string, dto: UpdateChildDto): Promise<ChildRegistrationDocument> {
+    const registration = await this.childModel.findOne({ registrationId }).exec();
+    if (!registration) {
+      throw new BadRequestException('Registration not found.');
+    }
+
+    if (dto.childName !== undefined) {
+      registration.childName = dto.childName;
+    }
+    if (dto.profilePictureUrl !== undefined) {
+      registration.profilePictureUrl = dto.profilePictureUrl;
+    }
+
+    await registration.save();
+    return registration;
   }
 
   /**

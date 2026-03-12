@@ -1,3 +1,5 @@
+export * from './dto/update-profile.dto';
+export * from './dto/update-child.dto';
 export * from './dto/register-child.dto';
 export * from './dto/payment-webhook.dto';
 export * from './dto/auth.dto';

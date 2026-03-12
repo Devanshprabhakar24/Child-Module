@@ -7,6 +7,7 @@ import {
   ChildRegistration,
   ChildRegistrationSchema,
 } from './schemas/child-registration.schema';
+import { AuthModule } from '../auth/auth.module';
 
 @Module({
   imports: [
@@ -14,6 +15,7 @@ import {
     MongooseModule.forFeature([
       { name: ChildRegistration.name, schema: ChildRegistrationSchema },
     ]),
+    AuthModule,
     // NotificationsModule is @Global, no need to import explicitly
   ],
   controllers: [RegistrationController],

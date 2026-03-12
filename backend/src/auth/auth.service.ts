@@ -134,7 +134,6 @@ export class AuthService {
     }
 
     user.isEmailVerified = true;
-    user.isFirstLoginComplete = true;
     await user.save();
 
     const token = this.generateToken(user);
@@ -148,25 +147,31 @@ export class AuthService {
   async loginWithRegistrationId(
     dto: LoginWithRegistrationIdDto,
   ): Promise<{ token: string; user: UserDocument }> {
-    // First verify the OTP
+    // Verify the OTP
     const otpResult = await this.verifyOtp({ email: dto.email, otp: dto.otp });
 
-    // Verify the registration ID actually exists in the database
-    const regExists = await this.childRegModel
-      .exists({ registrationId: dto.registrationId })
+    // Verify the registration ID actually exists and belongs to this user's email
+    const childReg = await this.childRegModel
+      .findOne({ registrationId: dto.registrationId })
       .exec();
-    if (!regExists) {
+    if (!childReg) {
       throw new UnauthorizedException(
         'Registration ID does not exist.',
       );
     }
 
-    // Then verify the registration ID belongs to this user
     const user = otpResult.user;
+
+    // Auto-link the registration ID if the child was registered with the same email
     if (!user.registrationIds.includes(dto.registrationId)) {
-      throw new UnauthorizedException(
-        'Registration ID does not belong to this account.',
-      );
+      if (childReg.email.toLowerCase() !== user.email.toLowerCase()) {
+        throw new UnauthorizedException(
+          'Registration ID does not belong to this account.',
+        );
+      }
+      user.registrationIds.push(dto.registrationId);
+      user.isFirstLoginComplete = true;
+      await user.save();
     }
 
     this.logger.log(`Login via Registration ID: ${dto.registrationId}`);

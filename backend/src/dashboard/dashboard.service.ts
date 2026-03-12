@@ -248,13 +248,20 @@ export class DashboardService {
     totalChildren: number;
   }> {
     const user = await this.userModel.findById(parentUserId).exec();
-    if (!user || user.registrationIds.length === 0) {
-      return { children: [], totalChildren: 0 };
+
+    // Find children by registrationIds in user document OR by parentUserId on child records
+    const query: any[] = [{ parentUserId }];
+    if (user && user.registrationIds.length > 0) {
+      query.push({ registrationId: { $in: user.registrationIds } });
     }
 
     const children = await this.childModel
-      .find({ registrationId: { $in: user.registrationIds } })
+      .find({ $or: query })
       .exec();
+
+    if (children.length === 0) {
+      return { children: [], totalChildren: 0 };
+    }
 
     const result = await Promise.all(
       children.map(async (child) => {
@@ -272,8 +279,10 @@ export class DashboardService {
           registrationId: child.registrationId,
           childName: child.childName,
           childGender: child.childGender,
+          dateOfBirth: child.dateOfBirth,
           ageGroup: child.ageGroup,
           ageInYears: child.ageInYears,
+          state: child.state,
           profilePictureUrl: child.profilePictureUrl,
           nextDueMilestone: nextDue ? { title: nextDue.title, dueDate: nextDue.dueDate } : null,
         };

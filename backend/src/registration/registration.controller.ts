@@ -7,14 +7,18 @@ import {
   HttpStatus,
   Logger,
   Param,
+  Patch,
   Post,
   RawBodyRequest,
   Req,
   UnauthorizedException,
+  UseGuards,
+  ForbiddenException,
 } from '@nestjs/common';
 import { Request } from 'express';
 import { RegistrationService } from './registration.service';
-import { RegisterChildDto, RazorpayWebhookEvent } from '@wombto18/shared';
+import { RegisterChildDto, RazorpayWebhookEvent, RazorpayWebhookPayloadDto, UpdateChildDto } from '@wombto18/shared';
+import { AuthGuard, AuthenticatedRequest } from '../auth/guards/auth.guard';
 
 @Controller('registration')
 export class RegistrationController {
@@ -26,7 +30,7 @@ export class RegistrationController {
 
   @Post()
   async register(@Body() dto: RegisterChildDto) {
-    const { registration, razorpayOrderId } =
+    const { registration, razorpayOrderId, testMode } =
       await this.registrationService.registerChild(dto);
 
     return {
@@ -43,6 +47,43 @@ export class RegistrationController {
         paymentStatus: registration.paymentStatus,
         greenCohort: registration.greenCohort,
         razorpayOrderId,
+        testMode,
+      },
+    };
+  }
+
+  // ─── Payment Verification ───────────────────────────────────────────
+
+  @Post('verify-payment')
+  @HttpCode(HttpStatus.OK)
+  async verifyPayment(@Body() dto: RazorpayWebhookPayloadDto) {
+    const registration = await this.registrationService.verifyRazorpayPayment({
+      razorpay_order_id: dto.razorpay_order_id,
+      razorpay_payment_id: dto.razorpay_payment_id,
+      razorpay_signature: dto.razorpay_signature,
+    });
+    return {
+      success: true,
+      data: {
+        registrationId: registration.registrationId,
+        paymentStatus: registration.paymentStatus,
+      },
+    };
+  }
+
+  @Post('confirm-test-payment/:registrationId')
+  @HttpCode(HttpStatus.OK)
+  async confirmTestPayment(@Param('registrationId') registrationId: string) {
+    const registration = await this.registrationService.confirmTestPayment(registrationId);
+    return {
+      success: true,
+      data: {
+        registrationId: registration.registrationId,
+        paymentStatus: registration.paymentStatus,
+        childName: registration.childName,
+        ageGroup: registration.ageGroup,
+        subscriptionAmount: registration.subscriptionAmount,
+        greenCohort: registration.greenCohort,
       },
     };
   }
@@ -59,6 +100,30 @@ export class RegistrationController {
     }
 
     return { success: true, data: registration };
+  }
+
+  /**
+   * Update a child's basic profile (name/photo).
+   * Allowed for the owning parent (same email) or when parentUserId matches auth sub.
+   */
+  @Patch(':registrationId')
+  @UseGuards(AuthGuard)
+  async updateChild(
+    @Req() req: AuthenticatedRequest,
+    @Param('registrationId') registrationId: string,
+    @Body() dto: UpdateChildDto,
+  ) {
+    const existing = await this.registrationService.findByRegistrationId(registrationId);
+    if (!existing) return { success: false, message: 'Registration not found' };
+
+    const isOwnerByEmail = (existing as any).email?.toLowerCase?.() === req.user.email.toLowerCase();
+    const isOwnerByParentUserId = (existing as any).parentUserId && (existing as any).parentUserId === req.user.sub;
+    if (!isOwnerByEmail && !isOwnerByParentUserId) {
+      throw new ForbiddenException('Not allowed to update this child');
+    }
+
+    const updated = await this.registrationService.updateChild(registrationId, dto);
+    return { success: true, data: updated };
   }
 
   @Get('mother/:motherRegistrationId')
