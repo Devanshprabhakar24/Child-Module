@@ -1,3 +1,63 @@
+/* ── REMINDERS USER TIP ── */
+.reminders-user-tip {
+  background: var(--info-light);
+  color: var(--info);
+  border-radius: 8px;
+  padding: 12px 18px;
+  margin-bottom: 18px;
+  font-size: 14px;
+  display: block;
+}
+/* ── REMINDERS TABLE ENHANCEMENTS ── */
+.reminders-table-container {
+  max-height: 520px;
+  overflow-y: auto;
+}
+.reminders-table th {
+  position: sticky;
+  top: 0;
+  background: #fff;
+  z-index: 1;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.02);
+}
+.reminders-table td, .reminders-table th {
+  vertical-align: middle;
+}
+.reminder-status-badge {
+  display: inline-block;
+  font-size: 11px;
+  font-weight: 600;
+  border-radius: 6px;
+  padding: 2px 8px;
+  margin-left: 6px;
+  text-transform: uppercase;
+}
+.status-scheduled { background: var(--info-light); color: var(--info); }
+.status-sent { background: var(--success-light); color: var(--success); }
+.status-failed { background: var(--danger-light); color: var(--danger); }
+.status-acknowledged { background: var(--primary-light); color: var(--primary); }
+.badge-d2 { background: var(--info-light); color: var(--info); }
+.badge-dday { background: var(--success-light); color: var(--success); }
+.badge-dplus2 { background: var(--warning-light); color: var(--warning); }
+.reminder-actions {
+  display: flex;
+  gap: 6px;
+}
+.reminder-action-btn {
+  background: none;
+  border: none;
+  padding: 4px;
+  border-radius: 4px;
+  cursor: pointer;
+  color: var(--gray-400);
+  transition: background 0.15s, color 0.15s;
+}
+.reminder-action-btn:hover {
+  background: var(--gray-100);
+  color: var(--primary);
+}
+.channel-sms { background: var(--primary-light); color: var(--primary); }
+.channel-whatsapp { background: #25d36622; color: #25d366; }
 /* ── WombTo18 Design System ── */
 /* White/Blue clean theme matching the dashboard screenshot */
 
