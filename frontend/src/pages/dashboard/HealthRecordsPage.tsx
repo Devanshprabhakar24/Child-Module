@@ -1,9 +1,11 @@
 import { useEffect, useState } from 'react';
 import { dashboardApi } from '../../services/api';
-import { FileHeart, Check, Clock, AlertTriangle, X } from 'lucide-react';
+import { FileHeart, Check, Clock, AlertTriangle, X, Download } from 'lucide-react';
+import { jsPDF } from 'jspdf';
 
 interface Milestone {
   _id: string;
+  registrationId?: string;
   title: string;
   description?: string;
   vaccineName?: string;
@@ -40,18 +42,79 @@ export default function HealthRecordsPage() {
       const res = await dashboardApi.getMilestones(registrationId);
       const data = res.data.data || res.data;
       setMilestones(Array.isArray(data) ? data : []);
-    } catch { /* */ }
+    } catch {
+      /* ignore */
+    }
   };
 
-  const filtered = filter === 'ALL' ? milestones : milestones.filter((m) => m.category === filter);
+  const filtered =
+    filter === 'ALL' ? milestones : milestones.filter((m) => m.category === filter);
+
+  const selectedChild = children.find((c) => c.registrationId === registrationId);
 
   const statusIcon = (status: string) => {
     switch (status) {
-      case 'COMPLETED': return <Check size={16} className="icon-success" />;
-      case 'MISSED': return <X size={16} className="icon-danger" />;
-      case 'DUE': return <AlertTriangle size={16} className="icon-warning" />;
-      default: return <Clock size={16} className="icon-muted" />;
+      case 'COMPLETED':
+        return <Check size={16} className="icon-success" />;
+      case 'MISSED':
+        return <X size={16} className="icon-danger" />;
+      case 'DUE':
+        return <AlertTriangle size={16} className="icon-warning" />;
+      default:
+        return <Clock size={16} className="icon-muted" />;
     }
+  };
+
+  const downloadVaccineCard = (m: Milestone) => {
+    const doc = new jsPDF({ orientation: 'portrait', unit: 'pt', format: 'A4' });
+    const W = doc.internal.pageSize.getWidth();
+
+    const vaccineName = m.vaccineName || m.title;
+    const givenDate = m.completedDate
+      ? new Date(m.completedDate).toLocaleDateString('en-IN')
+      : 'Not recorded';
+    const dueDate = new Date(m.dueDate).toLocaleDateString('en-IN');
+    const doctor = m.notes || 'Not recorded';
+    const childName = selectedChild?.childName || 'Child';
+    const regId = m.registrationId || registrationId || 'N/A';
+
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(20);
+    doc.text('Digital Vaccine Card', W / 2, 60, { align: 'center' });
+
+    doc.setFontSize(14);
+    doc.setFont('helvetica', 'normal');
+    doc.text(`Child Name: ${childName}`, 60, 110);
+    doc.text(`Registration ID: ${regId}`, 60, 135);
+
+    doc.setFont('helvetica', 'bold');
+    doc.text('Vaccine Details', 60, 180);
+    doc.setFont('helvetica', 'normal');
+
+    const lines = [
+      `Vaccine: ${vaccineName}`,
+      `Status: ${m.status}`,
+      `Date Given: ${givenDate}`,
+      `Next Due Date: ${dueDate}`,
+      `Doctor: ${doctor}`,
+    ];
+
+    let y = 210;
+    lines.forEach((line) => {
+      doc.text(line, 80, y);
+      y += 24;
+    });
+
+    doc.setFontSize(10);
+    doc.setTextColor(120);
+    doc.text(
+      'This is a digital record generated from your WombTo18 health records.',
+      60,
+      500,
+    );
+
+    const safeVaccineName = vaccineName.replace(/[^a-z0-9]+/gi, '_');
+    doc.save(`VaccineCard_${regId}_${safeVaccineName}.pdf`);
   };
 
   if (loading) return <div className="loading-state">Loading...</div>;
@@ -95,10 +158,47 @@ export default function HealthRecordsPage() {
                 {m.description && <p className="record-desc">{m.description}</p>}
                 <div className="record-meta">
                   <span className="category-tag">{m.category.replace('_', ' ')}</span>
-                  <span className="date-text">Due: {new Date(m.dueDate).toLocaleDateString('en-IN')}</span>
+                  <span className="date-text">
+                    Due: {new Date(m.dueDate).toLocaleDateString('en-IN')}
+                  </span>
                 </div>
                 {m.completedDate && (
-                  <span className="completed-text">Completed: {new Date(m.completedDate).toLocaleDateString('en-IN')}</span>
+                  <span className="completed-text">
+                    Completed: {new Date(m.completedDate).toLocaleDateString('en-IN')}
+                  </span>
+                )}
+                {m.category === 'VACCINATION' && (
+                  <div style={{ marginTop: 12, display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
+                    <div style={{ fontSize: 12, color: '#64748B' }}>
+                      <div>
+                        <strong>Doctor:</strong> {m.notes || 'Not recorded'}
+                      </div>
+                      <div>
+                        <strong>Next Due:</strong>{' '}
+                        {new Date(m.dueDate).toLocaleDateString('en-IN')}
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => downloadVaccineCard(m)}
+                      style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: 6,
+                        padding: '6px 10px',
+                        fontSize: 12,
+                        borderRadius: 999,
+                        border: '1px solid #2563EB',
+                        color: '#2563EB',
+                        background: '#EFF6FF',
+                        cursor: 'pointer',
+                        whiteSpace: 'nowrap',
+                      }}
+                    >
+                      <Download size={14} />
+                      Digital Vaccine Card
+                    </button>
+                  </div>
                 )}
               </div>
             ))}

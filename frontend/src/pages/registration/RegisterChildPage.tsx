@@ -263,6 +263,49 @@ export default function RegisterChildPage() {
           <div style={{ background: '#F0FDF4', borderRadius: 8, padding: '12px 16px', marginBottom: 16, fontSize: 14, color: '#166534' }}>
             A confirmation with your dashboard link, invoice, and Go Green Participation Certificate has been sent via <strong>SMS</strong>, <strong>WhatsApp</strong>, and <strong>Email</strong>.
           </div>
+          {result.paymentStatus === 'COMPLETED' && (
+            <button
+              id="download-invoice-registration"
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '0.5rem',
+                width: '100%',
+                padding: '0.7rem 1.25rem',
+                marginBottom: '0.75rem',
+                background: 'linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%)',
+                color: '#fff',
+                border: 'none',
+                borderRadius: '0.5rem',
+                fontSize: '0.95rem',
+                fontWeight: 600,
+                cursor: 'pointer',
+                boxShadow: '0 2px 8px rgba(37,99,235,0.25)',
+                transition: 'all 0.2s ease',
+              }}
+              onMouseOver={(e) => (e.currentTarget.style.transform = 'translateY(-1px)')}
+              onMouseOut={(e) => (e.currentTarget.style.transform = 'translateY(0)')}
+              onClick={async () => {
+                try {
+                  const res = await paymentsApi.downloadInvoice(result.registrationId);
+                  const blob = new Blob([res.data], { type: 'application/pdf' });
+                  const url = window.URL.createObjectURL(blob);
+                  const link = document.createElement('a');
+                  link.href = url;
+                  link.download = `WombTo18_Invoice_${result.registrationId}.pdf`;
+                  document.body.appendChild(link);
+                  link.click();
+                  document.body.removeChild(link);
+                  window.URL.revokeObjectURL(url);
+                } catch {
+                  alert('Failed to download invoice. Please try again from the Dashboard.');
+                }
+              }}
+            >
+              📄 Download Payment Invoice (PDF)
+            </button>
+          )}
           <button className="btn-primary" onClick={() => navigate('/dashboard')}>
             Go to Dashboard
           </button>

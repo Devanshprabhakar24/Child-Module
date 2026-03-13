@@ -58,13 +58,24 @@ export class NotificationsService {
     registrationId: string;
     amount: number;
     invoiceUrl?: string;
+    invoiceBuffer?: Buffer;
   }): Promise<void> {
     const message = `Dear ${payload.parentName}, payment of ₹${payload.amount} received for ${payload.childName}'s registration (${payload.registrationId}). Thank you for choosing WombTo18!`;
 
     await Promise.all([
       this.sendSms(payload.phone, message),
-      this.sendWhatsApp(payload.phone, message),
-      this.sendEmail(payload.email, 'WombTo18 - Payment Confirmation', message, payload.invoiceUrl),
+      this.sendWhatsApp(
+        payload.phone,
+        message + (payload.invoiceBuffer ? ' 📄 Invoice PDF attached.' : ''),
+        payload.invoiceBuffer,
+      ),
+      this.sendEmail(
+        payload.email,
+        'WombTo18 - Payment Confirmation',
+        message,
+        payload.invoiceUrl,
+        payload.invoiceBuffer,
+      ),
     ]);
   }
 
@@ -178,13 +189,17 @@ export class NotificationsService {
     this.logger.log(`[SMS] Sent to ${phone}`);
   }
 
-  private async sendWhatsApp(phone: string, message: string): Promise<void> {
+  private async sendWhatsApp(phone: string, message: string, pdfBuffer?: Buffer): Promise<void> {
     if (this.testMode) {
       this.logger.log(`[TEST WhatsApp] To: ${phone} | Message: ${message.substring(0, 80)}...`);
+      if (pdfBuffer) {
+        this.logger.log(`[TEST WhatsApp] 📎 Invoice PDF attached (${pdfBuffer.length} bytes)`);
+      }
       return;
     }
 
     // TODO: Integrate with Twilio WhatsApp API / Gupshup / WATI
+    // For production: upload PDF to cloud storage (S3/GCS) and send media URL via WhatsApp API
     this.logger.log(`[WhatsApp] Sent to ${phone}`);
   }
 
@@ -193,13 +208,19 @@ export class NotificationsService {
     subject: string,
     body: string,
     attachmentUrl?: string,
+    pdfBuffer?: Buffer,
   ): Promise<void> {
     if (this.testMode) {
       this.logger.log(`[TEST Email] To: ${email} | Subject: ${subject}`);
+      if (pdfBuffer) {
+        this.logger.log(`[TEST Email] 📎 Invoice PDF attached (${pdfBuffer.length} bytes)`);
+      }
       return;
     }
 
     // TODO: Integrate with SendGrid / AWS SES / Mailgun
+    // For production: use nodemailer with attachments:
+    // attachments: [{ filename: 'Invoice.pdf', content: pdfBuffer, contentType: 'application/pdf' }]
     this.logger.log(`[Email] Sent to ${email} | Subject: ${subject}`);
   }
 

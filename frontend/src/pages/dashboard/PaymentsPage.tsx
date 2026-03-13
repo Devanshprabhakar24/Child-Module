@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { paymentsApi, dashboardApi } from '../../services/api';
-import { IndianRupee, CheckCircle, XCircle, Clock, CreditCard, Receipt } from 'lucide-react';
+import { IndianRupee, CheckCircle, XCircle, Clock, CreditCard, Receipt, FileDown } from 'lucide-react';
 
 interface ChildOption {
   registrationId: string;
@@ -98,6 +98,24 @@ export default function PaymentsPage() {
     return STATUS_CONFIG[status as keyof typeof STATUS_CONFIG] || STATUS_CONFIG.PENDING;
   };
 
+  const handleDownloadInvoice = async () => {
+    if (!selectedChild) return;
+    try {
+      const res = await paymentsApi.downloadInvoice(selectedChild);
+      const blob = new Blob([res.data], { type: 'application/pdf' });
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `WombTo18_Invoice_${selectedChild}.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+    } catch {
+      setError('Failed to download invoice. No completed payment found.');
+    }
+  };
+
   if (loading && children.length === 0) {
     return <div className="page-loading">Loading payments...</div>;
   }
@@ -174,6 +192,35 @@ export default function PaymentsPage() {
                 </div>
               )}
             </div>
+
+            {/* Download Invoice Button */}
+            {regPayment.paymentStatus === 'COMPLETED' && (
+              <div style={{ marginTop: '1.25rem', display: 'flex', gap: '0.75rem' }}>
+                <button
+                  id="download-invoice-btn"
+                  onClick={handleDownloadInvoice}
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '0.5rem',
+                    padding: '0.65rem 1.25rem',
+                    background: 'linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%)',
+                    color: '#fff',
+                    border: 'none',
+                    borderRadius: '0.5rem',
+                    fontSize: '0.9rem',
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                    boxShadow: '0 2px 8px rgba(37,99,235,0.25)',
+                    transition: 'all 0.2s ease',
+                  }}
+                  onMouseOver={(e) => (e.currentTarget.style.transform = 'translateY(-1px)')}
+                  onMouseOut={(e) => (e.currentTarget.style.transform = 'translateY(0)')}
+                >
+                  <FileDown size={18} /> Download Invoice
+                </button>
+              </div>
+            )}
           </div>
         </div>
       )}

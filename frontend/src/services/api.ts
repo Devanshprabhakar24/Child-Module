@@ -152,6 +152,9 @@ export const paymentsApi = {
 
   confirmTestPayment: (registrationId: string) =>
     api.post(`/registration/confirm-test-payment/${encodeURIComponent(registrationId)}`),
+
+  downloadInvoice: (registrationId: string) =>
+    api.get(`/payments/${encodeURIComponent(registrationId)}/invoice`, { responseType: 'blob' }),
 };
 
 // ── Profile ──

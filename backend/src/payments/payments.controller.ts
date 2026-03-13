@@ -5,14 +5,16 @@ import {
   HttpCode,
   HttpStatus,
   Logger,
+  NotFoundException,
   Param,
   Post,
   RawBodyRequest,
   Req,
+  Res,
   UnauthorizedException,
   UseGuards,
 } from '@nestjs/common';
-import { Request } from 'express';
+import { Request, Response } from 'express';
 import { PaymentsService } from './payments.service';
 import { RazorpayWebhookEvent } from '@wombto18/shared';
 import { AuthGuard } from '../auth/guards/auth.guard';
@@ -23,13 +25,6 @@ export class PaymentsController {
 
   constructor(private readonly paymentsService: PaymentsService) {}
 
-  @Get(':registrationId')
-  @UseGuards(AuthGuard)
-  async getPayments(@Param('registrationId') registrationId: string) {
-    const payments = await this.paymentsService.findByRegistrationId(registrationId);
-    return { success: true, data: payments };
-  }
-
   @Get('order/:orderId')
   @UseGuards(AuthGuard)
   async getPaymentByOrderId(@Param('orderId') orderId: string) {
@@ -38,6 +33,41 @@ export class PaymentsController {
       return { success: false, message: 'Payment not found' };
     }
     return { success: true, data: payment };
+  }
+
+  @Get(':registrationId/invoice')
+  async downloadInvoice(
+    @Param('registrationId') registrationId: string,
+    @Res() res: Response,
+  ) {
+    this.logger.log(`Invoice download request for: ${registrationId}`);
+    try {
+      const pdfBuffer = await this.paymentsService.getInvoicePdf(registrationId);
+      if (!pdfBuffer) {
+        this.logger.warn(`No completed payment found for: ${registrationId}`);
+        throw new NotFoundException('No completed payment found for this registration');
+      }
+
+      this.logger.log(`Serving invoice PDF (${pdfBuffer.length} bytes) for: ${registrationId}`);
+      res.set({
+        'Content-Type': 'application/pdf',
+        'Content-Disposition': `attachment; filename="WombTo18_Invoice_${registrationId}.pdf"`,
+        'Content-Length': pdfBuffer.length.toString(),
+      });
+
+      res.end(pdfBuffer);
+    } catch (err) {
+      if (err instanceof NotFoundException) throw err;
+      this.logger.error(`Invoice generation error: ${err instanceof Error ? err.message : String(err)}`);
+      throw err;
+    }
+  }
+
+  @Get(':registrationId')
+  @UseGuards(AuthGuard)
+  async getPayments(@Param('registrationId') registrationId: string) {
+    const payments = await this.paymentsService.findByRegistrationId(registrationId);
+    return { success: true, data: payments };
   }
 
   @Post('webhook/razorpay')
@@ -74,3 +104,4 @@ export class PaymentsController {
     return { status: 'ok' };
   }
 }
+
