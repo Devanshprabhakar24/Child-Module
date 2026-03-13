@@ -38,7 +38,7 @@ export const authApi = {
     api.post('/auth/send-otp', data),
 
   verifyOtp: (data: { email: string; otp: string }) =>
-    api.post('/auth/verify-otp', data),
+    api.post('/auth/verify-otp', data, { headers: { Authorization: undefined } }),
 
   firstLogin: (data: { registrationId: string; email: string; phone: string; otp: string }) =>
     api.post('/auth/first-login', data),

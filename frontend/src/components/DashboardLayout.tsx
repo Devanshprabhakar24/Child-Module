@@ -1,14 +1,12 @@
 import { NavLink, Outlet, useNavigate } from 'react-router-dom';
 import { LayoutDashboard, Syringe, TrendingUp, FileHeart, LogOut, Baby, Bell, CreditCard } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
-import { useState } from 'react';
 
 export default function DashboardLayout() {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
-  const [showEdit, setShowEdit] = useState(false);
-  const [profilePic, setProfilePic] = useState(user?.profilePictureUrl || '');
-  const [name, setName] = useState(user?.fullName || '');
+  const profilePic = user?.profilePictureUrl || '';
+  const name = user?.fullName || '';
 
   const handleLogout = () => {
     logout();

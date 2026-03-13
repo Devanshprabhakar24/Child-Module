@@ -67,6 +67,7 @@ export default function EditProfilePage() {
     if (!file) return;
     setUploading(true);
     setError('');
+    setSuccess(''); // Clear any previous success message
 
     try {
       const sigRes = await authApi.getCloudinarySignature();
@@ -86,9 +87,11 @@ export default function EditProfilePage() {
       if (!res.ok) throw new Error('Upload failed');
       const data = await res.json();
       setProfilePictureUrl(data.secure_url);
+      setSuccess('Image uploaded successfully! Click "Save Changes" to update your profile.'); // Add success message for upload
     } catch (err) {
       console.error(err);
       setError('Upload failed. Please try a different image.');
+      setSuccess(''); // Ensure success is cleared on error
     } finally {
       setUploading(false);
     }
@@ -103,10 +106,10 @@ export default function EditProfilePage() {
       await profileApi.updateProfile(payload);
       setUser((prev) => (prev ? { ...prev, ...payload } : prev));
       setSuccess('Profile updated successfully!');
-      setError('');
+      setError(''); // Clear any previous error
     } catch {
       setError('Failed to update profile. Please try again.');
-      setSuccess('');
+      setSuccess(''); // Clear success message on error
     }
   };
 
@@ -187,7 +190,7 @@ export default function EditProfilePage() {
           <p>Update your personal information and profile picture</p>
         </div>
       </div>
-    
+
       <div className="card" style={{ maxWidth: '600px' }}>
         <div className="card-header">
           <h2>Profile Details</h2>
@@ -202,9 +205,9 @@ export default function EditProfilePage() {
 
         <div className="form-group">
           <label>Full Name</label>
-          <input 
+          <input
             type="text"
-            value={fullName} 
+            value={fullName}
             onChange={e => setFullName(e.target.value)}
             placeholder="Enter your full name"
           />
@@ -214,10 +217,10 @@ export default function EditProfilePage() {
           <label>Profile Picture</label>
           <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginTop: '8px' }}>
             {profilePictureUrl ? (
-              <img 
-                src={profilePictureUrl} 
-                alt="Profile" 
-                style={{ width: '80px', height: '80px', borderRadius: '50%', objectFit: 'cover', border: '2px solid var(--gray-200)' }} 
+              <img
+                src={profilePictureUrl}
+                alt="Profile"
+                style={{ width: '80px', height: '80px', borderRadius: '50%', objectFit: 'cover', border: '2px solid var(--gray-200)' }}
               />
             ) : (
               <div style={{ width: '80px', height: '80px', borderRadius: '50%', background: 'var(--gray-100)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--gray-400)', fontSize: '12px' }}>
@@ -225,11 +228,11 @@ export default function EditProfilePage() {
               </div>
             )}
             <div style={{ flex: 1 }}>
-              <input 
-                type="file" 
+              <input
+                type="file"
                 id="profile-upload"
-                accept="image/*" 
-                onChange={handleFileChange} 
+                accept="image/*"
+                onChange={handleFileChange}
                 disabled={uploading}
                 style={{ display: 'none' }}
               />
@@ -242,9 +245,9 @@ export default function EditProfilePage() {
         </div>
 
         <div style={{ marginTop: '32px', display: 'flex', gap: '12px' }}>
-          <button 
-            className="btn-primary" 
-            onClick={handleSave} 
+          <button
+            className="btn-primary"
+            onClick={handleSave}
             disabled={uploading}
             style={{ width: 'auto', padding: '10px 24px' }}
           >

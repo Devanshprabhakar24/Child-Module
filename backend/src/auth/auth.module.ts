@@ -11,6 +11,7 @@ import {
 } from '../registration/schemas/child-registration.schema';
 import { AuthGuard } from './guards/auth.guard';
 import { RolesGuard } from './guards/roles.guard';
+import { EmailService } from '../notifications/email.service';
 
 @Module({
   imports: [
@@ -22,7 +23,7 @@ import { RolesGuard } from './guards/roles.guard';
     ]),
   ],
   controllers: [AuthController],
-  providers: [AuthService, AuthGuard, RolesGuard],
+  providers: [AuthService, AuthGuard, RolesGuard, EmailService],
   exports: [AuthService, AuthGuard, RolesGuard],
 })
 export class AuthModule {}

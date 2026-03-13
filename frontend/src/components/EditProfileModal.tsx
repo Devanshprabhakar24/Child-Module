@@ -14,23 +14,20 @@ export default function EditProfileModal({ user, onClose, onSave }: any) {
     setError('');
 
     try {
-      const sigRes = await authApi.getCloudinarySignature();
-      const { signature, timestamp, apiKey, cloudName } = sigRes.data;
-
       const formData = new FormData();
       formData.append('file', file);
-      formData.append('api_key', apiKey);
-      formData.append('timestamp', timestamp.toString());
-      formData.append('signature', signature);
 
-      const res = await fetch(`https://api.cloudinary.com/v1_1/${cloudName}/image/upload`, {
+      // Send to backend endpoint ONLY
+      const res = await fetch('/auth/upload-profile-picture', {
         method: 'POST',
         body: formData,
+        // Add Authorization header if required
+        // headers: { Authorization: `Bearer ${yourAuthToken}` }
       });
 
       if (!res.ok) throw new Error('Upload failed');
       const data = await res.json();
-      setProfilePictureUrl(data.secure_url);
+      setProfilePictureUrl(data.url);
     } catch (err) {
       console.error(err);
       setError('Upload failed. Please try a different image.');

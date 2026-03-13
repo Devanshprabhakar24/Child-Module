@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { dashboardApi } from '../../services/api';
 import { Check, X, Clock, AlertTriangle, ChevronRight, Lightbulb, Calendar, Phone } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import GoGreenCertificateDownload from '../../components/GoGreenCertificateDownload';
 
 interface Child {
   registrationId: string;
@@ -316,10 +317,19 @@ export default function DashboardHome() {
             }}>
               Nearest Hospital
             </button>
-            <button className="btn-secondary" style={{ flex: 1 }} onClick={() => alert('School health ambassador contact will be available once your school is linked.')}>
-              Health Ambassador
-            </button>
+            <button className="btn-secondary" style={{ flex: 1 }} onClick={() => alert('School health ambassador contact will be available once your school is linked.')}>Health Ambassador</button>
           </div>
+        </div>
+
+        {/* Go Green Certificate Download */}
+        <div className="card" style={{ border: '2px solid #10B981' }}>
+          <div className="card-header">
+            <h2 style={{ color: '#10B981' }}>🌿 Go Green Certificate</h2>
+          </div>
+          <p style={{ color: '#64748B', fontSize: 14, marginBottom: 16 }}>
+            Download your child's Go Green certificate recognizing their commitment to environmental well-being.
+          </p>
+          <GoGreenCertificateDownload recipientName={child?.childName || 'Recipient'} date={new Date().toLocaleDateString('en-IN')} />
         </div>
       </div>
     </div>

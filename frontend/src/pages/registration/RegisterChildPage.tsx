@@ -348,7 +348,7 @@ export default function RegisterChildPage() {
             </div>
             <div className="form-group">
               <label htmlFor="phone">Phone *</label>
-              <input id="phone" type="tel" required placeholder="+91XXXXXXXXXX" value={form.phone} readOnly style={{ backgroundColor: '#f0f0f0' }} />
+              <input id="phone" type="tel" required placeholder="+91XXXXXXXXXX" value={form.phone} onChange={(e) => set('phone', e.target.value)} />
             </div>
           </div>
           <div className="form-row">

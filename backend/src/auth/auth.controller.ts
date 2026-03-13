@@ -1,5 +1,7 @@
 
-import { Body, Controller, Get, HttpCode, HttpStatus, Post, Req, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, HttpCode, HttpStatus, Post, Req, UseGuards, UploadedFile, UseInterceptors } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
+import upload from './multer';
 import { AuthService } from './auth.service';
 import { SendOtpDto, VerifyOtpDto, FirstTimeLoginDto, LoginWithRegistrationIdDto, RegisterUserDto, UpdateProfileDto } from '@wombto18/shared';
 import { AuthGuard } from './guards/auth.guard';
@@ -13,13 +15,47 @@ export class AuthController {
   @Post('update-profile')
   @UseGuards(AuthGuard)
   async updateProfile(@Req() req: AuthenticatedRequest, @Body() dto: UpdateProfileDto) {
-    // Only allow updating own profile
     const user = await this.authService.findUserByEmail(req.user.email);
-    if (!user) return { success: false, message: 'User not found' };
-    if (dto.fullName) user.fullName = dto.fullName;
-    if (dto.profilePictureUrl) user.profilePictureUrl = dto.profilePictureUrl;
+    if (!user) {
+      return { success: false, message: 'User not found' };
+    }
+
+    if (dto.fullName !== undefined) user.fullName = dto.fullName;
+    if (dto.profilePictureUrl !== undefined) user.profilePictureUrl = dto.profilePictureUrl;
     await user.save();
-    return { success: true, data: { fullName: user.fullName, profilePictureUrl: user.profilePictureUrl } };
+
+    return {
+      success: true,
+      data: {
+        email: user.email,
+        fullName: user.fullName,
+        profilePictureUrl: user.profilePictureUrl ?? '',
+        role: user.role,
+      },
+    };
+  }
+
+  @Post('upload-profile-picture')
+  @UseGuards(AuthGuard)
+  @UseInterceptors(FileInterceptor('file'))
+  async uploadProfilePicture(@Req() req: AuthenticatedRequest, @UploadedFile() file: any) {
+    if (!file) {
+      return { success: false, message: 'No file uploaded' };
+    }
+    // Upload to Cloudinary
+    const result = await cloudinary.uploader.upload(file.path, {
+      folder: 'profile_pictures',
+      public_id: req.user.email,
+    });
+    // Update user profile picture URL
+    const user = await this.authService.findUserByEmail(req.user.email);
+    if (user) {
+      user.profilePictureUrl = result.secure_url;
+      await user.save();
+    }
+    // Optionally delete the temp file after upload
+    // fs.unlinkSync(file.path);
+    return { success: true, url: result.secure_url };
   }
 
   @Get('cloudinary-signature')
@@ -41,15 +77,27 @@ export class AuthController {
 
   @Post('register')
   async register(@Body() dto: RegisterUserDto) {
-    const user = await this.authService.registerUser(dto);
-    return {
-      success: true,
-      data: {
-        email: user.email,
-        fullName: user.fullName,
-        role: user.role,
-      },
-    };
+    try {
+      const user = await this.authService.registerUser(dto);
+      return {
+        success: true,
+        data: {
+          email: user.email,
+          fullName: user.fullName,
+          role: user.role,
+        },
+      };
+    } catch (err: any) {
+      console.error('register error:', {
+        body: dto,
+        error: err?.message || err,
+        stack: err?.stack,
+      });
+      return {
+        success: false,
+        message: err?.message || 'Registration failed',
+      };
+    }
   }
 
   @Post('send-otp')
@@ -62,17 +110,26 @@ export class AuthController {
   @Post('verify-otp')
   @HttpCode(HttpStatus.OK)
   async verifyOtp(@Body() dto: VerifyOtpDto) {
-    const result = await this.authService.verifyOtp(dto);
-    return {
-      success: true,
-      token: result.token,
-      user: {
-        email: result.user.email,
-        fullName: result.user.fullName,
-        role: result.user.role,
-        isFirstLoginComplete: result.user.isFirstLoginComplete,
-      },
-    };
+    try {
+      const result = await this.authService.verifyOtp(dto);
+      return {
+        success: true,
+        token: result.token,
+        user: {
+          email: result.user.email,
+          fullName: result.user.fullName,
+          role: result.user.role,
+          isFirstLoginComplete: result.user.isFirstLoginComplete,
+        },
+      };
+    } catch (err: any) {
+      console.error('verifyOtp error:', {
+        body: dto,
+        error: err?.message || err,
+        stack: err?.stack,
+      });
+      throw err;
+    }
   }
 
   @Post('login')
