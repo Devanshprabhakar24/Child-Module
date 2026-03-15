@@ -18,6 +18,8 @@ import {
   RegisterUserDto,
   UserRole,
 } from '@wombto18/shared';
+import { EmailService } from '../notifications/email.service';
+import { SmsService } from '../notifications/sms.service';
 
 const OTP_EXPIRY_MINUTES = 5;
 const MAX_OTP_ATTEMPTS = 5;
@@ -35,6 +37,8 @@ export class AuthService {
     @InjectModel(ChildRegistration.name)
     private readonly childRegModel: Model<ChildRegistrationDocument>,
     private readonly configService: ConfigService,
+    private readonly emailService: EmailService,
+    private readonly smsService: SmsService,
   ) {
     this.otpTestMode = this.configService.get<string>('OTP_TEST_MODE') === 'true';
     this.otpTestCode = this.configService.get<string>('OTP_TEST_CODE') ?? '123456';
@@ -86,7 +90,17 @@ export class AuthService {
     });
 
     if (!this.otpTestMode) {
-      // TODO: Send OTP via email/SMS provider (e.g., SendGrid, MSG91)
+      // Send OTP via email and SMS
+      await Promise.all([
+        this.emailService.sendOtpEmail(dto.email, code),
+        // If user has phone number, send SMS too
+        (async () => {
+          const user = await this.userModel.findOne({ email: dto.email }).exec();
+          if (user?.phone) {
+            await this.smsService.sendOtpSms(user.phone, code);
+          }
+        })(),
+      ]);
       this.logger.log(`OTP sent to ${dto.email}`);
     } else {
       this.logger.log(`[TEST MODE] OTP for ${dto.email}: ${code}`);

@@ -21,9 +21,12 @@ import {
   CURRENCY,
   RazorpayWebhookEvent,
   UpdateChildDto,
+  ReminderChannel,
 } from '@wombto18/shared';
 import { BadRequestException } from '@nestjs/common';
 import { NotificationsService } from '../notifications/notifications.service';
+import { DashboardService } from '../dashboard/dashboard.service';
+import { RemindersService } from '../reminders/reminders.service';
 
 @Injectable()
 export class RegistrationService {
@@ -38,6 +41,8 @@ export class RegistrationService {
     private readonly childModel: Model<ChildRegistrationDocument>,
     private readonly configService: ConfigService,
     private readonly notificationsService: NotificationsService,
+    private readonly dashboardService: DashboardService,
+    private readonly remindersService: RemindersService,
   ) {
     this.paymentTestMode = this.configService.get<string>('PAYMENT_TEST_MODE') === 'true';
     this.otpTestMode = this.configService.get<string>('OTP_TEST_MODE') === 'true';
@@ -370,6 +375,34 @@ export class RegistrationService {
 
       registration.goGreenCertSent = true;
       await registration.save();
+
+      // 4. AUTO-ACTIVATE SERVICES: Seed vaccination milestones + schedule reminders
+      try {
+        this.logger.log(`Auto-activating services for ${registration.registrationId}...`);
+        
+        // Seed vaccination milestones
+        const milestones = await this.dashboardService.seedVaccinationMilestones(
+          registration.registrationId,
+          registration.dateOfBirth,
+        );
+        
+        // Schedule reminders for all milestones
+        const reminderCount = await this.remindersService.seedRemindersForRegistration(
+          registration.registrationId,
+          [ReminderChannel.SMS, ReminderChannel.WHATSAPP],
+        );
+        
+        this.logger.log(
+          `Services activated for ${registration.registrationId}: ${milestones.length} milestones, ${reminderCount} reminders`
+        );
+      } catch (activationError) {
+        this.logger.error(
+          `Failed to auto-activate services for ${registration.registrationId}: ${
+            activationError instanceof Error ? activationError.message : activationError
+          }`
+        );
+        // Don't throw - notifications already sent, services can be activated manually
+      }
 
       this.logger.log(`All post-payment notifications sent for ${registration.registrationId}`);
     } catch (error) {

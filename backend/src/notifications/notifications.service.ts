@@ -1,5 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { EmailService } from './email.service';
+import { SmsService } from './sms.service';
 
 /**
  * Enum for notification event types.
@@ -40,7 +42,11 @@ export class NotificationsService {
   private readonly testMode: boolean;
   private readonly baseUrl: string;
 
-  constructor(private readonly configService: ConfigService) {
+  constructor(
+    private readonly configService: ConfigService,
+    private readonly emailService: EmailService,
+    private readonly smsService: SmsService,
+  ) {
     this.testMode = this.configService.get<string>('NOTIFICATION_TEST_MODE') !== 'false';
     this.baseUrl = this.configService.get<string>('APP_BASE_URL') ?? 'https://wombto18.com';
   }
@@ -69,11 +75,12 @@ export class NotificationsService {
         message + (payload.invoiceBuffer ? ' 📄 Invoice PDF attached.' : ''),
         payload.invoiceBuffer,
       ),
-      this.sendEmail(
+      this.emailService.sendPaymentConfirmationEmail(
         payload.email,
-        'WombTo18 - Payment Confirmation',
-        message,
-        payload.invoiceUrl,
+        payload.parentName,
+        payload.childName,
+        payload.registrationId,
+        payload.amount,
         payload.invoiceBuffer,
       ),
     ]);
@@ -95,7 +102,12 @@ export class NotificationsService {
     await Promise.all([
       this.sendSms(payload.phone, message),
       this.sendWhatsApp(payload.phone, message),
-      this.sendEmail(payload.email, 'Welcome to WombTo18 - Your Child Dashboard', message),
+      this.emailService.sendWelcomeEmail(
+        payload.email,
+        payload.parentName,
+        payload.childName,
+        payload.registrationId,
+      ),
     ]);
   }
 
@@ -150,7 +162,14 @@ export class NotificationsService {
     await Promise.all([
       this.sendSms(payload.phone, message),
       this.sendWhatsApp(payload.phone, message),
-      this.sendEmail(payload.email, `WombTo18 - Vaccination ${prefix}`, message),
+      this.emailService.sendVaccinationReminderEmail(
+        payload.email,
+        payload.parentName,
+        payload.childName,
+        payload.vaccineName,
+        payload.dueDate,
+        payload.offset,
+      ),
     ]);
 
     if (payload.enableIvr) {
@@ -184,9 +203,8 @@ export class NotificationsService {
       return;
     }
 
-    // TODO: Integrate with MSG91 / Twilio / AWS SNS
-    // Must be DLT (TRAI) compliant for Indian numbers
-    this.logger.log(`[SMS] Sent to ${phone}`);
+    // Use SmsService for real SMS sending
+    await this.smsService.sendTransactionalSms(phone, message);
   }
 
   private async sendWhatsApp(phone: string, message: string, pdfBuffer?: Buffer): Promise<void> {
@@ -213,14 +231,13 @@ export class NotificationsService {
     if (this.testMode) {
       this.logger.log(`[TEST Email] To: ${email} | Subject: ${subject}`);
       if (pdfBuffer) {
-        this.logger.log(`[TEST Email] 📎 Invoice PDF attached (${pdfBuffer.length} bytes)`);
+        this.logger.log(`[TEST Email] 📎 PDF attached (${pdfBuffer.length} bytes)`);
       }
       return;
     }
 
-    // TODO: Integrate with SendGrid / AWS SES / Mailgun
-    // For production: use nodemailer with attachments:
-    // attachments: [{ filename: 'Invoice.pdf', content: pdfBuffer, contentType: 'application/pdf' }]
+    // Use EmailService for real email sending
+    // For now, just log - EmailService methods are called directly from high-level dispatchers
     this.logger.log(`[Email] Sent to ${email} | Subject: ${subject}`);
   }
 

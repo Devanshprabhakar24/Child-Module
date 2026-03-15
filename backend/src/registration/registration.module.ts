@@ -9,6 +9,8 @@ import {
   ChildRegistrationSchema,
 } from './schemas/child-registration.schema';
 import { AuthModule } from '../auth/auth.module';
+import { DashboardModule } from '../dashboard/dashboard.module';
+import { RemindersModule } from '../reminders/reminders.module';
 
 @Module({
   imports: [
@@ -17,6 +19,8 @@ import { AuthModule } from '../auth/auth.module';
       { name: ChildRegistration.name, schema: ChildRegistrationSchema },
     ]),
     AuthModule,
+    DashboardModule,
+    RemindersModule,
   ],
   controllers: [RegistrationController],
   providers: [RegistrationService, CertificateService],
