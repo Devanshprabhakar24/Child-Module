@@ -1,7 +1,7 @@
 
 import { Body, Controller, Get, HttpCode, HttpStatus, Post, Req, UseGuards, UploadedFile, UseInterceptors } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
-import upload from './multer';
+import { storage } from './multer';
 import { AuthService } from './auth.service';
 import { SendOtpDto, VerifyOtpDto, FirstTimeLoginDto, LoginWithRegistrationIdDto, RegisterUserDto, UpdateProfileDto } from '@wombto18/shared';
 import { AuthGuard } from './guards/auth.guard';
@@ -37,7 +37,7 @@ export class AuthController {
 
   @Post('upload-profile-picture')
   @UseGuards(AuthGuard)
-  @UseInterceptors(FileInterceptor('file'))
+  @UseInterceptors(FileInterceptor('file', { storage }))
   async uploadProfilePicture(@Req() req: AuthenticatedRequest, @UploadedFile() file: any) {
     if (!file) {
       return { success: false, message: 'No file uploaded' };

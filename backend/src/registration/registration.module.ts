@@ -3,6 +3,7 @@ import { MongooseModule } from '@nestjs/mongoose';
 import { ConfigModule } from '@nestjs/config';
 import { RegistrationService } from './registration.service';
 import { RegistrationController } from './registration.controller';
+import { CertificateService } from './certificate.service';
 import {
   ChildRegistration,
   ChildRegistrationSchema,
@@ -16,10 +17,9 @@ import { AuthModule } from '../auth/auth.module';
       { name: ChildRegistration.name, schema: ChildRegistrationSchema },
     ]),
     AuthModule,
-    // NotificationsModule is @Global, no need to import explicitly
   ],
   controllers: [RegistrationController],
-  providers: [RegistrationService],
+  providers: [RegistrationService, CertificateService],
   exports: [RegistrationService],
 })
 export class RegistrationModule {}

@@ -206,6 +206,11 @@ export class DashboardService {
       this.getUpcomingMilestones(registrationId),
     ]);
 
+    // Calculate current age dynamically
+    const currentAge = Math.floor(
+      (Date.now() - new Date(child.dateOfBirth).getTime()) / (1000 * 60 * 60 * 24 * 365.25)
+    );
+
     return {
       profile: {
         registrationId: child.registrationId,
@@ -213,7 +218,7 @@ export class DashboardService {
         childGender: child.childGender,
         dateOfBirth: child.dateOfBirth,
         ageGroup: child.ageGroup,
-        ageInYears: child.ageInYears,
+        ageInYears: currentAge,
         profilePictureUrl: child.profilePictureUrl,
         motherName: child.motherName,
         fatherName: child.fatherName,
@@ -250,9 +255,13 @@ export class DashboardService {
     const user = await this.userModel.findById(parentUserId).exec();
 
     // Find children by registrationIds in user document OR by parentUserId on child records
+    // Also fall back to email match for children registered before account linking
     const query: any[] = [{ parentUserId }];
     if (user && user.registrationIds.length > 0) {
       query.push({ registrationId: { $in: user.registrationIds } });
+    }
+    if (user?.email) {
+      query.push({ email: user.email });
     }
 
     const children = await this.childModel
@@ -275,13 +284,18 @@ export class DashboardService {
           .lean()
           .exec();
 
+        // Calculate current age dynamically
+        const currentAge = Math.floor(
+          (Date.now() - new Date(child.dateOfBirth).getTime()) / (1000 * 60 * 60 * 24 * 365.25)
+        );
+
         return {
           registrationId: child.registrationId,
           childName: child.childName,
           childGender: child.childGender,
           dateOfBirth: child.dateOfBirth,
           ageGroup: child.ageGroup,
-          ageInYears: child.ageInYears,
+          ageInYears: currentAge,
           state: child.state,
           profilePictureUrl: child.profilePictureUrl,
           nextDueMilestone: nextDue ? { title: nextDue.title, dueDate: nextDue.dueDate } : null,
@@ -290,5 +304,20 @@ export class DashboardService {
     );
 
     return { children: result, totalChildren: result.length };
+  }
+
+  // ─── Update Profile Picture ───────────────────────────────────────────
+
+  async updateProfilePicture(registrationId: string, imageUrl: string): Promise<ChildRegistrationDocument> {
+    const child = await this.childModel.findOne({ registrationId }).exec();
+    if (!child) {
+      throw new NotFoundException('Child registration not found');
+    }
+
+    child.profilePictureUrl = imageUrl;
+    await child.save();
+
+    this.logger.log(`Profile picture updated for ${registrationId}`);
+    return child;
   }
 }

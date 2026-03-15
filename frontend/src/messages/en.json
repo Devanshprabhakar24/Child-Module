@@ -1,0 +1,165 @@
+{
+  "metadata": {
+    "title": "WombTo18 - Complete Child Health Journey",
+    "description": "Complete Child Health Journey from 0-18 Years",
+    "keywords": "child health, vaccination, maternal health, India, healthcare, Go Green"
+  },
+  "common": {
+    "register": "Register Now",
+    "login": "Login",
+    "logout": "Logout",
+    "submit": "Submit",
+    "continue": "Continue",
+    "back": "Go Back",
+    "next": "Next",
+    "cancel": "Cancel",
+    "save": "Save",
+    "delete": "Delete",
+    "edit": "Edit",
+    "view": "View",
+    "search": "Search",
+    "loading": "Loading...",
+    "error": "Error",
+    "success": "Success",
+    "required": "Required",
+    "optional": "Optional"
+  },
+  "header": {
+    "language": "English/Hindi",
+    "programs": "Programs",
+    "blogs": "Blogs",
+    "transparency": "Transparency",
+    "projects": "Projects",
+    "reports": "Reports",
+    "about": "About"
+  },
+  "hero": {
+    "trustBadge": "Trusted by 50,000+ Indian Parents",
+    "title": "Complete Child Health Journey from",
+    "titleHighlight": "0-18 Years",
+    "description": "Empowering parents with comprehensive health tracking, vaccination reminders, and growth monitoring from birth to adulthood.",
+    "registerNow": "Register Now",
+    "viewDemo": "View Demo",
+    "goGreenCertified": "Go Green Certified",
+    "verifiedDoctors": "Verified Doctors"
+  },
+  "ageSelectors": {
+    "title": "Select Your Child's Age Group",
+    "subtitle": "Tailored health tracking for every milestone",
+    "age0to5": {
+      "title": "0-5 Years",
+      "description": "Vaccination, nutrition & growth tracking",
+      "explore": "Explore Features"
+    },
+    "age6to12": {
+      "title": "6-12 Years",
+      "description": "Physical fitness & cognitive development",
+      "explore": "Explore Features"
+    },
+    "age13to18": {
+      "title": "13-18 Years",
+      "description": "Mental wellness & teen health guides",
+      "explore": "Explore Features"
+    }
+  },
+  "registrationPaths": {
+    "title": "How would you like to register?",
+    "subtitle": "Choose the path that fits you best",
+    "direct": {
+      "title": "Direct",
+      "description": "Register directly as a parent and start tracking your child's health journey today.",
+      "button": "Get Started"
+    },
+    "hospital": {
+      "title": "Hospital/Doctor",
+      "description": "Connect with your pediatrician. Get digital prescriptions and automated health records.",
+      "button": "Connect Doctor",
+      "badge": "RECOMMENDED"
+    },
+    "partner": {
+      "title": "Channel Partner",
+      "description": "Are you a healthcare provider or a partner? Register to join our network.",
+      "button": "Partner With Us"
+    }
+  },
+  "features": {
+    "title": "Why WombTo18 is different?",
+    "paperless": {
+      "title": "Paperless Records",
+      "description": "Store all health documents digitally. Never lose a prescription or vaccination record again."
+    },
+    "reminders": {
+      "title": "Smart Reminders",
+      "description": "Get timely alerts for upcoming vaccinations and routine health checkups."
+    },
+    "secure": {
+      "title": "Secure & Private",
+      "description": "Your child's health data is encrypted and protected with enterprise-grade security."
+    },
+    "expertCare": "Expert Care",
+    "dataDriven": "Data Driven"
+  },
+  "footer": {
+    "aboutUs": "About Us",
+    "privacyPolicy": "Privacy Policy",
+    "contact": "Contact",
+    "faqs": "FAQs",
+    "copyright": "© 2024 WombTo18 Health Platform. Supporting families across India."
+  },
+  "emergency": {
+    "emergencyCare": "Emergency Care",
+    "whatsapp": "Chat on WhatsApp"
+  },
+  "registration": {
+    "title": "Child Registration",
+    "step1": "Child Details",
+    "step2": "Contact Details",
+    "step3": "Pricing",
+    "step4": "Consent",
+    "motherName": "Mother's Name",
+    "childName": "Child's Name",
+    "childGender": "Child's Gender",
+    "childDob": "Date of Birth",
+    "age": "Age",
+    "state": "State",
+    "email": "Email",
+    "phone": "Phone Number",
+    "address": "Address",
+    "city": "City",
+    "pincode": "PIN Code",
+    "pricing": {
+      "title": "Subscription Plan",
+      "basePrice": "Base Price",
+      "gst": "GST @18%",
+      "total": "Total",
+      "couponCode": "Coupon Code",
+      "apply": "Apply"
+    },
+    "consent": {
+      "checkbox1": "I agree to receive vaccination reminders, health tips, and program updates via SMS, WhatsApp, and Email",
+      "checkbox2": "I accept the WombTo18 Terms of Service and Privacy Policy",
+      "checkbox3": "I agree to receive IVR voice call reminders for vaccinations"
+    }
+  },
+  "dashboard": {
+    "overview": "Overview",
+    "vaccination": "Vaccination Tracker",
+    "healthRecords": "Health Records",
+    "milestones": "Milestones",
+    "school": "School",
+    "goGreen": "Go Green",
+    "settings": "Settings",
+    "emergency": "Emergency"
+  },
+  "validation": {
+    "required": "This field is required",
+    "invalidEmail": "Please enter a valid email",
+    "invalidPhone": "Please enter a valid 10-digit mobile number",
+    "invalidPincode": "Please enter a valid 6-digit PIN code",
+    "minLength": "Must be at least {min} characters",
+    "maxLength": "Must not exceed {max} characters",
+    "invalidDate": "Please enter a valid date",
+    "futureDate": "Date cannot be in the future",
+    "ageLimit": "Child must be under 18 years"
+  }
+}

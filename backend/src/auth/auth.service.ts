@@ -134,6 +134,25 @@ export class AuthService {
     }
 
     user.isEmailVerified = true;
+
+    // Auto-link any child registrations with matching email
+    const childRegs = await this.childRegModel
+      .find({ email: dto.email })
+      .select('registrationId _id')
+      .lean()
+      .exec();
+
+    for (const child of childRegs) {
+      if (!user.registrationIds.includes(child.registrationId)) {
+        user.registrationIds.push(child.registrationId);
+      }
+      // Also set parentUserId on the child record if not already set
+      await this.childRegModel.updateOne(
+        { registrationId: child.registrationId, parentUserId: { $in: [null, undefined, ''] } },
+        { parentUserId: user.id as string },
+      );
+    }
+
     await user.save();
 
     const token = this.generateToken(user);

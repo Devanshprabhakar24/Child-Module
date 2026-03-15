@@ -6,17 +6,20 @@ import {
   HttpCode,
   HttpStatus,
   Logger,
+  NotFoundException,
   Param,
   Patch,
   Post,
   RawBodyRequest,
   Req,
+  Res,
   UnauthorizedException,
   UseGuards,
   ForbiddenException,
 } from '@nestjs/common';
-import { Request } from 'express';
+import { Request, Response } from 'express';
 import { RegistrationService } from './registration.service';
+import { CertificateService } from './certificate.service';
 import { RegisterChildDto, RazorpayWebhookEvent, RazorpayWebhookPayloadDto, UpdateChildDto } from '@wombto18/shared';
 import { AuthGuard, AuthenticatedRequest } from '../auth/guards/auth.guard';
 
@@ -24,7 +27,10 @@ import { AuthGuard, AuthenticatedRequest } from '../auth/guards/auth.guard';
 export class RegistrationController {
   private readonly logger = new Logger(RegistrationController.name);
 
-  constructor(private readonly registrationService: RegistrationService) {}
+  constructor(
+    private readonly registrationService: RegistrationService,
+    private readonly certificateService: CertificateService,
+  ) {}
 
   // ─── Child Registration ────────────────────────────────────────────────
 
@@ -86,6 +92,33 @@ export class RegistrationController {
         greenCohort: registration.greenCohort,
       },
     };
+  }
+
+  // ─── Go Green Certificate Download ──────────────────────────────────
+
+  @Get(':registrationId/certificate')
+  async downloadCertificate(
+    @Param('registrationId') registrationId: string,
+    @Res() res: Response,
+  ) {
+    const registration = await this.registrationService.findByRegistrationId(registrationId);
+    if (!registration) throw new NotFoundException('Registration not found');
+
+    const pdfBuffer = await this.certificateService.generateGoGreenCertificate({
+      childName: registration.childName,
+      motherName: registration.motherName,
+      registrationId: registration.registrationId,
+      dateOfBirth: registration.dateOfBirth.toISOString().split('T')[0],
+      state: registration.state,
+      issuedDate: new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'long', year: 'numeric' }),
+    });
+
+    res.set({
+      'Content-Type': 'application/pdf',
+      'Content-Disposition': `attachment; filename="WombTo18_GoGreen_${registrationId}.pdf"`,
+      'Content-Length': pdfBuffer.length.toString(),
+    });
+    res.end(pdfBuffer);
   }
 
   // ─── Lookup ────────────────────────────────────────────────────────────

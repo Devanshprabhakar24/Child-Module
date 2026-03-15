@@ -7,15 +7,26 @@ import {
   Post,
   UseGuards,
   Req,
+  UseInterceptors,
+  UploadedFile,
+  BadRequestException,
 } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
 import { DashboardService } from './dashboard.service';
-import { CreateMilestoneDto, UpdateMilestoneStatusDto } from '@wombto18/shared';
+import { RemindersService } from '../reminders/reminders.service';
+import { CreateMilestoneDto, UpdateMilestoneStatusDto, ReminderChannel } from '@wombto18/shared';
 import { AuthGuard, AuthenticatedRequest } from '../auth/guards/auth.guard';
+import { storage } from '../auth/multer';
+import cloudinary from '../auth/cloudinary';
+import * as fs from 'fs';
 
 @Controller('dashboard')
 @UseGuards(AuthGuard)
 export class DashboardController {
-  constructor(private readonly dashboardService: DashboardService) {}
+  constructor(
+    private readonly dashboardService: DashboardService,
+    private readonly remindersService: RemindersService,
+  ) {}
 
   // ─── Full Child Dashboard ─────────────────────────────────────────────
 
@@ -88,5 +99,89 @@ export class DashboardController {
   ) {
     const milestone = await this.dashboardService.updateMilestoneStatus(milestoneId, dto);
     return { success: true, data: milestone };
+  }
+
+  // ─── Activate All Services ────────────────────────────────────────────
+
+  /**
+   * One-click activation: seeds vaccination milestones + schedules reminders.
+   * Useful for children registered before auto-seeding was implemented.
+   */
+  @Post('activate-services')
+  async activateAllServices(
+    @Body() body: { registrationId: string; dateOfBirth: string },
+  ) {
+    const { registrationId, dateOfBirth } = body;
+
+    // 1. Seed vaccination milestones
+    const milestones = await this.dashboardService.seedVaccinationMilestones(
+      registrationId,
+      new Date(dateOfBirth),
+    );
+
+    // 2. Schedule reminders for all upcoming milestones
+    const reminderCount = await this.remindersService.seedRemindersForRegistration(
+      registrationId,
+      [ReminderChannel.SMS, ReminderChannel.WHATSAPP],
+    );
+
+    return {
+      success: true,
+      message: 'All services activated successfully',
+      data: {
+        milestonesCreated: milestones.length,
+        remindersScheduled: reminderCount,
+      },
+    };
+  }
+
+  // ─── Upload Profile Picture ───────────────────────────────────────────
+
+  @Post('profile-picture/:registrationId')
+  @UseInterceptors(FileInterceptor('profilePicture', { storage }))
+  async uploadProfilePicture(
+    @Param('registrationId') registrationId: string,
+    @UploadedFile() file: Express.Multer.File,
+  ) {
+    if (!file) {
+      throw new BadRequestException('No file uploaded');
+    }
+
+    try {
+      console.log('Uploading file:', file.path);
+      
+      // Upload to Cloudinary
+      const result = await cloudinary.uploader.upload(file.path, {
+        folder: 'wombto18/profiles',
+        public_id: `${registrationId}_${Date.now()}`,
+        transformation: [
+          { width: 400, height: 400, crop: 'fill', gravity: 'face' },
+          { quality: 'auto', fetch_format: 'auto' },
+        ],
+      });
+
+      console.log('Cloudinary upload successful:', result.secure_url);
+
+      // Update child record with new URL
+      await this.dashboardService.updateProfilePicture(registrationId, result.secure_url);
+
+      // Clean up temp file
+      try {
+        fs.unlinkSync(file.path);
+      } catch (cleanupError) {
+        console.warn('Failed to cleanup temp file:', cleanupError);
+      }
+
+      return {
+        success: true,
+        message: 'Profile picture updated successfully',
+        data: { profilePictureUrl: result.secure_url },
+      };
+    } catch (error) {
+      console.error('Profile picture upload error:', error);
+      throw new BadRequestException(
+        `Failed to upload profile picture: ${error instanceof Error ? error.message : 'Unknown error'}`
+      );
+    }
   }
 }

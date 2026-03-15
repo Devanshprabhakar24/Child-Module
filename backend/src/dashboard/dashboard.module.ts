@@ -6,6 +6,7 @@ import { Milestone, MilestoneSchema } from './schemas/milestone.schema';
 import { ChildRegistration, ChildRegistrationSchema } from '../registration/schemas/child-registration.schema';
 import { User, UserSchema } from '../auth/schemas/user.schema';
 import { AuthModule } from '../auth/auth.module';
+import { RemindersModule } from '../reminders/reminders.module';
 
 @Module({
   imports: [
@@ -15,6 +16,7 @@ import { AuthModule } from '../auth/auth.module';
       { name: User.name, schema: UserSchema },
     ]),
     AuthModule,
+    RemindersModule,
   ],
   controllers: [DashboardController],
   providers: [DashboardService],
