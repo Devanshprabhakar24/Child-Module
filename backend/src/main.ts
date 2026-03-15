@@ -17,8 +17,9 @@ async function bootstrap(): Promise<void> {
 
   app.enableCors();
 
-  const port = process.env['PORT'] ?? 3000;
+  const port = process.env['PORT'] ?? 8000;
   await app.listen(port);
+  console.log(`🚀 Backend running on http://localhost:${port}`);
 }
 
 void bootstrap();
