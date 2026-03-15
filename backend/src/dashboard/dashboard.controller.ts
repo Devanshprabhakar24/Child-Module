@@ -208,4 +208,24 @@ export class DashboardController {
       );
     }
   }
+
+  // ─── Admin Endpoints ──────────────────────────────────────────────────
+
+  /**
+   * Admin: Get all children in the system
+   */
+  @Get('admin/all-children')
+  async getAllChildren() {
+    const children = await this.dashboardService.getAllChildren();
+    return { success: true, data: children };
+  }
+
+  /**
+   * Admin: Get system-wide statistics
+   */
+  @Get('admin/stats')
+  async getAdminStats() {
+    const stats = await this.dashboardService.getAdminStats();
+    return { success: true, data: stats };
+  }
 }

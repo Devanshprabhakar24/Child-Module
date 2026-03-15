@@ -189,4 +189,19 @@ export class AuthController {
       },
     };
   }
+
+  @Post('admin-login')
+  @HttpCode(HttpStatus.OK)
+  async adminLogin(@Body() body: { username: string; password: string }) {
+    const result = await this.authService.adminLogin(body.username, body.password);
+    return {
+      success: true,
+      token: result.token,
+      user: {
+        email: result.user.email,
+        fullName: result.user.fullName,
+        role: result.user.role,
+      },
+    };
+  }
 }

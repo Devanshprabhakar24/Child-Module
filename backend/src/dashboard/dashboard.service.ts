@@ -320,4 +320,66 @@ export class DashboardService {
     this.logger.log(`Profile picture updated for ${registrationId}`);
     return child;
   }
+
+  // ─── Admin Methods ────────────────────────────────────────────────────
+
+  /**
+   * Get all children in the system (for admin)
+   */
+  async getAllChildren(): Promise<Array<{
+    registrationId: string;
+    childName: string;
+    childGender: string;
+    dateOfBirth: Date;
+    ageGroup: string;
+    state: string;
+    motherName: string;
+    phone: string;
+    email: string;
+    paymentStatus: string;
+    profilePictureUrl?: string;
+  }>> {
+    const children = await this.childModel
+      .find()
+      .select('registrationId childName childGender dateOfBirth ageGroup state motherName phone email paymentStatus profilePictureUrl')
+      .sort({ createdAt: -1 })
+      .lean()
+      .exec();
+
+    return children as any[];
+  }
+
+  /**
+   * Get system-wide statistics (for admin dashboard)
+   */
+  async getAdminStats(): Promise<{
+    totalChildren: number;
+    totalVaccinations: number;
+    dueVaccinations: number;
+    completedVaccinations: number;
+    missedVaccinations: number;
+  }> {
+    // Count total children
+    const totalChildren = await this.childModel.countDocuments().exec();
+
+    // Count all vaccination milestones
+    const allMilestones = await this.milestoneModel
+      .find({ category: MilestoneCategory.VACCINATION })
+      .exec();
+
+    const totalVaccinations = allMilestones.length;
+    const completedVaccinations = allMilestones.filter(m => m.status === MilestoneStatus.COMPLETED).length;
+    const dueVaccinations = allMilestones.filter(
+      m => m.status === MilestoneStatus.UPCOMING || m.status === MilestoneStatus.DUE
+    ).length;
+    const missedVaccinations = allMilestones.filter(m => m.status === MilestoneStatus.MISSED).length;
+
+    return {
+      totalChildren,
+      totalVaccinations,
+      dueVaccinations,
+      completedVaccinations,
+      missedVaccinations,
+    };
+  }
 }

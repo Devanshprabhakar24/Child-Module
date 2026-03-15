@@ -305,4 +305,37 @@ export class AuthService {
 
     return payload;
   }
+
+  // ─── Admin Login ──────────────────────────────────────────────────────
+
+  async adminLogin(username: string, password: string): Promise<{ token: string; user: UserDocument }> {
+    // Hardcoded admin credentials
+    const ADMIN_USERNAME = 'admin';
+    const ADMIN_PASSWORD = 'admin123';
+
+    if (username !== ADMIN_USERNAME || password !== ADMIN_PASSWORD) {
+      throw new UnauthorizedException('Invalid admin credentials');
+    }
+
+    // Find or create admin user
+    let adminUser = await this.userModel.findOne({ email: 'admin@wombto18.com' }).exec();
+    
+    if (!adminUser) {
+      adminUser = await this.userModel.create({
+        email: 'admin@wombto18.com',
+        phone: '+919999999999',
+        fullName: 'System Administrator',
+        role: UserRole.ADMIN,
+        isEmailVerified: true,
+        isPhoneVerified: true,
+        isFirstLoginComplete: true,
+      });
+      this.logger.log('Admin user created');
+    }
+
+    const token = this.generateToken(adminUser);
+    this.logger.log('Admin login successful');
+
+    return { token, user: adminUser };
+  }
 }
