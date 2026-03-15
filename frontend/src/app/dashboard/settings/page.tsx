@@ -82,6 +82,9 @@ export default function SettingsPage() {
 
     setUploadingPhoto(true);
     try {
+      console.log('Uploading photo for registration:', registrationId);
+      console.log('File:', file.name, file.type, file.size);
+      
       const formData = new FormData();
       formData.append("profilePicture", file);
 
@@ -93,13 +96,20 @@ export default function SettingsPage() {
         body: formData,
       });
 
-      if (!res.ok) throw new Error("Failed");
+      console.log('Upload response status:', res.status);
       const data = await res.json();
+      console.log('Upload response data:', data);
 
+      if (!res.ok) {
+        throw new Error(data.message || "Failed to upload");
+      }
+
+      alert("✅ Profile picture updated successfully!");
       // Refresh the page to show new photo
       window.location.reload();
-    } catch {
-      alert("Could not upload photo. Please try again.");
+    } catch (error: any) {
+      console.error('Photo upload error:', error);
+      alert(`Could not upload photo: ${error.message || "Please try again"}`);
     } finally {
       setUploadingPhoto(false);
     }

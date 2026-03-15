@@ -91,17 +91,23 @@ export class AuthService {
 
     if (!this.otpTestMode) {
       // Send OTP via email and SMS
-      await Promise.all([
+      const sendPromises = [
         this.emailService.sendOtpEmail(dto.email, code),
-        // If user has phone number, send SMS too
-        (async () => {
-          const user = await this.userModel.findOne({ email: dto.email }).exec();
-          if (user?.phone) {
-            await this.smsService.sendOtpSms(user.phone, code);
-          }
-        })(),
-      ]);
-      this.logger.log(`OTP sent to ${dto.email}`);
+      ];
+
+      // If phone is provided in the request, send SMS directly
+      if (dto.phone) {
+        sendPromises.push(this.smsService.sendOtpSms(dto.phone, code));
+      } else {
+        // Otherwise, check if user exists and has phone number
+        const user = await this.userModel.findOne({ email: dto.email }).exec();
+        if (user?.phone) {
+          sendPromises.push(this.smsService.sendOtpSms(user.phone, code));
+        }
+      }
+
+      await Promise.all(sendPromises);
+      this.logger.log(`OTP sent to ${dto.email}${dto.phone ? ` and ${dto.phone}` : ''}`);
     } else {
       this.logger.log(`[TEST MODE] OTP for ${dto.email}: ${code}`);
     }

@@ -24,7 +24,7 @@ export class SmsService {
   }
 
   /**
-   * Send OTP SMS using MSG91 - Simple API (no template required)
+   * Send OTP SMS using MSG91 - Correct API format
    */
   async sendOtpSms(phone: string, otp: string): Promise<void> {
     if (!this.enabled) {
@@ -33,32 +33,45 @@ export class SmsService {
     }
 
     try {
-      // Clean phone number - remove +91 if present
-      const cleanPhone = phone.replace(/^\+91/, '').replace(/\s/g, '');
+      // Clean phone number - remove +91 and spaces
+      const cleanPhone = phone.replace(/^\+91/, '').replace(/\s/g, '').replace(/^91/, '');
       
-      // MSG91 Send OTP API (v5)
-      const url = `https://control.msg91.com/api/v5/otp?otp=${otp}&mobile=91${cleanPhone}`;
+      // MSG91 SMS API - Correct format
+      const url = 'https://control.msg91.com/api/v5/flow/';
       
-      const response = await axios.get(url, {
+      const payload = {
+        flow_id: '673e0e0cd6fc054b4b3e0e0c', // Default OTP flow ID
+        sender: this.senderId,
+        mobiles: `91${cleanPhone}`,
+        OTP: otp, // Variable name for OTP in template
+      };
+
+      this.logger.log(`Attempting to send OTP SMS to ${phone} (${cleanPhone})`);
+
+      const response = await axios.post(url, payload, {
         headers: {
           'authkey': this.authKey!,
+          'content-type': 'application/json',
         },
       });
 
       if (response.data.type === 'success' || response.status === 200) {
-        this.logger.log(`OTP SMS sent to ${phone}`);
+        this.logger.log(`✅ OTP SMS sent successfully to ${phone}`);
       } else {
-        this.logger.error(`Failed to send OTP SMS to ${phone}: ${JSON.stringify(response.data)}`);
+        this.logger.error(`❌ Failed to send OTP SMS to ${phone}: ${JSON.stringify(response.data)}`);
       }
     } catch (error: any) {
+      const errorMsg = error?.response?.data?.message || error.message;
+      const errorCode = error?.response?.status;
       this.logger.error(
-        `Failed to send OTP SMS to ${phone}: ${error?.response?.data?.message || error.message}`,
+        `❌ SMS Error [${errorCode}] for ${phone}: ${errorMsg}. ` +
+        `If error 418, whitelist IP 66.249.73.68 in MSG91 dashboard.`
       );
     }
   }
 
   /**
-   * Send transactional SMS using MSG91 - Simple API
+   * Send transactional SMS using MSG91 - Promotional route
    */
   async sendTransactionalSms(phone: string, message: string): Promise<void> {
     if (!this.enabled) {
@@ -68,21 +81,29 @@ export class SmsService {
 
     try {
       // Clean phone number
-      const cleanPhone = phone.replace(/^\+91/, '').replace(/\s/g, '');
+      const cleanPhone = phone.replace(/^\+91/, '').replace(/\s/g, '').replace(/^91/, '');
       
-      // MSG91 SMS API
-      const url = 'https://api.msg91.com/api/sendhttp.php';
+      // MSG91 SMS API - Simple format
+      const url = 'https://control.msg91.com/api/v5/flow/';
       
-      const params = {
-        authkey: this.authKey!,
-        mobiles: `91${cleanPhone}`,
-        message: message,
+      const payload = {
         sender: this.senderId,
-        route: '4', // Transactional route
+        route: '1', // Promotional route (doesn't require DLT for testing)
         country: '91',
+        sms: [
+          {
+            message: message,
+            to: [cleanPhone],
+          },
+        ],
       };
 
-      const response = await axios.get(url, { params });
+      const response = await axios.post(url, payload, {
+        headers: {
+          'authkey': this.authKey!,
+          'content-type': 'application/json',
+        },
+      });
 
       if (response.data.type === 'success' || response.status === 200) {
         this.logger.log(`SMS sent to ${phone}`);

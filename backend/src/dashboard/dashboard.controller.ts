@@ -143,14 +143,25 @@ export class DashboardController {
     @Param('registrationId') registrationId: string,
     @UploadedFile() file: Express.Multer.File,
   ) {
+    console.log('=== Profile Picture Upload Request ===');
+    console.log('Registration ID:', registrationId);
+    console.log('File received:', file ? 'Yes' : 'No');
+    
     if (!file) {
+      console.error('No file in request');
       throw new BadRequestException('No file uploaded');
     }
 
+    console.log('File details:', {
+      originalname: file.originalname,
+      mimetype: file.mimetype,
+      size: file.size,
+      path: file.path,
+    });
+
     try {
-      console.log('Uploading file:', file.path);
-      
       // Upload to Cloudinary
+      console.log('Starting Cloudinary upload...');
       const result = await cloudinary.uploader.upload(file.path, {
         folder: 'wombto18/profiles',
         public_id: `${registrationId}_${Date.now()}`,
@@ -160,16 +171,18 @@ export class DashboardController {
         ],
       });
 
-      console.log('Cloudinary upload successful:', result.secure_url);
+      console.log('✅ Cloudinary upload successful:', result.secure_url);
 
       // Update child record with new URL
       await this.dashboardService.updateProfilePicture(registrationId, result.secure_url);
+      console.log('✅ Database updated with new profile picture URL');
 
       // Clean up temp file
       try {
         fs.unlinkSync(file.path);
+        console.log('✅ Temp file cleaned up');
       } catch (cleanupError) {
-        console.warn('Failed to cleanup temp file:', cleanupError);
+        console.warn('⚠️ Failed to cleanup temp file:', cleanupError);
       }
 
       return {
@@ -178,7 +191,18 @@ export class DashboardController {
         data: { profilePictureUrl: result.secure_url },
       };
     } catch (error) {
-      console.error('Profile picture upload error:', error);
+      console.error('❌ Profile picture upload error:', error);
+      console.error('Error stack:', error instanceof Error ? error.stack : 'No stack trace');
+      
+      // Clean up temp file on error
+      if (file?.path) {
+        try {
+          fs.unlinkSync(file.path);
+        } catch (cleanupError) {
+          console.warn('Failed to cleanup temp file after error:', cleanupError);
+        }
+      }
+      
       throw new BadRequestException(
         `Failed to upload profile picture: ${error instanceof Error ? error.message : 'Unknown error'}`
       );

@@ -8,6 +8,8 @@ interface HeaderProps {
   toggleMobile: () => void;
 }
 
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000";
+
 export default function DashboardHeader({ toggleMobile }: HeaderProps) {
   const [isEmergencyOpen, setIsEmergencyOpen] = useState(false);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
@@ -17,15 +19,39 @@ export default function DashboardHeader({ toggleMobile }: HeaderProps) {
   const [avatarUrl, setAvatarUrl] = useState("https://images.unsplash.com/photo-1554622965-bfaeff35e57f?q=80&w=1770&auto=format&fit=crop");
 
   useEffect(() => {
-    try {
-      const raw = localStorage.getItem("wt18_user");
-      if (raw) {
-        const u = JSON.parse(raw);
-        if (u.fullName) setUserName(u.fullName);
-        if (u.email) setUserEmail(u.email);
-        if (u.profilePictureUrl) setAvatarUrl(u.profilePictureUrl);
+    async function loadProfilePicture() {
+      try {
+        const raw = localStorage.getItem("wt18_user");
+        const token = localStorage.getItem("wt18_token");
+        
+        if (raw) {
+          const u = JSON.parse(raw);
+          if (u.fullName) setUserName(u.fullName);
+          if (u.email) setUserEmail(u.email);
+        }
+
+        // Fetch child's profile picture from API
+        if (token) {
+          const familyRes = await fetch(`${API_BASE}/dashboard/family`, {
+            headers: { Authorization: `Bearer ${token}` },
+          });
+
+          if (familyRes.ok) {
+            const familyJson = await familyRes.json();
+            const kids = familyJson.data?.children || familyJson.data || [];
+            const firstChild = kids[0];
+            
+            if (firstChild?.profilePictureUrl) {
+              setAvatarUrl(firstChild.profilePictureUrl);
+            }
+          }
+        }
+      } catch (error) {
+        console.error("Failed to load profile picture:", error);
       }
-    } catch {}
+    }
+
+    loadProfilePicture();
   }, []);
   
   // Refs for the dropdowns to handle "click outside" to close
