@@ -5,6 +5,7 @@ import {
   Param,
   Patch,
   Post,
+  Delete,
   UseGuards,
   Req,
   UseInterceptors,
@@ -227,5 +228,14 @@ export class DashboardController {
   async getAdminStats() {
     const stats = await this.dashboardService.getAdminStats();
     return { success: true, data: stats };
+  }
+
+  /**
+   * Admin: Delete a child and all associated data
+   */
+  @Delete('admin/delete-child/:registrationId')
+  async deleteChild(@Param('registrationId') registrationId: string) {
+    await this.dashboardService.deleteChild(registrationId);
+    return { success: true, message: 'Child deleted successfully' };
   }
 }

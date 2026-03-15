@@ -382,4 +382,28 @@ export class DashboardService {
       missedVaccinations,
     };
   }
+
+  /**
+   * Delete a child and all associated data (milestones, reminders, etc.)
+   */
+  async deleteChild(registrationId: string): Promise<void> {
+    // Delete child registration
+    const child = await this.childModel.findOneAndDelete({ registrationId }).exec();
+    if (!child) {
+      throw new NotFoundException('Child registration not found');
+    }
+
+    // Delete all milestones for this child
+    await this.milestoneModel.deleteMany({ registrationId }).exec();
+
+    // Remove registration ID from parent user
+    if (child.parentUserId) {
+      await this.userModel.updateOne(
+        { _id: child.parentUserId },
+        { $pull: { registrationIds: registrationId } }
+      ).exec();
+    }
+
+    this.logger.log(`Child deleted: ${registrationId}`);
+  }
 }
