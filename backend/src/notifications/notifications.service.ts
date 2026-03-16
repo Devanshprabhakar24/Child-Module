@@ -145,11 +145,11 @@ export class NotificationsService {
 
       await Promise.all([
         this.sendWhatsApp(payload.phone, message, certificateBuffer),
-        this.sendEmail(
+        this.emailService.sendGoGreenCertificateEmail(
           payload.email,
-          '🌱 WombTo18 - Go Green Participation Certificate',
-          message,
-          undefined,
+          payload.parentName,
+          payload.childName,
+          payload.registrationId,
           certificateBuffer,
         ),
       ]);

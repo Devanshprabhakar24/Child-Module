@@ -355,6 +355,65 @@ export class EmailService {
     `;
   }
 
+  private getGoGreenCertificateEmailTemplate(
+    parentName: string,
+    childName: string,
+    registrationId: string,
+  ): string {
+    return `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="utf-8">
+        <style>
+          body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+          .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+          .header { background: linear-gradient(135deg, #4caf50, #66bb6a); color: white; padding: 30px; text-align: center; border-radius: 10px 10px 0 0; }
+          .content { background: #f9f9f9; padding: 30px; border-radius: 0 0 10px 10px; }
+          .highlight { background: #e8f5e9; padding: 15px; border-left: 4px solid #4caf50; margin: 20px 0; }
+          .tree-icon { font-size: 2em; margin: 10px 0; }
+          .footer { text-align: center; margin-top: 30px; color: #666; font-size: 0.9em; }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <div class="header">
+            <h1>🌱 WombTo18 Go Green Initiative</h1>
+            <p>Committed to a Greener Future</p>
+          </div>
+          <div class="content">
+            <h2>Congratulations, ${parentName}!</h2>
+            <p>We are delighted to inform you that <strong>${childName}</strong> has been enrolled in the <strong>WombTo18 Green Cohort</strong>.</p>
+            
+            <div class="highlight">
+              <div class="tree-icon">🌳</div>
+              <p><strong>A tree has been planted in ${childName}'s name</strong> as part of our environmental initiative to create a greener, healthier future for our children.</p>
+            </div>
+            
+            <p>Your child's <strong>Go Green Participation Certificate</strong> is attached to this email. This certificate recognizes ${childName}'s contribution to environmental sustainability from an early age.</p>
+            
+            <p><strong>Registration Details:</strong></p>
+            <ul>
+              <li>Child Name: ${childName}</li>
+              <li>Registration ID: ${registrationId}</li>
+              <li>Program: WombTo18 Green Cohort</li>
+            </ul>
+            
+            <p>Together, we are building a sustainable future for the next generation. Thank you for being part of this meaningful initiative.</p>
+            
+            <div class="footer">
+              <p>Best regards,<br>
+              <strong>WombTo18 Team</strong><br>
+              Maternal-to-Child Health Platform</p>
+              <p>📧 support@wombto18.com | 🌐 www.wombto18.com</p>
+            </div>
+          </div>
+        </div>
+      </body>
+      </html>
+    `;
+  }
+
   private getVaccinationReminderTemplate(parentName: string, childName: string, vaccineName: string, dueDate: string, prefix: string): string {
     return `
       <!DOCTYPE html>
