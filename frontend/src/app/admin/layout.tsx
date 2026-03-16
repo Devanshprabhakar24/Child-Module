@@ -122,9 +122,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         {/* Logo Section */}
         <div className="flex h-16 shrink-0 items-center justify-between border-b border-slate-100 px-4">
           <div className="flex items-center gap-3">
-            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-emerald-500 text-white">
-              <Shield className="h-5 w-5" />
-            </div>
+            
             {!isCollapsed && (
               <span className="text-lg font-semibold text-slate-900">WombTo18</span>
             )}

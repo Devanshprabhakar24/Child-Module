@@ -398,22 +398,47 @@ export default function AdminVaccinationsPage() {
 
                   {/* Actions */}
                   <div className="flex items-center gap-2">
-                    <button
-                      onClick={() => handleToggleStatus(milestone._id, milestone.status)}
-                      disabled={marking === milestone._id || isUpcoming || isCompleted}
-                      className={`flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-semibold transition-colors ${buttonStyle} disabled:opacity-60`}
-                    >
-                      {marking === milestone._id ? (
-                        <>
-                          <Loader2 className="h-4 w-4 animate-spin" />
-                          Updating...
-                        </>
-                      ) : isCompleted ? (
-                        "Done"
-                      ) : (
-                        "Mark as Done"
-                      )}
-                    </button>
+                    {isCompleted ? (
+                      <button
+                        onClick={() => handleToggleStatus(milestone._id, milestone.status)}
+                        disabled={marking === milestone._id}
+                        className="flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-50 disabled:opacity-60"
+                      >
+                        {marking === milestone._id ? (
+                          <>
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                            Updating...
+                          </>
+                        ) : (
+                          <>
+                            <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6" />
+                            </svg>
+                            Mark as Undone
+                          </>
+                        )}
+                      </button>
+                    ) : (
+                      <button
+                        onClick={() => handleToggleStatus(milestone._id, milestone.status)}
+                        disabled={marking === milestone._id || isUpcoming}
+                        className={`flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-semibold transition-colors ${buttonStyle} disabled:opacity-60`}
+                      >
+                        {marking === milestone._id ? (
+                          <>
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                            Updating...
+                          </>
+                        ) : (
+                          <>
+                            <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                            </svg>
+                            Mark as Done
+                          </>
+                        )}
+                      </button>
+                    )}
                     <button
                       className={`rounded-lg p-2 transition-colors ${bellButtonStyle}`}
                       title="Send Reminder"
