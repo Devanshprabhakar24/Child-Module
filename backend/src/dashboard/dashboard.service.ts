@@ -3,6 +3,7 @@ import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 
 import { Milestone, MilestoneDocument } from './schemas/milestone.schema';
+import { DevelopmentMilestone, DevelopmentMilestoneDocument, AgeGroupEnum } from './schemas/development-milestone.schema';
 import {
   ChildRegistration,
   ChildRegistrationDocument,
@@ -23,6 +24,8 @@ export class DashboardService {
   constructor(
     @InjectModel(Milestone.name)
     private readonly milestoneModel: Model<MilestoneDocument>,
+    @InjectModel(DevelopmentMilestone.name)
+    private readonly devMilestoneModel: Model<DevelopmentMilestoneDocument>,
     @InjectModel(ChildRegistration.name)
     private readonly childModel: Model<ChildRegistrationDocument>,
     @InjectModel(User.name)
@@ -396,6 +399,9 @@ export class DashboardService {
     // Delete all milestones for this child
     await this.milestoneModel.deleteMany({ registrationId }).exec();
 
+    // Delete all development milestones for this child
+    await this.devMilestoneModel.deleteMany({ registrationId }).exec();
+
     // Remove registration ID from parent user
     if (child.parentUserId) {
       await this.userModel.updateOne(
@@ -405,5 +411,129 @@ export class DashboardService {
     }
 
     this.logger.log(`Child deleted: ${registrationId}`);
+  }
+
+  // ─── Development Milestones ───────────────────────────────────────────
+
+  /**
+   * Calculate child's current age group based on date of birth
+   */
+  getChildAgeGroup(dateOfBirth: Date): AgeGroupEnum {
+    const ageInYears = Math.floor(
+      (Date.now() - new Date(dateOfBirth).getTime()) / (1000 * 60 * 60 * 24 * 365.25)
+    );
+
+    if (ageInYears < 1) return AgeGroupEnum.INFANT;
+    if (ageInYears < 3) return AgeGroupEnum.TODDLER;
+    if (ageInYears < 5) return AgeGroupEnum.PRESCHOOL;
+    if (ageInYears < 13) return AgeGroupEnum.SCHOOL;
+    return AgeGroupEnum.TEEN;
+  }
+
+  /**
+   * Get all age groups that are unlocked for the child (current and past)
+   */
+  getAvailableAgeGroups(dateOfBirth: Date): AgeGroupEnum[] {
+    const currentAgeGroup = this.getChildAgeGroup(dateOfBirth);
+    const allAgeGroups = [
+      AgeGroupEnum.INFANT,
+      AgeGroupEnum.TODDLER,
+      AgeGroupEnum.PRESCHOOL,
+      AgeGroupEnum.SCHOOL,
+      AgeGroupEnum.TEEN,
+    ];
+
+    const currentIndex = allAgeGroups.indexOf(currentAgeGroup);
+    return allAgeGroups.slice(0, currentIndex + 1);
+  }
+
+  /**
+   * Get development milestones for a child
+   */
+  async getDevelopmentMilestones(registrationId: string): Promise<{
+    currentAgeGroup: AgeGroupEnum;
+    availableAgeGroups: AgeGroupEnum[];
+    milestones: DevelopmentMilestoneDocument[];
+  }> {
+    const child = await this.childModel.findOne({ registrationId }).exec();
+    if (!child) {
+      throw new NotFoundException('Child registration not found');
+    }
+
+    const currentAgeGroup = this.getChildAgeGroup(child.dateOfBirth);
+    const availableAgeGroups = this.getAvailableAgeGroups(child.dateOfBirth);
+
+    const milestones = await this.devMilestoneModel
+      .find({ registrationId, isActive: true })
+      .sort({ ageGroup: 1, type: 1, order: 1 })
+      .exec();
+
+    return {
+      currentAgeGroup,
+      availableAgeGroups,
+      milestones,
+    };
+  }
+
+  /**
+   * Seed development milestones from templates for a specific age group
+   */
+  async seedDevelopmentMilestones(
+    registrationId: string,
+    ageGroup: AgeGroupEnum,
+    templates: any[]
+  ): Promise<DevelopmentMilestoneDocument[]> {
+    // Check if milestones already exist for this age group
+    const existing = await this.devMilestoneModel.countDocuments({
+      registrationId,
+      ageGroup,
+    });
+
+    if (existing > 0) {
+      this.logger.log(`Development milestones already seeded for ${registrationId} - ${ageGroup}`);
+      return this.devMilestoneModel.find({ registrationId, ageGroup }).exec();
+    }
+
+    // Create milestones from templates
+    const milestones = templates.map((template) => ({
+      registrationId,
+      ageGroup,
+      title: template.title,
+      description: template.description,
+      type: template.type,
+      order: template.order,
+      status: 'NOT_STARTED',
+    }));
+
+    const created = await this.devMilestoneModel.insertMany(milestones);
+    this.logger.log(`Seeded ${created.length} development milestones for ${registrationId} - ${ageGroup}`);
+
+    return created as DevelopmentMilestoneDocument[];
+  }
+
+  /**
+   * Update development milestone status
+   */
+  async updateDevelopmentMilestoneStatus(
+    milestoneId: string,
+    status: string,
+    achievedDate?: Date,
+    notes?: string
+  ): Promise<DevelopmentMilestoneDocument> {
+    const milestone = await this.devMilestoneModel.findById(milestoneId).exec();
+    if (!milestone) {
+      throw new NotFoundException('Development milestone not found');
+    }
+
+    milestone.status = status as any;
+    if (achievedDate) {
+      milestone.achievedDate = achievedDate;
+    }
+    if (notes !== undefined) {
+      milestone.notes = notes;
+    }
+
+    await milestone.save();
+    return milestone;
   }
 }

@@ -1,4 +1,5 @@
 import {
+  Body,
   Controller,
   Get,
   Headers,
@@ -24,6 +25,47 @@ export class PaymentsController {
   private readonly logger = new Logger(PaymentsController.name);
 
   constructor(private readonly paymentsService: PaymentsService) {}
+
+  @Get('test-mode-status')
+  async getTestModeStatus() {
+    return {
+      success: true,
+      testMode: this.paymentsService.isTestMode(),
+      demoMode: this.paymentsService.isDemoMode(),
+    };
+  }
+
+  @Post('create-order')
+  async createOrder(@Body() body: { registrationId: string; childName: string }) {
+    try {
+      const { registrationId, childName } = body;
+      
+      if (!registrationId || !childName) {
+        return {
+          success: false,
+          message: 'Registration ID and child name are required',
+        };
+      }
+
+      const payment = await this.paymentsService.createOrder(registrationId, childName);
+      
+      return {
+        success: true,
+        data: {
+          razorpayOrderId: payment.razorpayOrderId,
+          amount: payment.amount,
+          currency: payment.currency,
+          registrationId: payment.registrationId,
+        },
+      };
+    } catch (error: any) {
+      console.error('Create order error:', error);
+      return {
+        success: false,
+        message: error.message || 'Failed to create payment order',
+      };
+    }
+  }
 
   @Get('order/:orderId')
   @UseGuards(AuthGuard)

@@ -65,39 +65,67 @@ export default function RegistrationFlow() {
     const data = json.data || json;
     const registrationId: string = data.registrationId;
 
-    // Confirm test payment in PAYMENT_TEST_MODE
-    const payRes = await fetch(
-      `${API_BASE}/registration/confirm-test-payment/${encodeURIComponent(registrationId)}`,
-      { method: "POST" },
-    );
-    const payJson = await payRes.json().catch(() => ({}));
-    const paymentId: string = payJson.data?.razorpayPaymentId ?? `test_pay_${Date.now()}`;
-
-    // Link child to parent user account so dashboard shows the child
-    const token = typeof window !== "undefined" ? localStorage.getItem("wt18_token") : null;
-    if (token) {
-      try {
-        // Decode token to get parentUserId (sub field)
-        const tokenPayload = JSON.parse(atob(token.replace(/-/g, "+").replace(/_/g, "/")));
-        const parentUserId: string = tokenPayload.sub;
-        if (parentUserId) {
-          await fetch(
-            `${API_BASE}/registration/${encodeURIComponent(registrationId)}/link-parent/${encodeURIComponent(parentUserId)}`,
-            { method: "POST" },
-          );
+    // Check if backend is in test mode
+    const testModeResponse = await fetch(`${API_BASE}/payments/test-mode-status`);
+    const testModeData = await testModeResponse.json().catch(() => ({ testMode: false, demoMode: false }));
+    
+    if (testModeData.testMode && !testModeData.demoMode) {
+      // Pure test mode - skip payment and go directly to success
+      const testPaymentId = `test_pay_${Date.now()}`;
+      
+      // Link child to parent user account
+      const token = typeof window !== "undefined" ? localStorage.getItem("wt18_token") : null;
+      if (token) {
+        try {
+          const tokenPayload = JSON.parse(atob(token.replace(/-/g, "+").replace(/_/g, "/")));
+          const parentUserId: string = tokenPayload.sub;
+          if (parentUserId) {
+            await fetch(
+              `${API_BASE}/registration/${encodeURIComponent(registrationId)}/link-parent/${encodeURIComponent(parentUserId)}`,
+              { method: "POST" },
+            );
+          }
+        } catch {
+          // non-fatal — dashboard will still work via email match
         }
-      } catch {
-        // non-fatal — dashboard will still work via email match
       }
+
+      // Store test payment data and redirect to success
+      if (typeof window !== "undefined") {
+        sessionStorage.setItem("wt18_reg_id", registrationId);
+        sessionStorage.setItem("wt18_pay_id", testPaymentId);
+        sessionStorage.setItem("wt18_child_name", childDetails.childName);
+        sessionStorage.setItem("wt18_reg_date", new Date().toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short" }));
+        window.location.href = "/success";
+      }
+      return;
     }
 
-    // Store real data for success page
+    // Demo mode or real payment mode - create payment order and redirect to payment
+    const paymentResponse = await fetch(`/api/payments/create-order`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ registrationId, childName: childDetails.childName }),
+    });
+
+    if (!paymentResponse.ok) {
+      throw new Error("Failed to create payment order");
+    }
+
+    const paymentData = await paymentResponse.json();
+    if (!paymentData.success) {
+      throw new Error(paymentData.message || "Payment order creation failed");
+    }
+
+    // Store registration data for payment success handling
     if (typeof window !== "undefined") {
       sessionStorage.setItem("wt18_reg_id", registrationId);
-      sessionStorage.setItem("wt18_pay_id", paymentId);
       sessionStorage.setItem("wt18_child_name", childDetails.childName);
       sessionStorage.setItem("wt18_reg_date", new Date().toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short" }));
-      window.location.href = "/success";
+      sessionStorage.setItem("wt18_payment_data", JSON.stringify(paymentData.data));
+      
+      // Redirect to payment page
+      window.location.href = `/payment?registrationId=${encodeURIComponent(registrationId)}`;
     }
   };
 
@@ -130,6 +158,7 @@ export default function RegistrationFlow() {
             onPrev={prevStep}
             onComplete={setContactDetails}
             motherName={childDetails?.motherName ?? ""}
+            stateCode={childDetails?.stateCode}
           />
         </div>
       )}

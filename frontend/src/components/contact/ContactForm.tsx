@@ -55,9 +55,9 @@ export default function ContactForm() {
                   <div>
                     <p className="text-xs font-normal uppercase tracking-widest text-slate-400">Headquarters</p>
                     <p className="mt-1 text-lg font-medium leading-relaxed text-white">
-                      WombTo18 Health Tech<br />
-                      HSR Layout, Sector 2<br />
-                      Bengaluru, Karnataka 560102
+                      {process.env.NEXT_PUBLIC_COMPANY_NAME || 'WombTo18 Health Tech'}<br />
+                      {process.env.NEXT_PUBLIC_COMPANY_ADDRESS || 'HSR Layout, Sector 2'}<br />
+                      {process.env.NEXT_PUBLIC_COMPANY_CITY || 'Bengaluru'}, {process.env.NEXT_PUBLIC_COMPANY_STATE || 'Karnataka'} {process.env.NEXT_PUBLIC_COMPANY_PINCODE || '560102'}
                     </p>
                   </div>
                 </div>

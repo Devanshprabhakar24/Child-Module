@@ -238,4 +238,47 @@ export class DashboardController {
     await this.dashboardService.deleteChild(registrationId);
     return { success: true, message: 'Child deleted successfully' };
   }
+
+  // ─── Development Milestones ───────────────────────────────────────────
+
+  /**
+   * Get all development milestones for a child with age group info
+   */
+  @Get('development-milestones/:registrationId')
+  async getDevelopmentMilestones(@Param('registrationId') registrationId: string) {
+    const data = await this.dashboardService.getDevelopmentMilestones(registrationId);
+    return { success: true, data };
+  }
+
+  /**
+   * Seed development milestones for a specific age group
+   */
+  @Post('development-milestones/seed')
+  async seedDevelopmentMilestones(
+    @Body() body: { registrationId: string; ageGroup: string; templates: any[] }
+  ) {
+    const milestones = await this.dashboardService.seedDevelopmentMilestones(
+      body.registrationId,
+      body.ageGroup as any,
+      body.templates
+    );
+    return { success: true, data: milestones, count: milestones.length };
+  }
+
+  /**
+   * Update development milestone status
+   */
+  @Patch('development-milestones/:milestoneId')
+  async updateDevelopmentMilestoneStatus(
+    @Param('milestoneId') milestoneId: string,
+    @Body() body: { status: string; achievedDate?: string; notes?: string }
+  ) {
+    const milestone = await this.dashboardService.updateDevelopmentMilestoneStatus(
+      milestoneId,
+      body.status,
+      body.achievedDate ? new Date(body.achievedDate) : undefined,
+      body.notes
+    );
+    return { success: true, data: milestone };
+  }
 }

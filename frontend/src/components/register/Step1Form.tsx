@@ -2,6 +2,7 @@
 
 import { useState, useMemo } from "react";
 import { Info, User, Search, ChevronDown, RotateCcw, ArrowRight } from "lucide-react";
+import { handleNameInput } from "../../utils/textFormatting";
 
 export interface ChildDetails {
   motherName: string;
@@ -104,7 +105,7 @@ export default function Step1Form({ onNext, onComplete }: Step1Props) {
             placeholder="e.g. Reena Kumari" 
             type="text" 
             value={motherName}
-            onChange={(e) => setMotherName(e.target.value)}
+            onChange={(e) => handleNameInput(e.target.value, setMotherName)}
           />
         </div>
 
@@ -120,7 +121,7 @@ export default function Step1Form({ onNext, onComplete }: Step1Props) {
             placeholder="e.g. Aarav Kumar" 
             type="text" 
             value={childName}
-            onChange={(e) => setChildName(e.target.value)}
+            onChange={(e) => handleNameInput(e.target.value, setChildName)}
           />
         </div>
       </div>

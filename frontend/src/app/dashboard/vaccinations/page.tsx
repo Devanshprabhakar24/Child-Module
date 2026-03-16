@@ -4,7 +4,7 @@ import { useState } from "react";
 import VaccinationHeader from "@/components/dashboard/vaccinations/VaccinationHeader";
 import VaccinationSidePanel from "@/components/dashboard/vaccinations/VaccinationSidePanel";
 import { useChildData } from "@/hooks/useChildData";
-import { Syringe, AlertTriangle, Bell, Loader2 } from "lucide-react";
+import { Syringe, AlertTriangle, Loader2 } from "lucide-react";
 
 const STATUS_LABELS: Record<string, { label: string; color: string; bg: string }> = {
   COMPLETED: { label: "Completed", color: "text-green-700", bg: "bg-green-100" },
@@ -27,34 +27,6 @@ function groupByPeriod(milestones: any[]) {
 export default function VaccinationTrackerPage() {
   const { loading, error, vaccination, profile, token, registrationId } = useChildData();
   const [filter, setFilter] = useState("All");
-  const [marking, setMarking] = useState<string | null>(null);
-
-  const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000";
-
-  async function handleMarkComplete(milestoneId: string) {
-    if (!token) return;
-    setMarking(milestoneId);
-    try {
-      const res = await fetch(`${API_BASE}/dashboard/milestones/${milestoneId}`, {
-        method: "PATCH",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          status: "COMPLETED",
-          completedDate: new Date().toISOString(),
-        }),
-      });
-      if (!res.ok) throw new Error("Failed");
-      // Refresh page to show updated data
-      window.location.reload();
-    } catch {
-      alert("Could not mark as completed. Please try again.");
-    } finally {
-      setMarking(null);
-    }
-  }
 
   const milestones = vaccination?.milestones || [];
   const filtered = filter === "All"
@@ -160,30 +132,17 @@ export default function VaccinationTrackerPage() {
                       </div>
                     </div>
                     <div className="flex items-center gap-2">
-                      {m.status === "COMPLETED" && (
-                        <span className="rounded-lg bg-green-50 px-4 py-2 text-xs font-medium text-green-700">✓ Done</span>
-                      )}
-                      {(m.status === "DUE" || m.status === "UPCOMING" || m.status === "MISSED") && (
-                        <>
-                          <button
-                            onClick={() => handleMarkComplete(m._id)}
-                            disabled={marking === m._id}
-                            className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-xs font-medium text-white transition-colors hover:bg-primary/90 disabled:opacity-60"
-                          >
-                            {marking === m._id ? (
-                              <>
-                                <Loader2 className="h-3 w-3 animate-spin" />
-                                Marking...
-                              </>
-                            ) : (
-                              "Mark as Done"
-                            )}
-                          </button>
-                          <button className="rounded-lg bg-slate-100 p-2 text-slate-500 hover:bg-slate-200" title="Remind Me">
-                            <Bell className="h-4 w-4" />
-                          </button>
-                        </>
-                      )}
+                      <span className={`rounded-lg px-4 py-2 text-xs font-medium ${
+                        m.status === "COMPLETED" 
+                          ? "bg-green-50 text-green-700" 
+                          : m.status === "DUE"
+                          ? "bg-amber-50 text-amber-700"
+                          : m.status === "MISSED"
+                          ? "bg-red-50 text-red-700"
+                          : "bg-slate-50 text-slate-700"
+                      }`}>
+                        {m.status === "COMPLETED" ? "✓ Done" : s.label}
+                      </span>
                     </div>
                   </div>
                 );

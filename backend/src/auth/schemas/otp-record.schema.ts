@@ -5,8 +5,11 @@ export type OtpRecordDocument = HydratedDocument<OtpRecord>;
 
 @Schema({ timestamps: true, collection: 'otp_records' })
 export class OtpRecord {
-  @Prop({ type: String, required: true, index: true })
-  email!: string;
+  @Prop({ type: String, index: true })
+  email?: string;
+
+  @Prop({ type: String, index: true })
+  phone?: string;
 
   @Prop({ type: String, required: true })
   code!: string;
@@ -19,6 +22,9 @@ export class OtpRecord {
 
   @Prop({ type: Number, default: 0 })
   attempts!: number;
+
+  @Prop({ type: String, enum: ['email', 'phone'], required: true })
+  type!: 'email' | 'phone';
 }
 
 export const OtpRecordSchema = SchemaFactory.createForClass(OtpRecord);

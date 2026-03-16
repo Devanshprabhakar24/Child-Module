@@ -86,3 +86,21 @@ export class RegisterUserDto {
   @IsOptional()
   role?: UserRole;
 }
+
+export class SendPhoneOtpDto {
+  @IsString()
+  @IsNotEmpty()
+  @Matches(/^\+?91?\d{10}$/, { message: 'phone must be a valid Indian mobile number' })
+  phone!: string;
+}
+
+export class VerifyPhoneOtpDto {
+  @IsString()
+  @IsNotEmpty()
+  @Matches(/^\+?91?\d{10}$/, { message: 'phone must be a valid Indian mobile number' })
+  phone!: string;
+
+  @IsString()
+  @IsNotEmpty()
+  otp!: string;
+}

@@ -131,6 +131,46 @@ export class EmailService {
     }
   }
 
+  /**
+   * Sends Go Green Certificate email with PDF attachment
+   */
+  async sendGoGreenCertificateEmail(
+    to: string,
+    parentName: string,
+    childName: string,
+    registrationId: string,
+    certificateBuffer: Buffer,
+  ): Promise<void> {
+    if (!this.transporter) {
+      this.logger.warn(`Cannot send Go Green certificate email to ${to}: transporter not configured`);
+      return;
+    }
+
+    try {
+      await this.transporter.sendMail({
+        from: this.fromAddress,
+        to,
+        subject: `🌱 ${childName}'s Go Green Participation Certificate - WombTo18`,
+        text: `Congratulations ${parentName}! ${childName} is now part of the WombTo18 Green Cohort. A tree has been planted in their name as part of our environmental initiative. Please find the Go Green Participation Certificate attached.`,
+        html: this.getGoGreenCertificateEmailTemplate(parentName, childName, registrationId),
+        attachments: [
+          {
+            filename: `${childName}_GoGreen_Certificate_${registrationId}.pdf`,
+            content: certificateBuffer,
+            contentType: 'application/pdf',
+          },
+        ],
+      });
+      this.logger.log(`Go Green certificate email sent to ${to}`);
+    } catch (error) {
+      this.logger.error(
+        `Failed to send Go Green certificate email to ${to}: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+      );
+    }
+  }
+
   async sendVaccinationReminderEmail(
     to: string,
     parentName: string,

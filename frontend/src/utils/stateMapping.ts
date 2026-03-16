@@ -1,0 +1,42 @@
+// State code to full name mapping for Indian states
+export const STATE_MAPPING: Record<string, string> = {
+  AN: 'Andaman and Nicobar Islands',
+  AP: 'Andhra Pradesh',
+  AR: 'Arunachal Pradesh',
+  AS: 'Assam',
+  BR: 'Bihar',
+  CH: 'Chandigarh',
+  CT: 'Chhattisgarh',
+  DD: 'Dadra & Nagar Haveli and Daman & Diu',
+  DL: 'Delhi',
+  GA: 'Goa',
+  GJ: 'Gujarat',
+  HP: 'Himachal Pradesh',
+  HR: 'Haryana',
+  JH: 'Jharkhand',
+  JK: 'Jammu & Kashmir',
+  KA: 'Karnataka',
+  KL: 'Kerala',
+  LA: 'Ladakh',
+  MH: 'Maharashtra',
+  ML: 'Meghalaya',
+  MN: 'Manipur',
+  MP: 'Madhya Pradesh',
+  MZ: 'Mizoram',
+  NL: 'Nagaland',
+  OD: 'Odisha',
+  PB: 'Punjab',
+  PY: 'Puducherry',
+  RJ: 'Rajasthan',
+  SK: 'Sikkim',
+  TN: 'Tamil Nadu',
+  TS: 'Telangana',
+  TR: 'Tripura',
+  UK: 'Uttarakhand',
+  UP: 'Uttar Pradesh',
+  WB: 'West Bengal',
+};
+
+export const getStateName = (stateCode: string): string => {
+  return STATE_MAPPING[stateCode] || stateCode;
+};

@@ -8,6 +8,7 @@ import { DashboardModule } from './dashboard/dashboard.module';
 import { RemindersModule } from './reminders/reminders.module';
 import { ChannelPartnerModule } from './channel-partner/channel-partner.module';
 import { NotificationsModule } from './notifications/notifications.module';
+import { CmsModule } from './cms/cms.module';
 
 @Module({
   imports: [
@@ -22,6 +23,7 @@ import { NotificationsModule } from './notifications/notifications.module';
     DashboardModule,
     RemindersModule,
     ChannelPartnerModule,
+    CmsModule,
   ],
 })
 export class AppModule {}

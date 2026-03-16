@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Baby, Smile, Calendar, Syringe, AlertTriangle, Bell, Loader2 } from "lucide-react";
+import { Baby, Smile, Calendar, Syringe, AlertTriangle, Loader2 } from "lucide-react";
 import VaccineDetailsModal from "./VaccineDetailsModal";
 import { downloadVaccineCertificate } from "@/utils/generateCertificate"; // Make sure you created this file!
 
@@ -142,10 +142,7 @@ export default function VaccinationTimeline() {
                 </div>
               </div>
               <div className="flex items-center gap-2">
-                <button className="rounded-lg bg-primary px-4 py-2 text-xs font-medium text-white transition-all hover:brightness-110">Mark as Done</button>
-                <button className="rounded-lg bg-slate-100 p-2 text-slate-500 hover:bg-slate-200" title="Remind Me">
-                  <Bell className="h-4 w-4" />
-                </button>
+                <span className="rounded-lg bg-amber-100 px-4 py-2 text-xs font-medium text-amber-700">Due Today</span>
               </div>
             </div>
           </div>

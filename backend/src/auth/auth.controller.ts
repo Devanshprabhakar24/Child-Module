@@ -3,7 +3,7 @@ import { Body, Controller, Get, HttpCode, HttpStatus, Post, Req, UseGuards, Uplo
 import { FileInterceptor } from '@nestjs/platform-express';
 import { storage } from './multer';
 import { AuthService } from './auth.service';
-import { SendOtpDto, VerifyOtpDto, FirstTimeLoginDto, LoginWithRegistrationIdDto, RegisterUserDto, UpdateProfileDto } from '@wombto18/shared';
+import { SendOtpDto, VerifyOtpDto, FirstTimeLoginDto, LoginWithRegistrationIdDto, RegisterUserDto, UpdateProfileDto, SendPhoneOtpDto, VerifyPhoneOtpDto } from '@wombto18/shared';
 import { AuthGuard } from './guards/auth.guard';
 import { AuthenticatedRequest } from './guards/auth.guard';
 import cloudinary from './cloudinary';
@@ -105,6 +105,32 @@ export class AuthController {
   async sendOtp(@Body() dto: SendOtpDto) {
     const result = await this.authService.sendOtp(dto);
     return { success: true, ...result };
+  }
+
+  @Post('send-phone-otp')
+  @HttpCode(HttpStatus.OK)
+  async sendPhoneOtp(@Body() dto: SendPhoneOtpDto) {
+    const result = await this.authService.sendPhoneOtp(dto);
+    return { success: true, ...result };
+  }
+
+  @Post('verify-phone-otp')
+  @HttpCode(HttpStatus.OK)
+  async verifyPhoneOtp(@Body() dto: VerifyPhoneOtpDto) {
+    try {
+      const result = await this.authService.verifyPhoneOtp(dto);
+      return {
+        success: true,
+        ...result,
+      };
+    } catch (err: any) {
+      console.error('verifyPhoneOtp error:', {
+        body: dto,
+        error: err?.message || err,
+        stack: err?.stack,
+      });
+      throw err;
+    }
   }
 
   @Post('verify-otp')

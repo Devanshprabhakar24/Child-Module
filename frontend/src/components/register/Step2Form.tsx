@@ -2,6 +2,8 @@
 
 import { useState, useRef } from "react";
 import { Mail, AtSign, Phone, Smartphone, MapPin, Clock, ArrowLeft, ArrowRight, CheckCircle2 } from "lucide-react";
+import { getStateName } from "../../utils/stateMapping";
+import { handleNameInput } from "../../utils/textFormatting";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000";
 
@@ -18,9 +20,10 @@ interface Step2Props {
   onPrev: () => void;
   onComplete: (details: ContactDetails) => void;
   motherName: string;
+  stateCode?: string;
 }
 
-export default function Step2Form({ onNext, onPrev, onComplete, motherName }: Step2Props) {
+export default function Step2Form({ onNext, onPrev, onComplete, motherName, stateCode }: Step2Props) {
   // Verification States
   const [email, setEmail] = useState("");
   const [emailStatus, setEmailStatus] = useState<"initial" | "sent" | "verified">("initial");
@@ -434,7 +437,7 @@ export default function Step2Form({ onNext, onPrev, onComplete, motherName }: St
               <label className="mb-2 block text-sm font-medium text-slate-700">City/Town *</label>
               <input 
                 value={city}
-                onChange={(e) => setCity(e.target.value)}
+                onChange={(e) => handleNameInput(e.target.value, setCity)}
                 className="block w-full rounded-lg border border-slate-300 bg-white px-4 py-3 text-slate-900 outline-none transition-all focus:border-primary focus:ring-1 focus:ring-primary" 
                 placeholder="e.g. Bengaluru" 
                 type="text" 
@@ -446,7 +449,7 @@ export default function Step2Form({ onNext, onPrev, onComplete, motherName }: St
                 className="block w-full cursor-not-allowed rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 font-medium text-slate-500 outline-none" 
                 readOnly 
                 type="text" 
-                defaultValue="Karnataka" 
+                value={stateCode ? getStateName(stateCode) : "Not selected"} 
                 title="State is carried over from Step 1"
               />
             </div>

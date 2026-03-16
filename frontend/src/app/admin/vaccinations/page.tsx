@@ -108,8 +108,23 @@ export default function AdminVaccinationsPage() {
 
       if (!res.ok) throw new Error("Failed");
 
-      // Reload data
-      await loadAllChildren();
+      // Update only the current child's milestones without changing selection
+      if (selectedChild) {
+        const milRes = await fetch(
+          `${API_BASE}/dashboard/milestones/${selectedChild}`,
+          { headers: { Authorization: `Bearer ${token}` } }
+        );
+        const milData = await milRes.json();
+        
+        // Update the children state with new milestone data
+        setChildren(prevChildren => 
+          prevChildren.map(child => 
+            child.registrationId === selectedChild
+              ? { ...child, milestones: milData.data || [] }
+              : child
+          )
+        );
+      }
     } catch (error) {
       alert("Could not update status. Please try again.");
     } finally {

@@ -2,6 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { EmailService } from './email.service';
 import { SmsService } from './sms.service';
+import { CertificateService } from '../registration/certificate.service';
 
 /**
  * Enum for notification event types.
@@ -46,6 +47,7 @@ export class NotificationsService {
     private readonly configService: ConfigService,
     private readonly emailService: EmailService,
     private readonly smsService: SmsService,
+    private readonly certificateService: CertificateService,
   ) {
     this.testMode = this.configService.get<string>('NOTIFICATION_TEST_MODE') !== 'false';
     this.baseUrl = this.configService.get<string>('APP_BASE_URL') ?? 'https://wombto18.com';
@@ -113,6 +115,7 @@ export class NotificationsService {
 
   /**
    * Sends Go Green Participation Certificate via WhatsApp and Email.
+   * Generates the certificate PDF with child and mother details.
    */
   async sendGoGreenCertificate(payload: {
     phone: string;
@@ -120,19 +123,51 @@ export class NotificationsService {
     parentName: string;
     childName: string;
     registrationId: string;
-    certificateUrl?: string;
+    state?: string;
+    dateOfBirth?: string;
   }): Promise<void> {
-    const message = `Congratulations ${payload.parentName}! ${payload.childName} is now part of the WombTo18 Green Cohort. Your Go Green Participation Certificate is ready.`;
+    const message = `🌱 Congratulations ${payload.parentName}! ${payload.childName} is now part of the WombTo18 Green Cohort. A tree has been planted in their name as part of our environmental initiative. Your Go Green Participation Certificate is attached.`;
 
-    await Promise.all([
-      this.sendWhatsApp(payload.phone, message),
-      this.sendEmail(
-        payload.email,
-        'WombTo18 - Go Green Participation Certificate',
-        message,
-        payload.certificateUrl,
-      ),
-    ]);
+    try {
+      // Generate the certificate PDF
+      const certificateBuffer = await this.certificateService.generateGoGreenCertificate({
+        childName: payload.childName,
+        motherName: payload.parentName,
+        registrationId: payload.registrationId,
+        state: payload.state || 'India',
+        dateOfBirth: payload.dateOfBirth || '',
+        issuedDate: new Date().toLocaleDateString('en-IN', {
+          day: 'numeric',
+          month: 'long',
+          year: 'numeric'
+        }),
+      });
+
+      await Promise.all([
+        this.sendWhatsApp(payload.phone, message, certificateBuffer),
+        this.sendEmail(
+          payload.email,
+          '🌱 WombTo18 - Go Green Participation Certificate',
+          message,
+          undefined,
+          certificateBuffer,
+        ),
+      ]);
+
+      this.logger.log(`Go Green certificate sent to ${payload.parentName} for ${payload.childName} (${payload.registrationId})`);
+    } catch (error) {
+      this.logger.error(`Failed to generate/send Go Green certificate for ${payload.registrationId}:`, error);
+      
+      // Fallback: send message without certificate
+      await Promise.all([
+        this.sendWhatsApp(payload.phone, message),
+        this.sendEmail(
+          payload.email,
+          '🌱 WombTo18 - Go Green Participation Certificate',
+          message + ' Your certificate will be available in your dashboard shortly.',
+        ),
+      ]);
+    }
   }
 
   /**

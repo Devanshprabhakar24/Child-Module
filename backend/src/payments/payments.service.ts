@@ -24,6 +24,7 @@ export class PaymentsService {
   private readonly logger = new Logger(PaymentsService.name);
   private readonly razorpay: InstanceType<typeof Razorpay> | null;
   private readonly testMode: boolean;
+  private readonly demoMode: boolean;
 
   /** In-memory cache of generated invoice PDFs keyed by registrationId */
   private readonly invoiceCache = new Map<string, Buffer>();
@@ -38,10 +39,17 @@ export class PaymentsService {
     private readonly notificationsService: NotificationsService,
   ) {
     this.testMode = this.configService.get<string>('PAYMENT_TEST_MODE') === 'true';
+    this.demoMode = this.configService.get<string>('PAYMENT_DEMO_MODE') === 'true';
 
     if (this.testMode) {
       this.logger.warn('⚠ PAYMENT_TEST_MODE is ON — RazorPay calls will be mocked');
       this.razorpay = null;
+    } else if (this.demoMode) {
+      this.logger.warn('🎭 PAYMENT_DEMO_MODE is ON — Real RazorPay UI with auto-success');
+      this.razorpay = new Razorpay({
+        key_id: this.configService.getOrThrow<string>('RAZORPAY_KEY_ID'),
+        key_secret: this.configService.getOrThrow<string>('RAZORPAY_KEY_SECRET'),
+      });
     } else {
       this.razorpay = new Razorpay({
         key_id: this.configService.getOrThrow<string>('RAZORPAY_KEY_ID'),
@@ -59,6 +67,7 @@ export class PaymentsService {
       orderId = `test_order_${Date.now()}`;
       this.logger.log(`[TEST MODE] Mock RazorPay order: ${orderId}`);
     } else {
+      this.logger.log(`Creating Razorpay order for ${registrationId} (${childName})`);
       const order = await this.razorpay!.orders.create({
         amount: SUBSCRIPTION_TOTAL_PRICE * 100,
         currency: CURRENCY,
@@ -66,6 +75,7 @@ export class PaymentsService {
         notes: { registrationId, childName },
       });
       orderId = order.id;
+      this.logger.log(`Razorpay order created: ${orderId} for ₹${SUBSCRIPTION_TOTAL_PRICE}`);
     }
 
     const payment = await this.paymentModel.create({
@@ -77,6 +87,8 @@ export class PaymentsService {
       receipt: registrationId,
       notes: { registrationId, childName },
     });
+
+    this.logger.log(`Payment record created: ${payment._id} with status ${payment.status}`);
 
     // In test mode the payment is immediately COMPLETED — generate invoice now
     if (this.testMode) {
@@ -275,6 +287,10 @@ export class PaymentsService {
 
   isTestMode(): boolean {
     return this.testMode;
+  }
+
+  isDemoMode(): boolean {
+    return this.demoMode;
   }
 }
 

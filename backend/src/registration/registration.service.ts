@@ -27,6 +27,8 @@ import { BadRequestException } from '@nestjs/common';
 import { NotificationsService } from '../notifications/notifications.service';
 import { DashboardService } from '../dashboard/dashboard.service';
 import { RemindersService } from '../reminders/reminders.service';
+import { CmsService } from '../cms/cms.service';
+import { AgeGroupEnum } from '../dashboard/schemas/development-milestone.schema';
 
 @Injectable()
 export class RegistrationService {
@@ -43,6 +45,7 @@ export class RegistrationService {
     private readonly notificationsService: NotificationsService,
     private readonly dashboardService: DashboardService,
     private readonly remindersService: RemindersService,
+    private readonly cmsService: CmsService,
   ) {
     this.paymentTestMode = this.configService.get<string>('PAYMENT_TEST_MODE') === 'true';
     this.otpTestMode = this.configService.get<string>('OTP_TEST_MODE') === 'true';
@@ -371,29 +374,54 @@ export class RegistrationService {
       await this.notificationsService.sendWelcomeMessage(commonPayload);
 
       // 3. Go Green Participation Certificate
-      await this.notificationsService.sendGoGreenCertificate(commonPayload);
+      await this.notificationsService.sendGoGreenCertificate({
+        ...commonPayload,
+        state: registration.state,
+        dateOfBirth: registration.dateOfBirth.toISOString().split('T')[0],
+      });
 
       registration.goGreenCertSent = true;
       await registration.save();
 
-      // 4. AUTO-ACTIVATE SERVICES: Seed vaccination milestones + schedule reminders
+      // 4. AUTO-ACTIVATE SERVICES: Seed vaccination milestones, development milestones + schedule reminders
       try {
         this.logger.log(`Auto-activating services for ${registration.registrationId}...`);
         
         // Seed vaccination milestones
-        const milestones = await this.dashboardService.seedVaccinationMilestones(
+        const vaccinationMilestones = await this.dashboardService.seedVaccinationMilestones(
           registration.registrationId,
           registration.dateOfBirth,
         );
         
-        // Schedule reminders for all milestones
+        // Seed development milestones for current age group
+        let developmentMilestones: any[] = [];
+        
+        try {
+          // Convert dashboard age group to CMS age group format
+          const dashboardAgeGroup = this.dashboardService.getChildAgeGroup(registration.dateOfBirth);
+          const cmsAgeGroup = this.convertToAgeGroupString(dashboardAgeGroup);
+          
+          // Get milestone templates for current age group from CMS
+          const templates = await this.cmsService.getMilestoneTemplatesByAgeGroup(cmsAgeGroup);
+          if (templates && templates.length > 0) {
+            developmentMilestones = await this.dashboardService.seedDevelopmentMilestones(
+              registration.registrationId,
+              dashboardAgeGroup,
+              templates
+            );
+          }
+        } catch (devMilestoneError) {
+          this.logger.warn(`Could not seed development milestones: ${devMilestoneError instanceof Error ? devMilestoneError.message : devMilestoneError}`);
+        }
+        
+        // Schedule reminders for vaccination milestones
         const reminderCount = await this.remindersService.seedRemindersForRegistration(
           registration.registrationId,
           [ReminderChannel.SMS, ReminderChannel.WHATSAPP],
         );
         
         this.logger.log(
-          `Services activated for ${registration.registrationId}: ${milestones.length} milestones, ${reminderCount} reminders`
+          `Services activated for ${registration.registrationId}: ${vaccinationMilestones.length} vaccination milestones, ${developmentMilestones.length} development milestones, ${reminderCount} reminders`
         );
       } catch (activationError) {
         this.logger.error(
@@ -489,6 +517,15 @@ export class RegistrationService {
       createdAt: (r as any).createdAt,
       // email, phone, address deliberately EXCLUDED
     }));
+  }
+
+  // ─── Helper Methods ───────────────────────────────────────────────────
+
+  /**
+   * Converts dashboard service age group enum to CMS age group string format
+   */
+  private convertToAgeGroupString(ageGroup: AgeGroupEnum): string {
+    return ageGroup; // They're already the same format (e.g., "0-1 years")
   }
 
   isPaymentTestMode(): boolean {

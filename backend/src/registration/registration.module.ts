@@ -11,6 +11,7 @@ import {
 import { AuthModule } from '../auth/auth.module';
 import { DashboardModule } from '../dashboard/dashboard.module';
 import { RemindersModule } from '../reminders/reminders.module';
+import { CmsModule } from '../cms/cms.module';
 
 @Module({
   imports: [
@@ -21,6 +22,7 @@ import { RemindersModule } from '../reminders/reminders.module';
     AuthModule,
     DashboardModule,
     RemindersModule,
+    CmsModule,
   ],
   controllers: [RegistrationController],
   providers: [RegistrationService, CertificateService],

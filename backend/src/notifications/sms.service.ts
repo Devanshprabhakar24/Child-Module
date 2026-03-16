@@ -46,14 +46,19 @@ export class SmsService {
         OTP: otp, // Variable name for OTP in template
       };
 
-      this.logger.log(`Attempting to send OTP SMS to ${phone} (${cleanPhone})`);
+      this.logger.log(`🔄 Sending OTP SMS to ${phone} (clean: ${cleanPhone})`);
+      this.logger.log(`📋 Payload: ${JSON.stringify(payload)}`);
 
       const response = await axios.post(url, payload, {
         headers: {
           'authkey': this.authKey!,
           'content-type': 'application/json',
         },
+        timeout: 10000, // 10 second timeout
       });
+
+      this.logger.log(`📡 MSG91 Response Status: ${response.status}`);
+      this.logger.log(`📡 MSG91 Response Data: ${JSON.stringify(response.data)}`);
 
       if (response.data.type === 'success' || response.status === 200) {
         this.logger.log(`✅ OTP SMS sent successfully to ${phone}`);
@@ -63,10 +68,18 @@ export class SmsService {
     } catch (error: any) {
       const errorMsg = error?.response?.data?.message || error.message;
       const errorCode = error?.response?.status;
-      this.logger.error(
-        `❌ SMS Error [${errorCode}] for ${phone}: ${errorMsg}. ` +
-        `If error 418, whitelist IP 66.249.73.68 in MSG91 dashboard.`
-      );
+      const errorData = error?.response?.data;
+      
+      this.logger.error(`❌ SMS Error Details:`);
+      this.logger.error(`   Phone: ${phone}`);
+      this.logger.error(`   Status Code: ${errorCode}`);
+      this.logger.error(`   Error Message: ${errorMsg}`);
+      this.logger.error(`   Full Error Data: ${JSON.stringify(errorData)}`);
+      this.logger.error(`   Auth Key: ${this.authKey ? 'Present' : 'Missing'}`);
+      
+      if (errorCode === 418) {
+        this.logger.error(`   💡 Solution: Whitelist IP in MSG91 dashboard`);
+      }
     }
   }
 

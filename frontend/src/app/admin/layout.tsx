@@ -12,13 +12,15 @@ import {
   LogOut,
   Menu,
   X,
-  Loader2
+  Loader2,
+  Edit3
 } from "lucide-react";
 
 const navItems = [
   { href: "/admin", icon: LayoutDashboard, label: "Dashboard" },
   { href: "/admin/vaccinations", icon: Syringe, label: "Vaccinations" },
   { href: "/admin/children", icon: Users, label: "Children" },
+  { href: "/admin/cms", icon: Edit3, label: "Content (CMS)" },
   { href: "/admin/reports", icon: FileText, label: "Reports" },
   { href: "/admin/settings", icon: Settings, label: "Settings" },
 ];
