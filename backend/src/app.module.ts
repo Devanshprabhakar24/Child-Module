@@ -9,6 +9,9 @@ import { RemindersModule } from './reminders/reminders.module';
 import { ChannelPartnerModule } from './channel-partner/channel-partner.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { CmsModule } from './cms/cms.module';
+import { GoGreenModule } from './go-green/go-green.module';
+import { HealthRecordsModule } from './health-records/health-records.module';
+import { ReportsModule } from './reports/reports.module';
 
 @Module({
   imports: [
@@ -24,6 +27,9 @@ import { CmsModule } from './cms/cms.module';
     RemindersModule,
     ChannelPartnerModule,
     CmsModule,
+    GoGreenModule,
+    HealthRecordsModule,
+    ReportsModule,
   ],
 })
 export class AppModule {}

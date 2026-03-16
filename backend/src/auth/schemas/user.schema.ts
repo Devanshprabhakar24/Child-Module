@@ -31,6 +31,10 @@ export class User {
   @Prop({ type: Boolean, default: false })
   isFirstLoginComplete!: boolean;
 
+  /** Last login timestamp for welcome back messages */
+  @Prop({ type: Date })
+  lastLoginAt?: Date;
+
   /** Cloudinary profile picture URL */
   @Prop({ type: String, default: '' })
   profilePictureUrl?: string;

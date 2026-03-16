@@ -22,6 +22,7 @@ import {
 } from '@wombto18/shared';
 import { EmailService } from '../notifications/email.service';
 import { SmsService } from '../notifications/sms.service';
+import { NotificationsService } from '../notifications/notifications.service';
 
 const OTP_EXPIRY_MINUTES = 5;
 const MAX_OTP_ATTEMPTS = 5;
@@ -44,6 +45,7 @@ export class AuthService {
     private readonly configService: ConfigService,
     private readonly emailService: EmailService,
     private readonly smsService: SmsService,
+    private readonly notificationsService: NotificationsService,
   ) {
     this.otpEmailTestMode = this.configService.get<string>('OTP_EMAIL_TEST_MODE') === 'true';
     this.otpSmsTestMode = this.configService.get<string>('OTP_SMS_TEST_MODE') === 'true';
@@ -278,12 +280,16 @@ export class AuthService {
       throw new UnauthorizedException('User not found. Please register first.');
     }
 
+    const isReturningUser = user.isEmailVerified && user.lastLoginAt;
+    const lastLoginDate = user.lastLoginAt;
+
     user.isEmailVerified = true;
+    user.lastLoginAt = new Date();
 
     // Auto-link any child registrations with matching email
     const childRegs = await this.childRegModel
       .find({ email: dto.email })
-      .select('registrationId _id')
+      .select('registrationId childName _id')
       .lean()
       .exec();
 
@@ -300,9 +306,25 @@ export class AuthService {
 
     await user.save();
 
+    // Send welcome back message for returning users
+    if (isReturningUser && childRegs.length > 0) {
+      try {
+        await this.notificationsService.sendWelcomeBackMessage({
+          phone: user.phone,
+          email: user.email,
+          parentName: user.fullName,
+          childrenNames: childRegs.map(child => child.childName),
+          lastLoginDate: lastLoginDate?.toISOString(),
+        });
+        this.logger.log(`Welcome back message sent to ${user.email}`);
+      } catch (error) {
+        this.logger.warn(`Failed to send welcome back message to ${user.email}: ${error instanceof Error ? error.message : error}`);
+      }
+    }
+
     const token = this.generateToken(user);
 
-    this.logger.log(`OTP verified for ${dto.email}`);
+    this.logger.log(`OTP verified for ${dto.email}${isReturningUser ? ' (returning user)' : ' (first time)'}`);
     return { verified: true, token, user };
   }
 

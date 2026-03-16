@@ -20,6 +20,7 @@ import {
 import { Request, Response } from 'express';
 import { RegistrationService } from './registration.service';
 import { CertificateService } from './certificate.service';
+import { GoGreenService } from '../go-green/go-green.service';
 import { RegisterChildDto, RazorpayWebhookEvent, RazorpayWebhookPayloadDto, UpdateChildDto } from '@wombto18/shared';
 import { AuthGuard, AuthenticatedRequest } from '../auth/guards/auth.guard';
 
@@ -30,6 +31,7 @@ export class RegistrationController {
   constructor(
     private readonly registrationService: RegistrationService,
     private readonly certificateService: CertificateService,
+    private readonly goGreenService: GoGreenService,
   ) {}
 
   // ─── Child Registration ────────────────────────────────────────────────
@@ -104,6 +106,9 @@ export class RegistrationController {
     const registration = await this.registrationService.findByRegistrationId(registrationId);
     if (!registration) throw new NotFoundException('Registration not found');
 
+    // Get tree information
+    const tree = await this.goGreenService.getTreeByRegistrationId(registrationId);
+
     const pdfBuffer = await this.certificateService.generateGoGreenCertificate({
       childName: registration.childName,
       motherName: registration.motherName,
@@ -111,6 +116,7 @@ export class RegistrationController {
       dateOfBirth: registration.dateOfBirth.toISOString().split('T')[0],
       state: registration.state,
       issuedDate: new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'long', year: 'numeric' }),
+      treeId: tree?.treeId,
     });
 
     res.set({
@@ -193,6 +199,32 @@ export class RegistrationController {
   async findByChannelPartner(@Param('channelPartnerId') channelPartnerId: string) {
     const registrations = await this.registrationService.findByChannelPartner(channelPartnerId);
     return { success: true, data: registrations, count: registrations.length };
+  }
+
+  // ─── Service Activation ───────────────────────────────────────────────
+
+  /**
+   * POST /registration/:registrationId/activate-services
+   * Manually activate all services for an existing registration
+   * Useful for registrations created before full service activation was implemented
+   */
+  @Post(':registrationId/activate-services')
+  @HttpCode(HttpStatus.OK)
+  async activateServices(@Param('registrationId') registrationId: string) {
+    const result = await this.registrationService.activateServicesForExistingRegistration(registrationId);
+    return result;
+  }
+
+  /**
+   * POST /registration/activate-all-incomplete
+   * Find and activate services for all registrations that are missing services
+   * Useful for bulk activation after system updates
+   */
+  @Post('activate-all-incomplete')
+  @HttpCode(HttpStatus.OK)
+  async activateAllIncomplete() {
+    const result = await this.registrationService.findAndActivateIncompleteRegistrations();
+    return result;
   }
 
   // ─── RazorPay Webhook ──────────────────────────────────────────────────

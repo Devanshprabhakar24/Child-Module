@@ -125,6 +125,7 @@ export class NotificationsService {
     registrationId: string;
     state?: string;
     dateOfBirth?: string;
+    treeId?: string;
   }): Promise<void> {
     const message = `🌱 Congratulations ${payload.parentName}! ${payload.childName} is now part of the WombTo18 Green Cohort. A tree has been planted in their name as part of our environmental initiative. Your Go Green Participation Certificate is attached.`;
 
@@ -141,6 +142,7 @@ export class NotificationsService {
           month: 'long',
           year: 'numeric'
         }),
+        treeId: payload.treeId,
       });
 
       await Promise.all([
@@ -228,6 +230,60 @@ export class NotificationsService {
       this.sendSms(payload.partnerPhone, message),
       this.sendEmail(payload.partnerEmail, 'WombTo18 - New Registration via Your QR', message),
     ]);
+  }
+
+  /**
+   * Sends welcome back message for returning users via SMS, WhatsApp, and Email.
+   */
+  async sendWelcomeBackMessage(payload: {
+    phone: string;
+    email: string;
+    parentName: string;
+    childrenNames: string[];
+    lastLoginDate?: string;
+  }): Promise<void> {
+    const childrenText = payload.childrenNames.length === 1 
+      ? payload.childrenNames[0] 
+      : payload.childrenNames.length === 2
+      ? `${payload.childrenNames[0]} and ${payload.childrenNames[1]}`
+      : `${payload.childrenNames.slice(0, -1).join(', ')} and ${payload.childrenNames.slice(-1)[0]}`;
+
+    const dashboardLink = `${this.baseUrl}/dashboard`;
+    const message = `Welcome back, ${payload.parentName}! We're glad to see you again. Check ${childrenText}'s latest updates on your dashboard: ${dashboardLink}`;
+
+    await Promise.all([
+      this.sendSms(payload.phone, message),
+      this.sendWhatsApp(payload.phone, message),
+      this.emailService.sendWelcomeBackEmail(
+        payload.email,
+        payload.parentName,
+        payload.childrenNames,
+        payload.lastLoginDate,
+      ),
+    ]);
+  }
+
+  /**
+   * Sends enhanced registration confirmation email with detailed information
+   */
+  async sendRegistrationConfirmationEmail(payload: {
+    email: string;
+    parentName: string;
+    childName: string;
+    registrationId: string;
+    ageGroup: string;
+    state: string;
+    subscriptionAmount: number;
+  }): Promise<void> {
+    await this.emailService.sendRegistrationConfirmationEmail(
+      payload.email,
+      payload.parentName,
+      payload.childName,
+      payload.registrationId,
+      payload.ageGroup,
+      payload.state,
+      payload.subscriptionAmount,
+    );
   }
 
   // ─── Channel Implementations (Placeholder → Replace with real providers) ─

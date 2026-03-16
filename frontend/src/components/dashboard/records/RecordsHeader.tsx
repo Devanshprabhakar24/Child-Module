@@ -4,8 +4,19 @@ import { useState } from "react";
 import { Upload, Search, Calendar, Filter, ChevronDown } from "lucide-react";
 import UploadRecordModal from "./UploadRecordModal";
 
-export default function RecordsHeader() {
+interface RecordsHeaderProps {
+  onUploadSuccess?: () => void;
+}
+
+export default function RecordsHeader({ onUploadSuccess }: RecordsHeaderProps) {
     const [isModalOpen, setIsModalOpen] = useState(false);
+
+    const handleUploadSuccess = () => {
+      setIsModalOpen(false);
+      if (onUploadSuccess) {
+        onUploadSuccess();
+      }
+    };
 
   return (
     <div className="mb-6 flex flex-col gap-6">
@@ -45,6 +56,7 @@ export default function RecordsHeader() {
       <UploadRecordModal
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
+        onUploadSuccess={handleUploadSuccess}
       />
     </div>
   );

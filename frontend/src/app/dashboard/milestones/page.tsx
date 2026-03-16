@@ -28,7 +28,7 @@ const STATUS_CONFIG = {
 };
 
 export default function MilestonesPage() {
-  const { childData, loading, error } = useChildData();
+  const { profile, loading, error } = useChildData();
   const [selectedAgeGroup, setSelectedAgeGroup] = useState<string>('');
   const [milestones, setMilestones] = useState<any[]>([]);
   const [currentAgeGroup, setCurrentAgeGroup] = useState<string>('');
@@ -39,13 +39,13 @@ export default function MilestonesPage() {
 
   // Fetch development milestones
   useEffect(() => {
-    if (!childData?.registrationId) return;
+    if (!profile?.registrationId) return;
 
     const fetchMilestones = async () => {
       setLoadingMilestones(true);
       try {
         const response = await fetch(
-          `http://localhost:8000/dashboard/development-milestones/${childData.registrationId}`,
+          `http://localhost:8000/dashboard/development-milestones/${profile.registrationId}`,
           {
             headers: {
               Authorization: `Bearer ${localStorage.getItem("token")}`,
@@ -72,11 +72,11 @@ export default function MilestonesPage() {
     };
 
     fetchMilestones();
-  }, [childData?.registrationId]);
+  }, [profile?.registrationId]);
 
   // Seed milestones for an age group
   const seedAgeGroupMilestones = async (ageGroup: string) => {
-    if (!childData?.registrationId) return;
+    if (!profile?.registrationId) return;
 
     setSeedingMilestones(true);
     try {
@@ -102,7 +102,7 @@ export default function MilestonesPage() {
             Authorization: `Bearer ${localStorage.getItem("token")}`,
           },
           body: JSON.stringify({
-            registrationId: childData.registrationId,
+            registrationId: profile.registrationId,
             ageGroup,
             templates,
           }),
@@ -113,7 +113,7 @@ export default function MilestonesPage() {
         const result = await response.json();
         // Refresh milestones
         const refreshResponse = await fetch(
-          `http://localhost:8000/dashboard/development-milestones/${childData.registrationId}`,
+          `http://localhost:8000/dashboard/development-milestones/${profile.registrationId}`,
           {
             headers: {
               Authorization: `Bearer ${localStorage.getItem("token")}`,
@@ -309,12 +309,12 @@ export default function MilestonesPage() {
                   <span className="text-2xl">{config.icon}</span>
                   <h3 className="text-lg font-medium text-slate-900">{config.label} Development</h3>
                   <span className={`ml-auto rounded-full px-3 py-1 text-xs font-medium ${config.color}`}>
-                    {typeMilestones.filter(m => m.status === 'ACHIEVED').length} / {typeMilestones.length}
+                    {typeMilestones.filter((m: any) => m.status === 'ACHIEVED').length} / {typeMilestones.length}
                   </span>
                 </div>
 
                 <div className="space-y-3">
-                  {typeMilestones.map((milestone) => {
+                  {typeMilestones.map((milestone: any) => {
                     const statusConfig = STATUS_CONFIG[milestone.status as keyof typeof STATUS_CONFIG] || STATUS_CONFIG.NOT_STARTED;
                     const Icon = statusConfig.icon;
 

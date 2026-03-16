@@ -1,15 +1,40 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { CloudUpload, X, FileText, Image as ImageIcon, Trash2, ChevronDown } from "lucide-react";
 
 interface UploadRecordModalProps {
   isOpen: boolean;
   onClose: () => void;
+  onUploadSuccess?: () => void;
 }
 
-export default function UploadRecordModal({ isOpen, onClose }: UploadRecordModalProps) {
+const CATEGORIES = [
+  'Vaccination Cards',
+  'Annual Check-ups',
+  'Dental Records',
+  'Eye Check-ups',
+  'BMI Reports',
+  'Lab Reports',
+  'Prescriptions',
+  'Medical Certificates',
+  'Other',
+];
+
+export default function UploadRecordModal({ isOpen, onClose, onUploadSuccess }: UploadRecordModalProps) {
+  const router = useRouter();
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [uploadLoading, setUploadLoading] = useState(false);
+  const [dragActive, setDragActive] = useState(false);
+
+  // Form state
+  const [uploadForm, setUploadForm] = useState({
+    documentName: '',
+    category: '',
+    recordDate: '',
+    notes: '',
+  });
 
   // Prevent background scrolling when modal is open
   useEffect(() => {
@@ -22,6 +47,129 @@ export default function UploadRecordModal({ isOpen, onClose }: UploadRecordModal
       document.body.style.overflow = "unset";
     };
   }, [isOpen]);
+
+  // Reset form when modal closes
+  useEffect(() => {
+    if (!isOpen) {
+      setSelectedFile(null);
+      setUploadForm({
+        documentName: '',
+        category: '',
+        recordDate: '',
+        notes: '',
+      });
+      setUploadLoading(false);
+    }
+  }, [isOpen]);
+
+  const handleDrag = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (e.type === 'dragenter' || e.type === 'dragover') {
+      setDragActive(true);
+    } else if (e.type === 'dragleave') {
+      setDragActive(false);
+    }
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragActive(false);
+
+    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+      const file = e.dataTransfer.files[0];
+      if (validateFile(file)) {
+        setSelectedFile(file);
+      }
+    }
+  };
+
+  const validateFile = (file: File): boolean => {
+    const allowedTypes = ['application/pdf', 'image/jpeg', 'image/png', 'image/jpg'];
+    const maxSize = 10 * 1024 * 1024; // 10MB
+
+    if (!allowedTypes.includes(file.type)) {
+      alert('Invalid file type. Only PDF, JPG, and PNG files are allowed.');
+      return false;
+    }
+
+    if (file.size > maxSize) {
+      alert('File size too large. Maximum size is 10MB.');
+      return false;
+    }
+
+    return true;
+  };
+
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      const file = e.target.files[0];
+      if (validateFile(file)) {
+        setSelectedFile(file);
+      }
+    }
+  };
+
+  const handleUpload = async () => {
+    if (!selectedFile || !uploadForm.documentName || !uploadForm.category || !uploadForm.recordDate) {
+      alert('Please fill in all required fields and select a file.');
+      return;
+    }
+
+    setUploadLoading(true);
+
+    try {
+      let registrationId = localStorage.getItem('currentRegistrationId');
+      
+      // Fallback: use test registration ID
+      if (!registrationId) {
+        registrationId = 'CHD-KL-20260306-000001';
+        localStorage.setItem('currentRegistrationId', registrationId);
+      }
+
+      console.log('Uploading file:', {
+        fileName: selectedFile.name,
+        fileSize: selectedFile.size,
+        fileType: selectedFile.type,
+        registrationId,
+        ...uploadForm
+      });
+
+      const formData = new FormData();
+      formData.append('file', selectedFile);
+      formData.append('documentName', uploadForm.documentName);
+      formData.append('category', uploadForm.category);
+      formData.append('recordDate', uploadForm.recordDate);
+      if (uploadForm.notes) formData.append('notes', uploadForm.notes);
+
+      // Use regular upload endpoint (no auth required for testing)
+      const uploadUrl = `http://localhost:8000/health-records/upload/${registrationId}`;
+      
+      const response = await fetch(uploadUrl, {
+        method: 'POST',
+        body: formData,
+      });
+
+      const responseData = await response.json();
+      console.log('Upload response:', responseData);
+
+      if (response.ok) {
+        alert('Health record uploaded successfully!');
+        onClose();
+        if (onUploadSuccess) {
+          onUploadSuccess();
+        }
+      } else {
+        alert(`Failed to upload: ${responseData.message || 'Unknown error'}`);
+      }
+    } catch (error) {
+      console.error('Error uploading health record:', error);
+      alert('Failed to upload health record. Please try again.');
+    } finally {
+      setUploadLoading(false);
+    }
+  };
 
   if (!isOpen) return null;
 
@@ -55,15 +203,26 @@ export default function UploadRecordModal({ isOpen, onClose }: UploadRecordModal
         <div className="space-y-6 overflow-y-auto p-6">
 
           {/* Drag & Drop Zone */}
-          <div className="relative flex flex-col items-center justify-center rounded-xl border-2 border-dashed border-primary/30 bg-primary/5 px-6 py-10 transition-colors hover:border-primary/50 hover:bg-primary/10">
+          <div 
+            className={`relative flex flex-col items-center justify-center rounded-xl border-2 border-dashed transition-colors ${
+              dragActive
+                ? 'border-primary/50 bg-primary/10'
+                : 'border-primary/30 bg-primary/5 hover:border-primary/50 hover:bg-primary/10'
+            }`}
+            onDragEnter={handleDrag}
+            onDragLeave={handleDrag}
+            onDragOver={handleDrag}
+            onDrop={handleDrop}
+          >
             <input
               type="file"
+              accept=".pdf,.jpg,.jpeg,.png"
               className="absolute inset-0 z-10 h-full w-full cursor-pointer opacity-0"
-              onChange={(e) => setSelectedFile(e.target.files?.[0] || null)}
+              onChange={handleFileSelect}
             />
 
             {!selectedFile ? (
-              <div className="text-center  pointer-events-none">
+              <div className="text-center pointer-events-none px-6 py-10">
                 <CloudUpload className="mb-3 h-12 w-12 text-primary/60" />
                 <p className="mb-1 text-sm font-normal text-slate-700">Drag & drop your file here</p>
                 <p className="text-xs font-normal text-slate-500">or click to browse from your device</p>
@@ -76,7 +235,7 @@ export default function UploadRecordModal({ isOpen, onClose }: UploadRecordModal
                 </div>
               </div>
             ) : (
-              <div className="flex items-center gap-4 rounded-lg bg-white p-4 shadow-sm ring-1 ring-slate-200">
+              <div className="flex items-center gap-4 rounded-lg bg-white p-4 m-6 shadow-sm ring-1 ring-slate-200">
                 <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded bg-primary/10 text-primary">
                   <FileText className="h-5 w-5" />
                 </div>
@@ -103,6 +262,8 @@ export default function UploadRecordModal({ isOpen, onClose }: UploadRecordModal
               <input
                 type="text"
                 placeholder="e.g. Annual Blood Report 2026"
+                value={uploadForm.documentName}
+                onChange={(e) => setUploadForm(prev => ({ ...prev, documentName: e.target.value }))}
                 className="w-full rounded-lg border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition-all focus:border-primary focus:ring-2 focus:ring-primary/20"
               />
             </div>
@@ -110,13 +271,17 @@ export default function UploadRecordModal({ isOpen, onClose }: UploadRecordModal
             <div>
               <label className="mb-1.5 block text-sm font-medium text-slate-700">Category *</label>
               <div className="relative">
-                <select className="w-full appearance-none rounded-lg border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition-all focus:border-primary focus:ring-2 focus:ring-primary/20">
-                  <option value="" disabled selected>Select Category</option>
-                  <option value="vaccination">Vaccination Card</option>
-                  <option value="lab">Lab Test Result</option>
-                  <option value="prescription">Prescription</option>
-                  <option value="checkup">General Check-up</option>
-                  <option value="other">Other</option>
+                <select 
+                  value={uploadForm.category}
+                  onChange={(e) => setUploadForm(prev => ({ ...prev, category: e.target.value }))}
+                  className="w-full appearance-none rounded-lg border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition-all focus:border-primary focus:ring-2 focus:ring-primary/20"
+                >
+                  <option value="" disabled>Select Category</option>
+                  {CATEGORIES.map((category) => (
+                    <option key={category} value={category}>
+                      {category}
+                    </option>
+                  ))}
                 </select>
                 <ChevronDown className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 pointer-events-none text-slate-400" />
               </div>
@@ -126,6 +291,8 @@ export default function UploadRecordModal({ isOpen, onClose }: UploadRecordModal
               <label className="mb-1.5 block text-sm font-medium text-slate-700">Date of Record</label>
               <input
                 type="date"
+                value={uploadForm.recordDate}
+                onChange={(e) => setUploadForm(prev => ({ ...prev, recordDate: e.target.value }))}
                 className="w-full rounded-lg border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition-all focus:border-primary focus:ring-2 focus:ring-primary/20"
               />
             </div>
@@ -135,6 +302,8 @@ export default function UploadRecordModal({ isOpen, onClose }: UploadRecordModal
               <textarea
                 rows={2}
                 placeholder="Add any relevant context here..."
+                value={uploadForm.notes}
+                onChange={(e) => setUploadForm(prev => ({ ...prev, notes: e.target.value }))}
                 className="w-full resize-none rounded-lg border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition-all focus:border-primary focus:ring-2 focus:ring-primary/20"
               />
             </div>
@@ -146,16 +315,31 @@ export default function UploadRecordModal({ isOpen, onClose }: UploadRecordModal
         <div className="flex flex-col-reverse justify-end gap-3 border-t border-slate-100 bg-slate-50/50 p-6 sm:flex-row">
           <button
             onClick={onClose}
-            className="rounded-lg px-6 py-2.5 text-sm font-medium text-slate-600 transition-colors hover:bg-slate-200"
+            disabled={uploadLoading}
+            className="rounded-lg px-6 py-2.5 text-sm font-medium text-slate-600 transition-colors hover:bg-slate-200 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             Cancel
           </button>
           <button
-            className={`flex items-center justify-center gap-2 rounded-full px-8 py-2.5 text-sm font-medium text-white shadow-sm transition-all ${selectedFile ? "bg-primary hover:bg-primary/90 shadow-primary/20" : "bg-slate-300 cursor-not-allowed"}`}
-            disabled={!selectedFile}
+            onClick={handleUpload}
+            disabled={!selectedFile || !uploadForm.documentName || !uploadForm.category || !uploadForm.recordDate || uploadLoading}
+            className={`flex items-center justify-center gap-2 rounded-full px-8 py-2.5 text-sm font-medium text-white shadow-sm transition-all disabled:cursor-not-allowed disabled:opacity-50 ${
+              selectedFile && uploadForm.documentName && uploadForm.category && uploadForm.recordDate && !uploadLoading
+                ? "bg-primary hover:bg-primary/90 shadow-primary/20" 
+                : "bg-slate-300"
+            }`}
           >
-            <CloudUpload className="h-4 w-4" />
-            Upload Document
+            {uploadLoading ? (
+              <>
+                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                Uploading...
+              </>
+            ) : (
+              <>
+                <CloudUpload className="h-4 w-4" />
+                Upload Document
+              </>
+            )}
           </button>
         </div>
 

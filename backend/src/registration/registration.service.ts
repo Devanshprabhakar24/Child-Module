@@ -28,6 +28,7 @@ import { NotificationsService } from '../notifications/notifications.service';
 import { DashboardService } from '../dashboard/dashboard.service';
 import { RemindersService } from '../reminders/reminders.service';
 import { CmsService } from '../cms/cms.service';
+import { GoGreenService } from '../go-green/go-green.service';
 import { AgeGroupEnum } from '../dashboard/schemas/development-milestone.schema';
 
 @Injectable()
@@ -46,6 +47,7 @@ export class RegistrationService {
     private readonly dashboardService: DashboardService,
     private readonly remindersService: RemindersService,
     private readonly cmsService: CmsService,
+    private readonly goGreenService: GoGreenService,
   ) {
     this.paymentTestMode = this.configService.get<string>('PAYMENT_TEST_MODE') === 'true';
     this.otpTestMode = this.configService.get<string>('OTP_TEST_MODE') === 'true';
@@ -123,6 +125,14 @@ export class RegistrationService {
       throw new BadRequestException('Date of birth cannot be in the future.');
     }
 
+    // Email uniqueness rule: each email can only be used once
+    const existingByEmail = await this.childModel.countDocuments({ email: dto.email }).exec();
+    if (existingByEmail > 0) {
+      throw new BadRequestException(
+        'This email address is already registered. Each email can only be used for one registration.',
+      );
+    }
+
     // Mobile duplication rule: max 2 registrations per phone number
     const existingByPhone = await this.childModel.countDocuments({ phone: dto.phone }).exec();
     if (existingByPhone >= 2) {
@@ -177,6 +187,22 @@ export class RegistrationService {
       razorpayOrderId: orderId,
       greenCohort: true,
     });
+
+    // Send registration confirmation email
+    try {
+      await this.notificationsService.sendRegistrationConfirmationEmail({
+        email: dto.email,
+        parentName: dto.motherName,
+        childName: dto.childName,
+        registrationId,
+        ageGroup,
+        state: dto.state,
+        subscriptionAmount: SUBSCRIPTION_TOTAL_PRICE,
+      });
+      this.logger.log(`Registration confirmation email sent for ${registrationId}`);
+    } catch (error) {
+      this.logger.warn(`Failed to send registration confirmation email for ${registrationId}: ${error instanceof Error ? error.message : error}`);
+    }
 
     this.logger.log(`Child registered: ${registrationId} | Order: ${orderId}`);
 
@@ -373,64 +399,34 @@ export class RegistrationService {
       // 2. Welcome message with dashboard link
       await this.notificationsService.sendWelcomeMessage(commonPayload);
 
+      // Plant a tree for the child BEFORE sending certificate
+      let plantedTree: any = null;
+      try {
+        plantedTree = await this.goGreenService.plantTree({
+          registrationId: registration.registrationId,
+          childName: registration.childName,
+          motherName: registration.motherName,
+          location: registration.state,
+          plantingPartner: 'WombTo18 Green Initiative',
+        });
+        this.logger.log(`Tree planted: ${plantedTree.treeId} for ${registration.childName}`);
+      } catch (treeError) {
+        this.logger.warn(`Could not plant tree: ${treeError instanceof Error ? treeError.message : treeError}`);
+      }
+
       // 3. Go Green Participation Certificate
       await this.notificationsService.sendGoGreenCertificate({
         ...commonPayload,
         state: registration.state,
         dateOfBirth: registration.dateOfBirth.toISOString().split('T')[0],
+        treeId: plantedTree?.treeId,
       });
+
+      // 4. AUTO-ACTIVATE ALL SERVICES: Comprehensive service activation
+      await this.activateAllServicesForRegistration(registration, plantedTree);
 
       registration.goGreenCertSent = true;
       await registration.save();
-
-      // 4. AUTO-ACTIVATE SERVICES: Seed vaccination milestones, development milestones + schedule reminders
-      try {
-        this.logger.log(`Auto-activating services for ${registration.registrationId}...`);
-        
-        // Seed vaccination milestones
-        const vaccinationMilestones = await this.dashboardService.seedVaccinationMilestones(
-          registration.registrationId,
-          registration.dateOfBirth,
-        );
-        
-        // Seed development milestones for current age group
-        let developmentMilestones: any[] = [];
-        
-        try {
-          // Convert dashboard age group to CMS age group format
-          const dashboardAgeGroup = this.dashboardService.getChildAgeGroup(registration.dateOfBirth);
-          const cmsAgeGroup = this.convertToAgeGroupString(dashboardAgeGroup);
-          
-          // Get milestone templates for current age group from CMS
-          const templates = await this.cmsService.getMilestoneTemplatesByAgeGroup(cmsAgeGroup);
-          if (templates && templates.length > 0) {
-            developmentMilestones = await this.dashboardService.seedDevelopmentMilestones(
-              registration.registrationId,
-              dashboardAgeGroup,
-              templates
-            );
-          }
-        } catch (devMilestoneError) {
-          this.logger.warn(`Could not seed development milestones: ${devMilestoneError instanceof Error ? devMilestoneError.message : devMilestoneError}`);
-        }
-        
-        // Schedule reminders for vaccination milestones
-        const reminderCount = await this.remindersService.seedRemindersForRegistration(
-          registration.registrationId,
-          [ReminderChannel.SMS, ReminderChannel.WHATSAPP],
-        );
-        
-        this.logger.log(
-          `Services activated for ${registration.registrationId}: ${vaccinationMilestones.length} vaccination milestones, ${developmentMilestones.length} development milestones, ${reminderCount} reminders`
-        );
-      } catch (activationError) {
-        this.logger.error(
-          `Failed to auto-activate services for ${registration.registrationId}: ${
-            activationError instanceof Error ? activationError.message : activationError
-          }`
-        );
-        // Don't throw - notifications already sent, services can be activated manually
-      }
 
       this.logger.log(`All post-payment notifications sent for ${registration.registrationId}`);
     } catch (error) {
@@ -464,6 +460,13 @@ export class RegistrationService {
    */
   async findByPhone(phone: string): Promise<ChildRegistrationDocument[]> {
     return this.childModel.find({ phone }).exec();
+  }
+
+  /**
+   * Find registration by email (should be unique)
+   */
+  async findByEmail(email: string): Promise<ChildRegistrationDocument | null> {
+    return this.childModel.findOne({ email }).exec();
   }
 
   // ─── Child Profile Update ─────────────────────────────────────────────
@@ -528,11 +531,278 @@ export class RegistrationService {
     return ageGroup; // They're already the same format (e.g., "0-1 years")
   }
 
+  /**
+   * Comprehensive service activation for new registrations
+   * Activates all services: vaccination tracking, development milestones, reminders, and tree planting
+   */
+  private async activateAllServicesForRegistration(
+    registration: ChildRegistrationDocument,
+    plantedTree?: any
+  ): Promise<void> {
+    this.logger.log(`🚀 Auto-activating ALL services for ${registration.registrationId}...`);
+    
+    const activationResults = {
+      vaccinationMilestones: 0,
+      developmentMilestones: 0,
+      reminders: 0,
+      treePlanted: !!plantedTree,
+      errors: [] as string[]
+    };
+
+    try {
+      // 1. VACCINATION MILESTONES - Seed vaccination schedule
+      try {
+        this.logger.log(`📅 Seeding vaccination milestones for ${registration.registrationId}...`);
+        const vaccinationMilestones = await this.dashboardService.seedVaccinationMilestones(
+          registration.registrationId,
+          registration.dateOfBirth,
+        );
+        activationResults.vaccinationMilestones = vaccinationMilestones.length;
+        this.logger.log(`✅ Seeded ${vaccinationMilestones.length} vaccination milestones`);
+      } catch (vacError) {
+        const errorMsg = `Failed to seed vaccination milestones: ${vacError instanceof Error ? vacError.message : vacError}`;
+        activationResults.errors.push(errorMsg);
+        this.logger.error(`❌ ${errorMsg}`);
+      }
+
+      // 2. DEVELOPMENT MILESTONES - Seed age-appropriate development tracking
+      try {
+        this.logger.log(`🧠 Seeding development milestones for ${registration.registrationId}...`);
+        
+        // Get child's current age group
+        const dashboardAgeGroup = this.dashboardService.getChildAgeGroup(registration.dateOfBirth);
+        const cmsAgeGroup = this.convertToAgeGroupString(dashboardAgeGroup);
+        
+        this.logger.log(`Child age group: ${cmsAgeGroup}`);
+        
+        // Get milestone templates for current age group from CMS
+        const templates = await this.cmsService.getMilestoneTemplatesByAgeGroup(cmsAgeGroup);
+        
+        if (templates && templates.length > 0) {
+          const developmentMilestones = await this.dashboardService.seedDevelopmentMilestones(
+            registration.registrationId,
+            dashboardAgeGroup,
+            templates
+          );
+          activationResults.developmentMilestones = developmentMilestones.length;
+          this.logger.log(`✅ Seeded ${developmentMilestones.length} development milestones`);
+        } else {
+          this.logger.warn(`⚠️ No milestone templates found for age group: ${cmsAgeGroup}`);
+        }
+      } catch (devError) {
+        const errorMsg = `Failed to seed development milestones: ${devError instanceof Error ? devError.message : devError}`;
+        activationResults.errors.push(errorMsg);
+        this.logger.error(`❌ ${errorMsg}`);
+      }
+
+      // 3. REMINDERS - Schedule vaccination and milestone reminders
+      try {
+        this.logger.log(`🔔 Setting up reminders for ${registration.registrationId}...`);
+        const reminderCount = await this.remindersService.seedRemindersForRegistration(
+          registration.registrationId,
+          [ReminderChannel.SMS, ReminderChannel.WHATSAPP],
+        );
+        activationResults.reminders = reminderCount;
+        this.logger.log(`✅ Scheduled ${reminderCount} reminders`);
+      } catch (reminderError) {
+        const errorMsg = `Failed to setup reminders: ${reminderError instanceof Error ? reminderError.message : reminderError}`;
+        activationResults.errors.push(errorMsg);
+        this.logger.error(`❌ ${errorMsg}`);
+      }
+
+      // 4. TREE PLANTING STATUS
+      if (plantedTree) {
+        this.logger.log(`🌳 Tree already planted: ${plantedTree.treeId}`);
+      } else {
+        activationResults.errors.push('Tree planting failed or not attempted');
+        this.logger.warn(`⚠️ No tree was planted for ${registration.registrationId}`);
+      }
+
+      // 5. SUMMARY LOG
+      const successCount = [
+        activationResults.vaccinationMilestones > 0,
+        activationResults.developmentMilestones > 0,
+        activationResults.reminders > 0,
+        activationResults.treePlanted
+      ].filter(Boolean).length;
+
+      if (activationResults.errors.length === 0) {
+        this.logger.log(
+          `🎉 ALL SERVICES ACTIVATED for ${registration.registrationId}: ` +
+          `${activationResults.vaccinationMilestones} vaccination milestones, ` +
+          `${activationResults.developmentMilestones} development milestones, ` +
+          `${activationResults.reminders} reminders, ` +
+          `tree planted: ${activationResults.treePlanted ? 'YES' : 'NO'}`
+        );
+      } else {
+        this.logger.warn(
+          `⚠️ PARTIAL SERVICE ACTIVATION for ${registration.registrationId} (${successCount}/4 services): ` +
+          `Errors: ${activationResults.errors.join(', ')}`
+        );
+      }
+
+    } catch (generalError) {
+      this.logger.error(
+        `💥 CRITICAL ERROR during service activation for ${registration.registrationId}: ${
+          generalError instanceof Error ? generalError.message : generalError
+        }`
+      );
+      // Don't throw - notifications already sent, services can be activated manually later
+    }
+  }
+
   isPaymentTestMode(): boolean {
     return this.paymentTestMode;
   }
 
   isOtpTestMode(): boolean {
     return this.otpTestMode;
+  }
+
+  /**
+   * Find and activate services for registrations that might be missing services
+   * This method checks for registrations that don't have vaccination milestones and activates all services
+   */
+  async findAndActivateIncompleteRegistrations(): Promise<{
+    success: boolean;
+    message: string;
+    activatedRegistrations: string[];
+    errors: string[];
+  }> {
+    const activatedRegistrations: string[] = [];
+    const errors: string[] = [];
+
+    try {
+      // Find all completed registrations (payment status = COMPLETED)
+      const completedRegistrations = await this.childModel.find({ 
+        paymentStatus: 'COMPLETED' 
+      }).exec();
+
+      this.logger.log(`Found ${completedRegistrations.length} completed registrations to check`);
+
+      for (const registration of completedRegistrations) {
+        try {
+          // Check if vaccination milestones exist for this registration
+          const existingMilestones = await this.dashboardService.getMilestonesByRegistrationId(registration.registrationId);
+          
+          if (!existingMilestones || existingMilestones.length === 0) {
+            this.logger.log(`🔧 Registration ${registration.registrationId} missing services - activating...`);
+            
+            // Check if tree exists, if not plant one
+            let plantedTree: any = null;
+            try {
+              const existingTree = await this.goGreenService.getTreeByRegistrationId(registration.registrationId);
+              if (!existingTree) {
+                plantedTree = await this.goGreenService.plantTree({
+                  registrationId: registration.registrationId,
+                  childName: registration.childName,
+                  motherName: registration.motherName,
+                  location: registration.state,
+                  plantingPartner: 'WombTo18 Green Initiative (Auto-Activation)',
+                });
+                this.logger.log(`🌳 Planted tree: ${plantedTree.treeId}`);
+              } else {
+                plantedTree = existingTree;
+                this.logger.log(`🌳 Tree already exists: ${existingTree.treeId}`);
+              }
+            } catch (treeError) {
+              this.logger.warn(`Could not plant/find tree for ${registration.registrationId}: ${treeError instanceof Error ? treeError.message : treeError}`);
+            }
+
+            // Activate all services
+            await this.activateAllServicesForRegistration(registration, plantedTree);
+            activatedRegistrations.push(registration.registrationId);
+            
+            this.logger.log(`✅ Services activated for ${registration.registrationId}`);
+          } else {
+            this.logger.log(`✓ Registration ${registration.registrationId} already has ${existingMilestones.length} vaccination milestones`);
+          }
+        } catch (error) {
+          const errorMsg = `Failed to activate services for ${registration.registrationId}: ${error instanceof Error ? error.message : error}`;
+          errors.push(errorMsg);
+          this.logger.error(errorMsg);
+        }
+      }
+
+      return {
+        success: true,
+        message: `Processed ${completedRegistrations.length} registrations. Activated services for ${activatedRegistrations.length} registrations.`,
+        activatedRegistrations,
+        errors
+      };
+
+    } catch (error) {
+      const errorMsg = `Failed to find and activate incomplete registrations: ${error instanceof Error ? error.message : error}`;
+      this.logger.error(errorMsg);
+      return {
+        success: false,
+        message: errorMsg,
+        activatedRegistrations,
+        errors: [errorMsg]
+      };
+    }
+  }
+
+  /**
+   * Activate services for existing registrations that might be missing services
+   * This can be called manually for registrations that were created before full service activation
+   */
+  async activateServicesForExistingRegistration(registrationId: string): Promise<{
+    success: boolean;
+    message: string;
+    details: any;
+  }> {
+    try {
+      const registration = await this.childModel.findOne({ registrationId }).exec();
+      if (!registration) {
+        return {
+          success: false,
+          message: 'Registration not found',
+          details: null
+        };
+      }
+
+      // Check if tree exists, if not plant one
+      let plantedTree: any = null;
+      try {
+        const existingTree = await this.goGreenService.getTreeByRegistrationId(registrationId);
+        if (!existingTree) {
+          plantedTree = await this.goGreenService.plantTree({
+            registrationId: registration.registrationId,
+            childName: registration.childName,
+            motherName: registration.motherName,
+            location: registration.state,
+            plantingPartner: 'WombTo18 Green Initiative (Retroactive)',
+          });
+          this.logger.log(`🌳 Retroactively planted tree: ${plantedTree.treeId}`);
+        } else {
+          plantedTree = existingTree;
+          this.logger.log(`🌳 Tree already exists: ${existingTree.treeId}`);
+        }
+      } catch (treeError) {
+        this.logger.warn(`Could not plant/find tree: ${treeError instanceof Error ? treeError.message : treeError}`);
+      }
+
+      // Activate all services
+      await this.activateAllServicesForRegistration(registration, plantedTree);
+
+      return {
+        success: true,
+        message: `Services activated for ${registrationId}`,
+        details: {
+          registrationId,
+          childName: registration.childName,
+          treeId: plantedTree?.treeId
+        }
+      };
+
+    } catch (error) {
+      this.logger.error(`Failed to activate services for ${registrationId}: ${error instanceof Error ? error.message : error}`);
+      return {
+        success: false,
+        message: `Failed to activate services: ${error instanceof Error ? error.message : error}`,
+        details: null
+      };
+    }
   }
 }

@@ -1,0 +1,13 @@
+This is a test health record document for admin upload testing.
+
+Patient: Test Child
+Date: March 16, 2026
+Type: Lab Report
+Doctor: Dr. Test Admin
+
+Test Results:
+- Blood pressure: Normal
+- Heart rate: Normal
+- Temperature: 98.6°F
+
+This document was uploaded by admin for testing purposes.

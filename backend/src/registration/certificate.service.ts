@@ -8,6 +8,7 @@ export interface CertificateData {
   dateOfBirth: string;
   state: string;
   issuedDate: string;
+  treeId?: string;
 }
 
 @Injectable()
@@ -165,7 +166,7 @@ export class CertificateService {
         const detailsBoxX = W/2 - 200;
         const detailsBoxY = y;
         const detailsBoxW = 400;
-        const detailsBoxH = 80;
+        const detailsBoxH = 95; // Increased height for tree ID
         
         doc.rect(detailsBoxX, detailsBoxY, detailsBoxW, detailsBoxH)
            .fill(colors.lightGreen)
@@ -183,13 +184,15 @@ export class CertificateService {
         // Left column
         doc.text('Registration ID:', detailsBoxX + 20, detailsY)
            .text('Date of Birth:', detailsBoxX + 20, detailsY + 15)
-           .text('State:', detailsBoxX + 20, detailsY + 30);
+           .text('State:', detailsBoxX + 20, detailsY + 30)
+           .text('Tree ID:', detailsBoxX + 20, detailsY + 45);
         
         // Right column
         doc.font('Helvetica-Bold')
            .text(data.registrationId, detailsBoxX + 120, detailsY)
            .text(new Date(data.dateOfBirth).toLocaleDateString('en-IN'), detailsBoxX + 120, detailsY + 15)
-           .text(data.state, detailsBoxX + 120, detailsY + 30);
+           .text(data.state, detailsBoxX + 120, detailsY + 30)
+           .text(data.treeId || 'Pending', detailsBoxX + 120, detailsY + 45);
         
         // Age calculation and display
         const birthDate = new Date(data.dateOfBirth);
@@ -204,7 +207,7 @@ export class CertificateService {
            .font('Helvetica-Bold')
            .text(ageText, detailsBoxX + 280, detailsY);
         
-        y += 110;
+        y += 125;
         
         // Environmental message
         const messageBoxX = W/2 - 250;
@@ -274,7 +277,7 @@ export class CertificateService {
         
         // Watermark
         doc.font('Helvetica-Bold').fontSize(60).fillColor('#f0f9ff').opacity(0.1)
-           .text('WOMBTO18', 0, H/2 - 30, { align: 'center', width: W, rotate: -15 });
+           .text('WOMBTO18', 0, H/2 - 30, { align: 'center', width: W });
         
         doc.opacity(1); // Reset opacity
 

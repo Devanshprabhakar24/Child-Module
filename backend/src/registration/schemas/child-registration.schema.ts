@@ -49,7 +49,7 @@ export class ChildRegistration {
   @Prop({ type: String, default: null })
   motherRegistrationId?: string;
 
-  @Prop({ type: String, required: true })
+  @Prop({ type: String, required: true, unique: true, index: true })
   email!: string;
 
   @Prop({ type: String, required: true })
@@ -109,3 +109,12 @@ export class ChildRegistration {
 }
 
 export const ChildRegistrationSchema = SchemaFactory.createForClass(ChildRegistration);
+
+// Explicit indexes for better performance and constraints
+ChildRegistrationSchema.index({ registrationId: 1 }, { unique: true });
+ChildRegistrationSchema.index({ email: 1 }, { unique: true });
+ChildRegistrationSchema.index({ phone: 1 }); // Not unique - allows up to 2 registrations per phone
+ChildRegistrationSchema.index({ channelPartnerId: 1 });
+ChildRegistrationSchema.index({ parentUserId: 1 });
+ChildRegistrationSchema.index({ paymentStatus: 1 });
+ChildRegistrationSchema.index({ createdAt: -1 });

@@ -12,6 +12,7 @@ import { AuthModule } from '../auth/auth.module';
 import { DashboardModule } from '../dashboard/dashboard.module';
 import { RemindersModule } from '../reminders/reminders.module';
 import { CmsModule } from '../cms/cms.module';
+import { GoGreenModule } from '../go-green/go-green.module';
 
 @Module({
   imports: [
@@ -23,6 +24,7 @@ import { CmsModule } from '../cms/cms.module';
     DashboardModule,
     RemindersModule,
     CmsModule,
+    GoGreenModule,
   ],
   controllers: [RegistrationController],
   providers: [RegistrationService, CertificateService],
