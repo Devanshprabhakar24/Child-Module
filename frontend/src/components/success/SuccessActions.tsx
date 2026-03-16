@@ -1,15 +1,23 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000";
 
 export default function SuccessActions() {
   const [downloading, setDownloading] = useState(false);
+  const [registrationId, setRegistrationId] = useState<string | null>(null);
+
+  useEffect(() => {
+    // Only access sessionStorage on the client side
+    if (typeof window !== 'undefined') {
+      const regId = sessionStorage.getItem("wt18_reg_id");
+      setRegistrationId(regId);
+    }
+  }, []);
 
   async function handleDownloadCertificate() {
-    const registrationId = sessionStorage.getItem("wt18_reg_id");
     if (!registrationId) {
       alert("Registration ID not found. Please complete registration first.");
       return;

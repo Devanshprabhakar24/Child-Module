@@ -44,36 +44,40 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     }
 
     // Check if user is admin
-    try {
-      const raw = localStorage.getItem("wt18_user");
-      const token = localStorage.getItem("wt18_token");
-      
-      if (!token || !raw) {
+    if (typeof window !== 'undefined') {
+      try {
+        const raw = localStorage.getItem("wt18_user");
+        const token = localStorage.getItem("wt18_token");
+        
+        if (!token || !raw) {
+          window.location.href = "/admin/login";
+          return;
+        }
+
+        const user = JSON.parse(raw);
+        
+        if (user.role !== "ADMIN") {
+          alert("Access denied. Admin privileges required.");
+          window.location.href = "/login";
+          return;
+        }
+
+        if (user.fullName) setAdminName(user.fullName);
+        setIsAuthorized(true);
+      } catch {
         window.location.href = "/admin/login";
-        return;
+      } finally {
+        setChecking(false);
       }
-
-      const user = JSON.parse(raw);
-      
-      if (user.role !== "ADMIN") {
-        alert("Access denied. Admin privileges required.");
-        window.location.href = "/login";
-        return;
-      }
-
-      if (user.fullName) setAdminName(user.fullName);
-      setIsAuthorized(true);
-    } catch {
-      window.location.href = "/admin/login";
-    } finally {
-      setChecking(false);
     }
   }, [isLoginPage, pathname]);
 
   const handleLogout = () => {
-    localStorage.removeItem("wt18_token");
-    localStorage.removeItem("wt18_user");
-    window.location.href = "/admin/login";
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem("wt18_token");
+      localStorage.removeItem("wt18_user");
+      window.location.href = "/admin/login";
+    }
   };
 
   if (checking) {

@@ -9,19 +9,24 @@ export default function SuccessHero() {
   const [payId, setPayId] = useState("—");
   const [childName, setChildName] = useState("—");
   const [regDate, setRegDate] = useState("—");
-
-  useEffect(() => {
-    setRegId(sessionStorage.getItem("wt18_reg_id") ?? "—");
-    setPayId(sessionStorage.getItem("wt18_pay_id") ?? "—");
-    setChildName(sessionStorage.getItem("wt18_child_name") ?? "—");
-    setRegDate(sessionStorage.getItem("wt18_reg_date") ?? new Date().toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short" }));
-  }, []);
-
   const [downloading, setDownloading] = useState(false);
 
+  useEffect(() => {
+    // Only access sessionStorage on the client side
+    if (typeof window !== 'undefined') {
+      setRegId(sessionStorage.getItem("wt18_reg_id") ?? "—");
+      setPayId(sessionStorage.getItem("wt18_pay_id") ?? "—");
+      setChildName(sessionStorage.getItem("wt18_child_name") ?? "—");
+      setRegDate(sessionStorage.getItem("wt18_reg_date") ?? new Date().toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short" }));
+    }
+  }, []);
+
   const handleDownloadInvoice = async () => {
+    if (typeof window === 'undefined') return;
+    
     const id = sessionStorage.getItem("wt18_reg_id");
     if (!id) return;
+    
     setDownloading(true);
     try {
       const res = await fetch(`${API_BASE}/payments/${encodeURIComponent(id)}/invoice`);

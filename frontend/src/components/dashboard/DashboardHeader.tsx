@@ -20,6 +20,9 @@ export default function DashboardHeader({ toggleMobile }: HeaderProps) {
 
   useEffect(() => {
     async function loadProfilePicture() {
+      // Only access localStorage on the client side
+      if (typeof window === 'undefined') return;
+      
       try {
         const raw = localStorage.getItem("wt18_user");
         const token = localStorage.getItem("wt18_token");
@@ -192,9 +195,11 @@ export default function DashboardHeader({ toggleMobile }: HeaderProps) {
                   <button 
                     onClick={() => {
                       setIsDropdownOpen(false);
-                      localStorage.removeItem("wt18_token");
-                      localStorage.removeItem("wt18_user");
-                      window.location.href = "/login";
+                      if (typeof window !== 'undefined') {
+                        localStorage.removeItem("wt18_token");
+                        localStorage.removeItem("wt18_user");
+                        window.location.href = "/login";
+                      }
                     }}
                     className="mt-1 flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-red-600 transition-colors hover:bg-red-50"
                   >

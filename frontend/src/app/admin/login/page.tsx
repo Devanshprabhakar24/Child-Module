@@ -30,11 +30,12 @@ export default function AdminLoginPage() {
       }
 
       // Store token and user data
-      localStorage.setItem("wt18_token", data.token);
-      localStorage.setItem("wt18_user", JSON.stringify(data.user));
-
-      // Redirect to admin dashboard
-      window.location.href = "/admin";
+      if (typeof window !== 'undefined') {
+        localStorage.setItem("wt18_token", data.token);
+        localStorage.setItem("wt18_user", JSON.stringify(data.user));
+        // Redirect to admin dashboard
+        window.location.href = "/admin";
+      }
     } catch (err: any) {
       setError(err.message || "Login failed. Please try again.");
     } finally {

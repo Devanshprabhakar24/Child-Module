@@ -10,13 +10,16 @@ export default function DashboardShell({ children }: { children: React.ReactNode
   const [userName, setUserName] = useState("Parent");
 
   useEffect(() => {
-    try {
-      const raw = localStorage.getItem("wt18_user");
-      if (raw) {
-        const u = JSON.parse(raw);
-        if (u.fullName) setUserName(u.fullName);
-      }
-    } catch {}
+    // Only access localStorage on the client side
+    if (typeof window !== 'undefined') {
+      try {
+        const raw = localStorage.getItem("wt18_user");
+        if (raw) {
+          const u = JSON.parse(raw);
+          if (u.fullName) setUserName(u.fullName);
+        }
+      } catch {}
+    }
   }, []);
 
   // Automatically close mobile menu if window resizes to desktop width

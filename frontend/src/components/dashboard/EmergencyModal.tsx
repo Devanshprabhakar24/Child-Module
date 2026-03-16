@@ -12,15 +12,18 @@ export default function EmergencyModal({ isOpen, onClose }: EmergencyModalProps)
   const [phone, setPhone] = useState("—");
 
   useEffect(() => {
-    try {
-      const name = sessionStorage.getItem("wt18_child_name");
-      if (name) setChildName(name);
-      const raw = localStorage.getItem("wt18_user");
-      if (raw) {
-        const u = JSON.parse(raw);
-        if (u.phone) setPhone(u.phone);
-      }
-    } catch {}
+    // Only access storage on the client side
+    if (typeof window !== 'undefined') {
+      try {
+        const name = sessionStorage.getItem("wt18_child_name");
+        if (name) setChildName(name);
+        const raw = localStorage.getItem("wt18_user");
+        if (raw) {
+          const u = JSON.parse(raw);
+          if (u.phone) setPhone(u.phone);
+        }
+      } catch {}
+    }
   }, [isOpen]);
 
   // Prevent background scrolling when modal is open

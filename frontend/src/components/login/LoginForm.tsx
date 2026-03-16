@@ -110,10 +110,11 @@ export default function LoginForm() {
       if (!res.ok) throw new Error(data.message || "Invalid OTP. Please try again.");
 
       const token = data.token ?? data.access_token;
-      if (token) localStorage.setItem("wt18_token", token);
-      if (data.user) localStorage.setItem("wt18_user", JSON.stringify(data.user));
-
-      window.location.href = "/dashboard";
+      if (typeof window !== 'undefined') {
+        if (token) localStorage.setItem("wt18_token", token);
+        if (data.user) localStorage.setItem("wt18_user", JSON.stringify(data.user));
+        window.location.href = "/dashboard";
+      }
     } catch (err: any) {
       setError(err.message || "Login failed. Please try again.");
     } finally {
