@@ -12,7 +12,6 @@ import {
   Settings,
   X,
   Menu,
-  BarChart3,
 } from "lucide-react";
 
 interface SidebarProps {
@@ -29,7 +28,6 @@ export default function Sidebar({ isDesktopCollapsed, isMobileOpen, closeMobile,
     { name: "Overview", icon: LayoutDashboard, href: "/dashboard" },
     { name: "Vaccination Tracker", icon: Syringe, href: "/dashboard/vaccinations" },
     { name: "Health Records", icon: FileText, href: "/dashboard/records" },
-    { name: "Reports", icon: BarChart3, href: "/dashboard/reports" },
     { name: "Milestones", icon: Sparkles, href: "/dashboard/milestones" },
     { name: "School", icon: School, href: "/dashboard/school" },
     { name: "Go Green", icon: Trees, href: "/dashboard/green" },

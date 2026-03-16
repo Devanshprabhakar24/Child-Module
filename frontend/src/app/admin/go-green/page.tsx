@@ -76,6 +76,7 @@ export default function AdminGoGreenPage() {
   const [newImageUrl, setNewImageUrl] = useState("");
   const [newNotes, setNewNotes] = useState("");
   const [uploading, setUploading] = useState(false);
+  const [uploadSuccess, setUploadSuccess] = useState(false);
 
   useEffect(() => {
     loadData();
@@ -237,25 +238,97 @@ export default function AdminGoGreenPage() {
     return statusConfig?.color || 'bg-gray-100 text-gray-800';
   };
 
-  const handleImageUpload = async (file: File) => {
-    setUploading(true);
+  const testUpload = async (file: File) => {
     try {
-      // Create a FormData object for file upload
+      const token = localStorage.getItem('wt18_token');
+      if (!token) {
+        alert('Authentication required');
+        return;
+      }
+
       const formData = new FormData();
       formData.append('file', file);
-      
-      // For demo purposes, we'll create a local URL
-      // In production, this would upload to Cloudinary or similar service
-      const localUrl = URL.createObjectURL(file);
-      
-      // Simulate upload delay
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      setNewImageUrl(localUrl);
-      alert("Image uploaded successfully! (Local preview - in production this would upload to cloud storage)");
+
+      console.log('Testing upload with file:', file.name);
+
+      const response = await fetch(`${API_BASE}/go-green/admin/test-upload`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+        body: formData,
+      });
+
+      const data = await response.json();
+      console.log('Test upload response:', data);
+
+      if (response.ok) {
+        alert(`Test upload successful! File: ${data.filename}`);
+      } else {
+        alert(`Test upload failed: ${data.message}`);
+      }
+    } catch (error) {
+      console.error('Test upload error:', error);
+      alert('Test upload failed');
+    }
+  };
+
+  const handleImageUpload = async (file: File, treeId: string) => {
+    setUploading(true);
+    try {
+      const token = localStorage.getItem('wt18_token');
+      if (!token) {
+        alert('Authentication required');
+        return;
+      }
+
+      // Validate file
+      const allowedTypes = ['image/jpeg', 'image/png', 'image/jpg'];
+      if (!allowedTypes.includes(file.type)) {
+        alert('Invalid file type. Only JPG and PNG files are allowed.');
+        return;
+      }
+
+      const maxSize = 5 * 1024 * 1024; // 5MB
+      if (file.size > maxSize) {
+        alert('File size too large. Maximum size is 5MB.');
+        return;
+      }
+
+      // Create FormData for file upload
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('notes', newNotes || '');
+      formData.append('updatedBy', 'Admin');
+
+      console.log('Uploading file:', file.name, 'for tree:', treeId);
+
+      const response = await fetch(`${API_BASE}/go-green/admin/tree/${treeId}/upload-image`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+        body: formData,
+      });
+
+      console.log('Upload response status:', response.status);
+
+      if (response.ok) {
+        const data = await response.json();
+        console.log('Upload successful:', data);
+        setNewImageUrl(data.imageUrl);
+        setUploadSuccess(true);
+        setTimeout(() => setUploadSuccess(false), 3000); // Hide success message after 3 seconds
+        alert("Image uploaded successfully!");
+        loadData(); // Refresh the data
+      } else {
+        const errorData = await response.json().catch(() => ({ message: 'Unknown error' }));
+        console.error('Upload failed:', errorData);
+        alert(`Upload failed: ${errorData.message || 'Unknown error'}`);
+      }
     } catch (error) {
       console.error("Upload failed:", error);
-      alert("Failed to upload image");
+      alert("Failed to upload image. Please try again.");
     } finally {
       setUploading(false);
     }
@@ -285,6 +358,13 @@ export default function AdminGoGreenPage() {
                 <p className="text-sm text-gray-600">Manage tree planting and growth tracking</p>
               </div>
             </div>
+            <button
+              onClick={loadData}
+              className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors flex items-center gap-2"
+            >
+              <TrendingUp className="h-4 w-4" />
+              Refresh Data
+            </button>
           </div>
         </div>
       </div>
@@ -397,7 +477,7 @@ export default function AdminGoGreenPage() {
                       <div className="flex items-center gap-3">
                         {tree.currentImageUrl ? (
                           <img 
-                            src={tree.currentImageUrl} 
+                            src={tree.currentImageUrl.startsWith('http') ? tree.currentImageUrl : `${API_BASE}${tree.currentImageUrl}`} 
                             alt="Tree" 
                             className="h-12 w-12 rounded-lg object-cover"
                           />
@@ -532,25 +612,57 @@ export default function AdminGoGreenPage() {
                         accept="image/*"
                         onChange={(e) => {
                           const file = e.target.files?.[0];
-                          if (file) handleImageUpload(file);
+                          if (file && editingTree) handleImageUpload(file, editingTree);
                         }}
                         className="hidden"
                         id="image-upload"
                       />
                       <label
                         htmlFor="image-upload"
-                        className="flex items-center gap-2 px-4 py-2 bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 cursor-pointer"
+                        className={`flex items-center gap-2 px-4 py-2 rounded-lg cursor-pointer transition-colors ${
+                          uploading 
+                            ? 'bg-gray-100 text-gray-500 cursor-not-allowed' 
+                            : uploadSuccess
+                            ? 'bg-green-100 text-green-700'
+                            : 'bg-blue-100 text-blue-700 hover:bg-blue-200'
+                        }`}
                       >
                         <Camera className="h-4 w-4" />
-                        {uploading ? "Uploading..." : "Upload Photo"}
+                        {uploading ? "Uploading..." : uploadSuccess ? "Upload Successful!" : "Upload Photo"}
+                      </label>
+                      
+                      {/* Test Upload Button */}
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={(e) => {
+                          const file = e.target.files?.[0];
+                          if (file) testUpload(file);
+                        }}
+                        className="hidden"
+                        id="test-upload"
+                      />
+                      <label
+                        htmlFor="test-upload"
+                        className="flex items-center gap-2 px-4 py-2 bg-yellow-100 text-yellow-700 rounded-lg hover:bg-yellow-200 cursor-pointer"
+                      >
+                        <Upload className="h-4 w-4" />
+                        Test Upload
                       </label>
                     </div>
                     {newImageUrl && (
-                      <img 
-                        src={newImageUrl} 
-                        alt="Preview" 
-                        className="w-32 h-32 object-cover rounded-lg border"
-                      />
+                      <div className="mt-2">
+                        <p className="text-sm text-gray-600 mb-2">Image Preview:</p>
+                        <img 
+                          src={newImageUrl.startsWith('http') || newImageUrl.startsWith('blob:') ? newImageUrl : `${API_BASE}${newImageUrl}`} 
+                          alt="Preview" 
+                          className="w-32 h-32 object-cover rounded-lg border"
+                          onError={(e) => {
+                            console.error('Image failed to load:', newImageUrl);
+                            e.currentTarget.style.display = 'none';
+                          }}
+                        />
+                      </div>
                     )}
                   </div>
                 </div>

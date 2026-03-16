@@ -17,6 +17,7 @@ import {
   TreePine,
   ChevronRight,
   Shield,
+  BarChart3,
 } from "lucide-react";
 
 const navItems = [
@@ -24,8 +25,8 @@ const navItems = [
   { href: "/admin/vaccinations", icon: Syringe, label: "Vaccinations" },
   { href: "/admin/children", icon: Users, label: "Children" },
   { href: "/admin/go-green", icon: TreePine, label: "Go Green" },
+  { href: "/admin/health-records", icon: FileText, label: "Health Records" },
   { href: "/admin/cms", icon: Edit3, label: "Content (CMS)" },
-  { href: "/admin/reports", icon: FileText, label: "Reports" },
   { href: "/admin/settings", icon: Settings, label: "Settings" },
 ];
 

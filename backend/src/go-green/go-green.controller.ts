@@ -8,7 +8,15 @@ import {
   Body,
   UseGuards,
   NotFoundException,
+  UseInterceptors,
+  UploadedFile,
+  Res,
 } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
+import { Response } from 'express';
+import { diskStorage } from 'multer';
+import { extname, join } from 'path';
+import { existsSync, mkdirSync } from 'fs';
 import { GoGreenService } from './go-green.service';
 import { AuthGuard } from '../auth/guards/auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
@@ -16,9 +24,53 @@ import { Roles } from '../auth/decorators/roles.decorator';
 import { TreeStatus } from './schemas/go-green-tree.schema';
 import { UserRole } from '@wombto18/shared';
 
+// Configure multer for local file storage
+const goGreenStorage = diskStorage({
+  destination: (req, file, cb) => {
+    const uploadPath = join(process.cwd(), 'uploads', 'go-green');
+    if (!existsSync(uploadPath)) {
+      mkdirSync(uploadPath, { recursive: true });
+    }
+    cb(null, uploadPath);
+  },
+  filename: (req, file, cb) => {
+    const treeId = req.params.treeId || 'tree';
+    const timestamp = Date.now();
+    const ext = extname(file.originalname);
+    const filename = `${treeId}_${timestamp}${ext}`;
+    cb(null, filename);
+  },
+});
+
 @Controller('go-green')
 export class GoGreenController {
   constructor(private readonly goGreenService: GoGreenService) {}
+
+  /**
+   * Health check endpoint
+   */
+  @Get('health')
+  async healthCheck() {
+    return {
+      success: true,
+      message: 'Go Green API is working',
+      timestamp: new Date().toISOString(),
+    };
+  }
+
+  /**
+   * Serve Go Green images
+   */
+  @Get('files/:filename')
+  async serveFile(@Param('filename') filename: string, @Res() res: Response) {
+    const filePath = join(process.cwd(), 'uploads', 'go-green', filename);
+    
+    if (!existsSync(filePath)) {
+      throw new NotFoundException('File not found');
+    }
+
+    return res.sendFile(filePath);
+  }
 
   /**
    * Get Go Green statistics (public)
@@ -126,6 +178,75 @@ export class GoGreenController {
     return {
       success: true,
       data: tree,
+    };
+  }
+
+  /**
+   * Test upload endpoint (admin only)
+   */
+  @Post('admin/test-upload')
+  @UseGuards(AuthGuard, RolesGuard)
+  @Roles(UserRole.ADMIN)
+  @UseInterceptors(FileInterceptor('file', { storage: goGreenStorage }))
+  async testUpload(
+    @UploadedFile() file: Express.Multer.File,
+  ) {
+    if (!file) {
+      throw new NotFoundException('No file uploaded');
+    }
+
+    return {
+      success: true,
+      message: 'File uploaded successfully',
+      filename: file.filename,
+      originalName: file.originalname,
+      size: file.size,
+      path: file.path,
+      url: `/uploads/go-green/${file.filename}`,
+    };
+  }
+
+  /**
+   * Upload tree image (admin only)
+   */
+  @Post('admin/tree/:treeId/upload-image')
+  @UseGuards(AuthGuard, RolesGuard)
+  @Roles(UserRole.ADMIN)
+  @UseInterceptors(FileInterceptor('file', { storage: goGreenStorage }))
+  async uploadTreeImage(
+    @Param('treeId') treeId: string,
+    @UploadedFile() file: Express.Multer.File,
+    @Body() body: {
+      notes?: string;
+      updatedBy?: string;
+    }
+  ) {
+    if (!file) {
+      throw new NotFoundException('No file uploaded');
+    }
+
+    // Validate file type
+    const allowedTypes = ['image/jpeg', 'image/png', 'image/jpg'];
+    if (!allowedTypes.includes(file.mimetype)) {
+      throw new NotFoundException('Invalid file type. Only JPG and PNG files are allowed.');
+    }
+
+    // Create file URL for local storage
+    const imageUrl = `/uploads/go-green/${file.filename}`;
+
+    // Add growth stage with uploaded image
+    const tree = await this.goGreenService.addGrowthStage(
+      treeId,
+      imageUrl,
+      body.notes,
+      body.updatedBy || 'Admin'
+    );
+
+    return {
+      success: true,
+      data: tree,
+      imageUrl: imageUrl,
+      message: 'Tree image uploaded successfully',
     };
   }
 

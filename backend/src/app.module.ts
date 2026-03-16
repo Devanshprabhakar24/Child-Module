@@ -11,13 +11,20 @@ import { NotificationsModule } from './notifications/notifications.module';
 import { CmsModule } from './cms/cms.module';
 import { GoGreenModule } from './go-green/go-green.module';
 import { HealthRecordsModule } from './health-records/health-records.module';
-import { ReportsModule } from './reports/reports.module';
 
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
     MongooseModule.forRoot(
       process.env['MONGODB_URI'] ?? 'mongodb://localhost:27017/wombto18',
+      {
+        retryAttempts: 3,
+        retryDelay: 1000,
+        connectionFactory: (connection) => {
+          console.log('✅ MongoDB connected successfully');
+          return connection;
+        },
+      }
     ),
     NotificationsModule,
     RegistrationModule,
@@ -29,7 +36,6 @@ import { ReportsModule } from './reports/reports.module';
     CmsModule,
     GoGreenModule,
     HealthRecordsModule,
-    ReportsModule,
   ],
 })
 export class AppModule {}
