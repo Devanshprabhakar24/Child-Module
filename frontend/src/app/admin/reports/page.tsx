@@ -95,16 +95,20 @@ export default function AdminReportsPage() {
       if (response.ok) {
         const data = await response.json();
         console.log('API Response:', data);
-        console.log('Health records found:', data.data.records.length);
-        setReports(data.data.records);
-        setTotalPages(data.data.totalPages);
+        console.log('Health records found:', data.data?.records?.length || 0);
+        setReports(data.data?.records || []);
+        setTotalPages(data.data?.totalPages || 1);
       } else {
         console.error('Failed to fetch health records, status:', response.status);
         const errorText = await response.text();
         console.error('Error response:', errorText);
+        setReports([]);
+        setTotalPages(1);
       }
     } catch (error) {
       console.error('Error fetching health records:', error);
+      setReports([]);
+      setTotalPages(1);
     } finally {
       setLoading(false);
       setSearchLoading(false);
@@ -502,7 +506,8 @@ export default function AdminReportsPage() {
                               View
                             </a>
                             <a
-                              href={`http://localhost:8000/health-records/${report._id}/download`}
+                              href={`http://localhost:8000${report.fileUrl}`}
+                              download={report.fileName}
                               className="bg-green-500 text-white px-3 py-1 rounded text-sm hover:bg-green-600 transition-colors"
                             >
                               Download
