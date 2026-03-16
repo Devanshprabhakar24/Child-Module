@@ -101,7 +101,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   }
 
   return (
-    <div className="flex min-h-screen bg-slate-50">
+    <div className="flex h-screen overflow-hidden bg-slate-50">
       {/* Mobile Menu Overlay */}
       {isMobileMenuOpen && (
         <div
@@ -112,14 +112,16 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
       {/* Sidebar */}
       <aside
-        className={`fixed inset-y-0 left-0 z-50 flex flex-col border-r border-slate-100 bg-white transition-all duration-300 lg:static ${
+        className={`fixed inset-y-0 left-0 z-50 flex h-full flex-col border-r border-slate-100 bg-white transition-all duration-300 lg:static lg:h-full ${
           isCollapsed ? "lg:w-20" : "lg:w-64"
         } ${isMobileMenuOpen ? "translate-x-0 w-64" : "-translate-x-full lg:translate-x-0"}`}
       >
         {/* Logo Section */}
-        <div className="flex h-15 items-center justify-between border-b border-slate-100 px-4">
+        <div className="flex h-16 shrink-0 items-center justify-between border-b border-slate-100 px-4">
           <div className="flex items-center gap-3">
-            
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-emerald-500 text-white">
+              <Shield className="h-5 w-5" />
+            </div>
             {!isCollapsed && (
               <span className="text-lg font-semibold text-slate-900">WombTo18</span>
             )}
@@ -207,9 +209,9 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       </aside>
 
       {/* Main Content */}
-      <div className="flex flex-1 flex-col">
+      <div className="flex flex-1 flex-col overflow-hidden">
         {/* Mobile Header */}
-        <header className="sticky top-0 z-30 flex h-16 items-center justify-between border-b border-slate-100 bg-white px-4 lg:hidden">
+        <header className="sticky top-0 z-30 flex h-16 shrink-0 items-center justify-between border-b border-slate-100 bg-white px-4 lg:hidden">
           <button
             onClick={() => setIsMobileMenuOpen(true)}
             className="rounded-lg p-2 hover:bg-slate-100"
@@ -226,7 +228,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         </header>
 
         {/* Page Content */}
-        <main className="flex-1">{children}</main>
+        <main className="flex-1 overflow-y-auto">{children}</main>
       </div>
     </div>
   );
