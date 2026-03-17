@@ -29,11 +29,11 @@ export default function DashboardHeader({ toggleMobile }: HeaderProps) {
         
         if (raw) {
           const u = JSON.parse(raw);
-          if (u.fullName) setUserName(u.fullName);
           if (u.email) setUserEmail(u.email);
+          // Don't set userName from user account, we'll get it from child profile
         }
 
-        // Fetch child's profile picture from API
+        // Fetch child's profile and use mother's name
         if (token) {
           const familyRes = await fetch(`${API_BASE}/dashboard/family`, {
             headers: { Authorization: `Bearer ${token}` },
@@ -46,6 +46,11 @@ export default function DashboardHeader({ toggleMobile }: HeaderProps) {
             
             if (firstChild?.profilePictureUrl) {
               setAvatarUrl(firstChild.profilePictureUrl);
+            }
+            
+            // Use mother's name from child profile instead of user account name
+            if (firstChild?.motherName) {
+              setUserName(firstChild.motherName);
             }
           }
         }

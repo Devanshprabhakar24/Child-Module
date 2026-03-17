@@ -75,10 +75,71 @@ export class DashboardController {
 
   // ─── Milestones ───────────────────────────────────────────────────────
 
+  /**
+   * Get development milestones for a specific age group
+   */
   @Get('milestones/:registrationId')
-  async getMilestones(@Param('registrationId') registrationId: string) {
-    const milestones = await this.dashboardService.getMilestonesByRegistrationId(registrationId);
-    return { success: true, data: milestones };
+  async getMilestonesByAgeGroup(
+    @Param('registrationId') registrationId: string,
+    @Req() req: any
+  ) {
+    const ageGroup = req.query.ageGroup;
+    if (ageGroup) {
+      const milestones = await this.dashboardService.getDevelopmentMilestonesByAgeGroup(
+        registrationId,
+        ageGroup
+      );
+      return { success: true, data: milestones };
+    } else {
+      const milestones = await this.dashboardService.getMilestonesByRegistrationId(registrationId);
+      return { success: true, data: milestones };
+    }
+  }
+
+  /**
+   * Update milestone status with YES/NO logic
+   */
+  @Patch('milestones/update/:id')
+  async updateDevelopmentMilestoneStatus(
+    @Param('id') milestoneId: string,
+    @Body() body: { status: 'NOT_STARTED' | 'IN_PROGRESS' | 'ACHIEVED' | 'DELAYED'; notes?: string }
+  ) {
+    const updateData: any = {
+      status: body.status,
+      notes: body.notes,
+    };
+
+    if (body.status === 'ACHIEVED') {
+      updateData.achievedDate = new Date();
+    } else if (body.status === 'NOT_STARTED') {
+      updateData.achievedDate = null;
+    }
+
+    const milestone = await this.dashboardService.updateDevelopmentMilestoneStatus(
+      milestoneId,
+      updateData.status,
+      updateData.achievedDate,
+      updateData.notes
+    );
+
+    return { success: true, data: milestone };
+  }
+
+  /**
+   * Add notes to a milestone
+   */
+  @Patch('milestones/notes/:id')
+  async updateMilestoneNotes(
+    @Param('id') milestoneId: string,
+    @Body() body: { notes: string }
+  ) {
+    const milestone = await this.dashboardService.updateDevelopmentMilestoneStatus(
+      milestoneId,
+      undefined,
+      undefined,
+      body.notes
+    );
+    return { success: true, data: milestone };
   }
 
   @Get('milestones/:registrationId/upcoming')
@@ -239,6 +300,39 @@ export class DashboardController {
     return { success: true, message: 'Child deleted successfully' };
   }
 
+  /**
+   * Admin: Get all vaccination records across all children
+   */
+  @Get('admin/vaccinations')
+  async getAllVaccinations() {
+    const vaccinations = await this.dashboardService.getAllVaccinations();
+    return { success: true, data: vaccinations };
+  }
+
+  /**
+   * Admin: Update vaccination status for a child
+   */
+  @Patch('admin/vaccination/:milestoneId')
+  async updateVaccinationStatus(
+    @Param('milestoneId') milestoneId: string,
+    @Body() body: { 
+      status: 'UPCOMING' | 'DUE' | 'COMPLETED' | 'MISSED';
+      completedDate?: string;
+      notes?: string;
+      administeredBy?: string;
+      location?: string;
+    }
+  ) {
+    const milestone = await this.dashboardService.updateVaccinationStatus(milestoneId, {
+      status: body.status as any,
+      completedDate: body.completedDate ? new Date(body.completedDate) : undefined,
+      notes: body.notes,
+      administeredBy: body.administeredBy,
+      location: body.location,
+    });
+    return { success: true, data: milestone };
+  }
+
   // ─── Development Milestones ───────────────────────────────────────────
 
   /**
@@ -266,10 +360,10 @@ export class DashboardController {
   }
 
   /**
-   * Update development milestone status
+   * Update development milestone status (legacy endpoint)
    */
   @Patch('development-milestones/:milestoneId')
-  async updateDevelopmentMilestoneStatus(
+  async updateDevelopmentMilestone(
     @Param('milestoneId') milestoneId: string,
     @Body() body: { status: string; achievedDate?: string; notes?: string }
   ) {

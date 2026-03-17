@@ -12,13 +12,33 @@ export default function DashboardShell({ children }: { children: React.ReactNode
   useEffect(() => {
     // Only access localStorage on the client side
     if (typeof window !== 'undefined') {
-      try {
-        const raw = localStorage.getItem("wt18_user");
-        if (raw) {
-          const u = JSON.parse(raw);
-          if (u.fullName) setUserName(u.fullName);
+      const loadMotherName = async () => {
+        try {
+          const token = localStorage.getItem("wt18_token");
+          
+          if (token) {
+            // Fetch child's profile and use mother's name
+            const familyRes = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000"}/dashboard/family`, {
+              headers: { Authorization: `Bearer ${token}` },
+            });
+
+            if (familyRes.ok) {
+              const familyJson = await familyRes.json();
+              const kids = familyJson.data?.children || familyJson.data || [];
+              const firstChild = kids[0];
+              
+              // Use mother's name from child profile instead of user account name
+              if (firstChild?.motherName) {
+                setUserName(firstChild.motherName);
+              }
+            }
+          }
+        } catch (error) {
+          console.error("Failed to load mother name:", error);
         }
-      } catch {}
+      };
+      
+      loadMotherName();
     }
   }, []);
 

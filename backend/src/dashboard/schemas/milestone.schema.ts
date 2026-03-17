@@ -33,6 +33,14 @@ export class Milestone {
 
   @Prop({ type: String, default: null })
   notes?: string;
+
+  /** Who administered the vaccine (for admin tracking) */
+  @Prop({ type: String, default: null })
+  administeredBy?: string;
+
+  /** Where the vaccine was administered (for admin tracking) */
+  @Prop({ type: String, default: null })
+  location?: string;
 }
 
 export const MilestoneSchema = SchemaFactory.createForClass(Milestone);

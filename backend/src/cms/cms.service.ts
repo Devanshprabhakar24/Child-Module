@@ -187,39 +187,39 @@ export class CmsService {
     if (milestoneCount === 0) {
       const defaultMilestones = [
         // 0-1 years
-        { ageGroup: '0-1 years', title: 'Lifts head when on tummy', description: 'Baby can lift head briefly when lying on stomach', type: 'PHYSICAL', order: 1, tips: 'Give plenty of supervised tummy time' },
-        { ageGroup: '0-1 years', title: 'Follows objects with eyes', description: 'Tracks moving objects with eyes', type: 'COGNITIVE', order: 2, tips: 'Use colorful toys to encourage tracking' },
-        { ageGroup: '0-1 years', title: 'Smiles at people', description: 'Social smile in response to interaction', type: 'SOCIAL', order: 3, tips: 'Engage with baby through smiling and talking' },
-        { ageGroup: '0-1 years', title: 'Coos and babbles', description: 'Makes cooing sounds and babbles', type: 'LANGUAGE', order: 4, tips: 'Talk to baby frequently and respond to sounds' },
-        { ageGroup: '0-1 years', title: 'Sits without support', description: 'Can sit independently without falling', type: 'PHYSICAL', order: 5, tips: 'Practice sitting with pillow support initially' },
+        { ageGroup: '0-1 years', title: 'Lifts head when on tummy', description: 'Baby can lift head briefly when lying on stomach', type: 'PHYSICAL', order: 1, expectedAgeMonths: 2, tips: 'Give plenty of supervised tummy time' },
+        { ageGroup: '0-1 years', title: 'Follows objects with eyes', description: 'Tracks moving objects with eyes', type: 'COGNITIVE', order: 2, expectedAgeMonths: 3, tips: 'Use colorful toys to encourage tracking' },
+        { ageGroup: '0-1 years', title: 'Smiles at people', description: 'Social smile in response to interaction', type: 'SOCIAL', order: 3, expectedAgeMonths: 2, tips: 'Engage with baby through smiling and talking' },
+        { ageGroup: '0-1 years', title: 'Coos and babbles', description: 'Makes cooing sounds and babbles', type: 'LANGUAGE', order: 4, expectedAgeMonths: 4, tips: 'Talk to baby frequently and respond to sounds' },
+        { ageGroup: '0-1 years', title: 'Sits without support', description: 'Can sit independently without falling', type: 'PHYSICAL', order: 5, expectedAgeMonths: 6, tips: 'Practice sitting with pillow support initially' },
         
         // 1-3 years
-        { ageGroup: '1-3 years', title: 'Walks independently', description: 'Walks without support', type: 'PHYSICAL', order: 1, tips: 'Provide safe space for walking practice' },
-        { ageGroup: '1-3 years', title: 'Says 2-3 words', description: 'Uses simple words like mama, dada', type: 'LANGUAGE', order: 2, tips: 'Name objects and repeat words clearly' },
-        { ageGroup: '1-3 years', title: 'Points to objects', description: 'Points to things when named', type: 'COGNITIVE', order: 3, tips: 'Play naming games with everyday objects' },
-        { ageGroup: '1-3 years', title: 'Shows affection', description: 'Hugs, kisses, shows emotions', type: 'EMOTIONAL', order: 4, tips: 'Model affectionate behavior' },
-        { ageGroup: '1-3 years', title: 'Runs and climbs', description: 'Runs well and climbs furniture', type: 'PHYSICAL', order: 5, tips: 'Supervise active play and climbing' },
+        { ageGroup: '1-3 years', title: 'Walks independently', description: 'Walks without support', type: 'PHYSICAL', order: 1, expectedAgeMonths: 12, tips: 'Provide safe space for walking practice' },
+        { ageGroup: '1-3 years', title: 'Says 2-3 words', description: 'Uses simple words like mama, dada', type: 'LANGUAGE', order: 2, expectedAgeMonths: 15, tips: 'Name objects and repeat words clearly' },
+        { ageGroup: '1-3 years', title: 'Points to objects', description: 'Points to things when named', type: 'COGNITIVE', order: 3, expectedAgeMonths: 18, tips: 'Play naming games with everyday objects' },
+        { ageGroup: '1-3 years', title: 'Shows affection', description: 'Hugs, kisses, shows emotions', type: 'EMOTIONAL', order: 4, expectedAgeMonths: 20, tips: 'Model affectionate behavior' },
+        { ageGroup: '1-3 years', title: 'Runs and climbs', description: 'Runs well and climbs furniture', type: 'PHYSICAL', order: 5, expectedAgeMonths: 24, tips: 'Supervise active play and climbing' },
         
         // 3-5 years
-        { ageGroup: '3-5 years', title: 'Hops on one foot', description: 'Can hop on one foot multiple times', type: 'PHYSICAL', order: 1, tips: 'Practice hopping games' },
-        { ageGroup: '3-5 years', title: 'Speaks in sentences', description: 'Uses 4-5 word sentences', type: 'LANGUAGE', order: 2, tips: 'Have conversations and read books together' },
-        { ageGroup: '3-5 years', title: 'Plays with other children', description: 'Engages in cooperative play', type: 'SOCIAL', order: 3, tips: 'Arrange playdates with peers' },
-        { ageGroup: '3-5 years', title: 'Draws simple shapes', description: 'Can draw circles and squares', type: 'COGNITIVE', order: 4, tips: 'Provide drawing materials and practice' },
-        { ageGroup: '3-5 years', title: 'Shows independence', description: 'Wants to do things independently', type: 'EMOTIONAL', order: 5, tips: 'Allow safe opportunities for independence' },
+        { ageGroup: '3-5 years', title: 'Hops on one foot', description: 'Can hop on one foot multiple times', type: 'PHYSICAL', order: 1, expectedAgeMonths: 42, tips: 'Practice hopping games' },
+        { ageGroup: '3-5 years', title: 'Speaks in sentences', description: 'Uses 4-5 word sentences', type: 'LANGUAGE', order: 2, expectedAgeMonths: 36, tips: 'Have conversations and read books together' },
+        { ageGroup: '3-5 years', title: 'Plays with other children', description: 'Engages in cooperative play', type: 'SOCIAL', order: 3, expectedAgeMonths: 48, tips: 'Arrange playdates with peers' },
+        { ageGroup: '3-5 years', title: 'Draws simple shapes', description: 'Can draw circles and squares', type: 'COGNITIVE', order: 4, expectedAgeMonths: 45, tips: 'Provide drawing materials and practice' },
+        { ageGroup: '3-5 years', title: 'Shows independence', description: 'Wants to do things independently', type: 'EMOTIONAL', order: 5, expectedAgeMonths: 40, tips: 'Allow safe opportunities for independence' },
         
         // 5-12 years
-        { ageGroup: '5-12 years', title: 'Rides bicycle', description: 'Can ride a bicycle with or without training wheels', type: 'PHYSICAL', order: 1, tips: 'Practice in safe areas with supervision' },
-        { ageGroup: '5-12 years', title: 'Reads simple books', description: 'Can read age-appropriate books', type: 'COGNITIVE', order: 2, tips: 'Read together daily' },
-        { ageGroup: '5-12 years', title: 'Makes friends easily', description: 'Forms friendships with peers', type: 'SOCIAL', order: 3, tips: 'Encourage social activities' },
-        { ageGroup: '5-12 years', title: 'Expresses feelings', description: 'Can identify and express emotions', type: 'EMOTIONAL', order: 4, tips: 'Discuss feelings openly' },
-        { ageGroup: '5-12 years', title: 'Follows complex instructions', description: 'Can follow multi-step directions', type: 'COGNITIVE', order: 5, tips: 'Give clear, step-by-step instructions' },
+        { ageGroup: '5-12 years', title: 'Rides bicycle', description: 'Can ride a bicycle with or without training wheels', type: 'PHYSICAL', order: 1, expectedAgeMonths: 72, tips: 'Practice in safe areas with supervision' },
+        { ageGroup: '5-12 years', title: 'Reads simple books', description: 'Can read age-appropriate books', type: 'COGNITIVE', order: 2, expectedAgeMonths: 84, tips: 'Read together daily' },
+        { ageGroup: '5-12 years', title: 'Makes friends easily', description: 'Forms friendships with peers', type: 'SOCIAL', order: 3, expectedAgeMonths: 96, tips: 'Encourage social activities' },
+        { ageGroup: '5-12 years', title: 'Expresses feelings', description: 'Can identify and express emotions', type: 'EMOTIONAL', order: 4, expectedAgeMonths: 90, tips: 'Discuss feelings openly' },
+        { ageGroup: '5-12 years', title: 'Follows complex instructions', description: 'Can follow multi-step directions', type: 'COGNITIVE', order: 5, expectedAgeMonths: 108, tips: 'Give clear, step-by-step instructions' },
         
         // 13-18 years
-        { ageGroup: '13-18 years', title: 'Develops abstract thinking', description: 'Can think abstractly and reason logically', type: 'COGNITIVE', order: 1, tips: 'Encourage critical thinking discussions' },
-        { ageGroup: '13-18 years', title: 'Forms identity', description: 'Develops sense of self and values', type: 'EMOTIONAL', order: 2, tips: 'Support exploration of interests' },
-        { ageGroup: '13-18 years', title: 'Peer relationships deepen', description: 'Forms deeper friendships', type: 'SOCIAL', order: 3, tips: 'Respect privacy while staying connected' },
-        { ageGroup: '13-18 years', title: 'Plans for future', description: 'Thinks about career and life goals', type: 'COGNITIVE', order: 4, tips: 'Discuss goals and provide guidance' },
-        { ageGroup: '13-18 years', title: 'Manages emotions', description: 'Better emotional regulation', type: 'EMOTIONAL', order: 5, tips: 'Model healthy coping strategies' },
+        { ageGroup: '13-18 years', title: 'Develops abstract thinking', description: 'Can think abstractly and reason logically', type: 'COGNITIVE', order: 1, expectedAgeMonths: 156, tips: 'Encourage critical thinking discussions' },
+        { ageGroup: '13-18 years', title: 'Forms identity', description: 'Develops sense of self and values', type: 'EMOTIONAL', order: 2, expectedAgeMonths: 168, tips: 'Support exploration of interests' },
+        { ageGroup: '13-18 years', title: 'Peer relationships deepen', description: 'Forms deeper friendships', type: 'SOCIAL', order: 3, expectedAgeMonths: 180, tips: 'Respect privacy while staying connected' },
+        { ageGroup: '13-18 years', title: 'Plans for future', description: 'Thinks about career and life goals', type: 'COGNITIVE', order: 4, expectedAgeMonths: 192, tips: 'Discuss goals and provide guidance' },
+        { ageGroup: '13-18 years', title: 'Manages emotions', description: 'Better emotional regulation', type: 'EMOTIONAL', order: 5, expectedAgeMonths: 204, tips: 'Model healthy coping strategies' },
       ];
       await this.milestoneTemplateModel.insertMany(defaultMilestones);
       results.milestones = defaultMilestones.length;

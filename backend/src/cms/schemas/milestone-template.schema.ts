@@ -20,6 +20,9 @@ export class MilestoneTemplate {
   @Prop({ type: Number, default: 0 })
   order!: number;
 
+  @Prop({ type: Number, required: true })
+  expectedAgeMonths!: number;
+
   @Prop({ type: Boolean, default: true })
   isActive!: boolean;
 

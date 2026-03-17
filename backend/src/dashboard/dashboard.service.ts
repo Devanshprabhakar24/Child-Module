@@ -250,6 +250,7 @@ export class DashboardService {
       childGender: string;
       ageGroup: string;
       ageInYears: number;
+      motherName: string;
       profilePictureUrl?: string;
       nextDueMilestone?: { title: string; dueDate: Date } | null;
     }>;
@@ -300,6 +301,7 @@ export class DashboardService {
           ageGroup: child.ageGroup,
           ageInYears: currentAge,
           state: child.state,
+          motherName: child.motherName,
           profilePictureUrl: child.profilePictureUrl,
           nextDueMilestone: nextDue ? { title: nextDue.title, dueDate: nextDue.dueDate } : null,
         };
@@ -387,7 +389,100 @@ export class DashboardService {
   }
 
   /**
-   * Delete a child and all associated data (milestones, reminders, etc.)
+   * Get all vaccination records across all children (for admin)
+   */
+  async getAllVaccinations(): Promise<Array<{
+    milestoneId: string;
+    registrationId: string;
+    childName: string;
+    motherName: string;
+    vaccineName: string;
+    title: string;
+    dueDate: Date;
+    status: string;
+    completedDate?: Date;
+    notes?: string;
+    administeredBy?: string;
+    location?: string;
+  }>> {
+    const vaccinations = await this.milestoneModel
+      .find({ category: MilestoneCategory.VACCINATION })
+      .sort({ dueDate: 1 })
+      .lean()
+      .exec();
+
+    const result = await Promise.all(
+      vaccinations.map(async (vaccination) => {
+        const child = await this.childModel
+          .findOne({ registrationId: vaccination.registrationId })
+          .select('childName motherName')
+          .lean()
+          .exec();
+
+        return {
+          milestoneId: vaccination._id.toString(),
+          registrationId: vaccination.registrationId,
+          childName: child?.childName || 'Unknown',
+          motherName: child?.motherName || 'Unknown',
+          vaccineName: vaccination.vaccineName || 'Unknown',
+          title: vaccination.title,
+          dueDate: vaccination.dueDate,
+          status: vaccination.status,
+          completedDate: vaccination.completedDate,
+          notes: vaccination.notes,
+          administeredBy: vaccination.administeredBy,
+          location: vaccination.location,
+        };
+      })
+    );
+
+    return result;
+  }
+
+  /**
+   * Update vaccination status (for admin)
+   */
+  async updateVaccinationStatus(
+    milestoneId: string,
+    updateData: {
+      status: MilestoneStatus;
+      completedDate?: Date;
+      notes?: string;
+      administeredBy?: string;
+      location?: string;
+    }
+  ): Promise<MilestoneDocument> {
+    const milestone = await this.milestoneModel.findById(milestoneId).exec();
+    if (!milestone) {
+      throw new NotFoundException('Vaccination milestone not found');
+    }
+
+    // Ensure this is a vaccination milestone
+    if (milestone.category !== MilestoneCategory.VACCINATION) {
+      throw new NotFoundException('This is not a vaccination milestone');
+    }
+
+    milestone.status = updateData.status;
+    if (updateData.completedDate) {
+      milestone.completedDate = updateData.completedDate;
+    }
+    if (updateData.notes !== undefined) {
+      milestone.notes = updateData.notes;
+    }
+    if (updateData.administeredBy !== undefined) {
+      milestone.administeredBy = updateData.administeredBy;
+    }
+    if (updateData.location !== undefined) {
+      milestone.location = updateData.location;
+    }
+
+    await milestone.save();
+    this.logger.log(`Vaccination status updated by admin: ${milestoneId} -> ${updateData.status}`);
+    return milestone;
+  }
+
+  /**
+   * Delete child and all associated data (for admin)
    */
   async deleteChild(registrationId: string): Promise<void> {
     // Delete child registration
@@ -416,11 +511,32 @@ export class DashboardService {
   // ─── Development Milestones ───────────────────────────────────────────
 
   /**
+   * Calculate child's age in months for delay detection
+   */
+  getChildAgeInMonths(dateOfBirth: Date): number {
+    const now = new Date();
+    const birthDate = new Date(dateOfBirth);
+    
+    let months = (now.getFullYear() - birthDate.getFullYear()) * 12;
+    months += now.getMonth() - birthDate.getMonth();
+    
+    // Adjust if the day hasn't been reached yet this month
+    if (now.getDate() < birthDate.getDate()) {
+      months--;
+    }
+    
+    return Math.max(0, months);
+  }
+
+  /**
    * Calculate child's current age group based on date of birth
    */
   getChildAgeGroup(dateOfBirth: Date): AgeGroupEnum {
+    const now = new Date();
+    const birthDate = new Date(dateOfBirth);
+    
     const ageInYears = Math.floor(
-      (Date.now() - new Date(dateOfBirth).getTime()) / (1000 * 60 * 60 * 24 * 365.25)
+      (now.getTime() - birthDate.getTime()) / (1000 * 60 * 60 * 24 * 365.25)
     );
 
     if (ageInYears < 1) return AgeGroupEnum.INFANT;
@@ -432,23 +548,33 @@ export class DashboardService {
 
   /**
    * Get all age groups that are unlocked for the child (current and past)
+   * TEMPORARY: Unlock all age groups for testing
    */
   getAvailableAgeGroups(dateOfBirth: Date): AgeGroupEnum[] {
-    const currentAgeGroup = this.getChildAgeGroup(dateOfBirth);
-    const allAgeGroups = [
+    // TEMPORARY: Return all age groups for testing
+    return [
       AgeGroupEnum.INFANT,
       AgeGroupEnum.TODDLER,
       AgeGroupEnum.PRESCHOOL,
       AgeGroupEnum.SCHOOL,
       AgeGroupEnum.TEEN,
     ];
-
-    const currentIndex = allAgeGroups.indexOf(currentAgeGroup);
-    return allAgeGroups.slice(0, currentIndex + 1);
+    
+    // Original logic (commented out for now):
+    // const currentAgeGroup = this.getChildAgeGroup(dateOfBirth);
+    // const allAgeGroups = [
+    //   AgeGroupEnum.INFANT,
+    //   AgeGroupEnum.TODDLER,
+    //   AgeGroupEnum.PRESCHOOL,
+    //   AgeGroupEnum.SCHOOL,
+    //   AgeGroupEnum.TEEN,
+    // ];
+    // const currentIndex = allAgeGroups.indexOf(currentAgeGroup);
+    // return allAgeGroups.slice(0, currentIndex + 1);
   }
 
   /**
-   * Get development milestones for a child
+   * Get development milestones for a child with delay detection
    */
   async getDevelopmentMilestones(registrationId: string): Promise<{
     currentAgeGroup: AgeGroupEnum;
@@ -462,17 +588,60 @@ export class DashboardService {
 
     const currentAgeGroup = this.getChildAgeGroup(child.dateOfBirth);
     const availableAgeGroups = this.getAvailableAgeGroups(child.dateOfBirth);
+    const childAgeInMonths = this.getChildAgeInMonths(child.dateOfBirth);
 
     const milestones = await this.devMilestoneModel
       .find({ registrationId, isActive: true })
       .sort({ ageGroup: 1, type: 1, order: 1 })
       .exec();
 
+    // Update milestone statuses based on delay detection
+    for (const milestone of milestones) {
+      if (milestone.status !== 'ACHIEVED' && milestone.expectedAgeMonths && childAgeInMonths > milestone.expectedAgeMonths) {
+        if (milestone.status !== 'DELAYED') {
+          milestone.status = 'DELAYED' as any;
+          await milestone.save();
+        }
+      }
+    }
+
     return {
       currentAgeGroup,
       availableAgeGroups,
       milestones,
     };
+  }
+
+  /**
+   * Get development milestones for a specific age group
+   */
+  async getDevelopmentMilestonesByAgeGroup(
+    registrationId: string, 
+    ageGroup: string
+  ): Promise<DevelopmentMilestoneDocument[]> {
+    const child = await this.childModel.findOne({ registrationId }).exec();
+    if (!child) {
+      throw new NotFoundException('Child registration not found');
+    }
+
+    const childAgeInMonths = this.getChildAgeInMonths(child.dateOfBirth);
+
+    const milestones = await this.devMilestoneModel
+      .find({ registrationId, ageGroup, isActive: true })
+      .sort({ type: 1, order: 1 })
+      .exec();
+
+    // Update milestone statuses based on delay detection
+    for (const milestone of milestones) {
+      if (milestone.status !== 'ACHIEVED' && milestone.expectedAgeMonths && childAgeInMonths > milestone.expectedAgeMonths) {
+        if (milestone.status !== 'DELAYED') {
+          milestone.status = 'DELAYED' as any;
+          await milestone.save();
+        }
+      }
+    }
+
+    return milestones;
   }
 
   /**
@@ -502,6 +671,7 @@ export class DashboardService {
       description: template.description,
       type: template.type,
       order: template.order,
+      expectedAgeMonths: template.expectedAgeMonths || this.getDefaultExpectedAge(ageGroup),
       status: 'NOT_STARTED',
     }));
 
@@ -512,11 +682,25 @@ export class DashboardService {
   }
 
   /**
+   * Get default expected age for an age group (fallback if template doesn't specify)
+   */
+  private getDefaultExpectedAge(ageGroup: AgeGroupEnum): number {
+    switch (ageGroup) {
+      case AgeGroupEnum.INFANT: return 6; // 6 months
+      case AgeGroupEnum.TODDLER: return 24; // 2 years
+      case AgeGroupEnum.PRESCHOOL: return 48; // 4 years
+      case AgeGroupEnum.SCHOOL: return 96; // 8 years
+      case AgeGroupEnum.TEEN: return 180; // 15 years
+      default: return 12;
+    }
+  }
+
+  /**
    * Update development milestone status
    */
   async updateDevelopmentMilestoneStatus(
     milestoneId: string,
-    status: string,
+    status?: string,
     achievedDate?: Date,
     notes?: string
   ): Promise<DevelopmentMilestoneDocument> {
@@ -525,8 +709,10 @@ export class DashboardService {
       throw new NotFoundException('Development milestone not found');
     }
 
-    milestone.status = status as any;
-    if (achievedDate) {
+    if (status !== undefined) {
+      milestone.status = status as any;
+    }
+    if (achievedDate !== undefined) {
       milestone.achievedDate = achievedDate;
     }
     if (notes !== undefined) {

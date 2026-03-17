@@ -36,7 +36,7 @@ export default function AdminVaccinationsPage() {
   const itemsPerPage = 10;
 
   useEffect(() => {
-    loadAllChildren();
+    loadAllVaccinations();
   }, []);
 
   // Reset pagination when filters change
@@ -44,7 +44,7 @@ export default function AdminVaccinationsPage() {
     setCurrentPage(1);
   }, [searchQuery, vaccineTypeFilter, statusFilter]);
 
-  async function loadAllChildren() {
+  async function loadAllVaccinations() {
     setLoading(true);
     try {
       const token = localStorage.getItem("wt18_token");
@@ -53,34 +53,46 @@ export default function AdminVaccinationsPage() {
         return;
       }
 
-      const childrenRes = await fetch(`${API_BASE}/dashboard/admin/all-children`, {
+      const response = await fetch(`${API_BASE}/dashboard/admin/vaccinations`, {
         headers: { Authorization: `Bearer ${token}` },
       });
 
-      if (!childrenRes.ok) throw new Error("Failed to load children");
+      if (!response.ok) throw new Error("Failed to load vaccinations");
 
-      const childrenData = await childrenRes.json();
-      const allChildren = childrenData.data || [];
+      const data = await response.json();
+      const vaccinations = data.data || [];
 
-      const childrenWithMilestones = await Promise.all(
-        allChildren.map(async (kid: any) => {
-          const milRes = await fetch(
-            `${API_BASE}/dashboard/milestones/${kid.registrationId}`,
-            { headers: { Authorization: `Bearer ${token}` } }
-          );
-          const milData = await milRes.json();
-          return {
-            registrationId: kid.registrationId,
-            childName: kid.childName,
-            dateOfBirth: kid.dateOfBirth,
-            milestones: milData.data || [],
-          };
-        })
-      );
+      // Group vaccinations by child
+      const childrenMap = new Map<string, ChildData>();
+      
+      vaccinations.forEach((vaccination: any) => {
+        const key = vaccination.registrationId;
+        if (!childrenMap.has(key)) {
+          childrenMap.set(key, {
+            registrationId: vaccination.registrationId,
+            childName: vaccination.childName,
+            dateOfBirth: '', // We don't have this from the new API, but it's not used in filtering
+            milestones: []
+          });
+        }
+        
+        childrenMap.get(key)!.milestones.push({
+          _id: vaccination.milestoneId,
+          registrationId: vaccination.registrationId,
+          title: vaccination.title,
+          description: '',
+          vaccineName: vaccination.vaccineName,
+          category: 'VACCINATION',
+          status: vaccination.status as any,
+          dueDate: vaccination.dueDate,
+          completedDate: vaccination.completedDate,
+          notes: vaccination.notes,
+        });
+      });
 
-      setChildren(childrenWithMilestones);
+      setChildren(Array.from(childrenMap.values()));
     } catch (error) {
-      console.error("Failed to load children:", error);
+      console.error("Failed to load vaccinations:", error);
     } finally {
       setLoading(false);
     }
@@ -97,9 +109,11 @@ export default function AdminVaccinationsPage() {
 
       if (newStatus === "COMPLETED") {
         body.completedDate = new Date().toISOString();
+        body.administeredBy = "Admin"; // Default admin user
+        body.location = "Clinic"; // Default location
       }
 
-      const res = await fetch(`${API_BASE}/dashboard/milestones/${milestoneId}`, {
+      const res = await fetch(`${API_BASE}/dashboard/admin/vaccination/${milestoneId}`, {
         method: "PATCH",
         headers: {
           "Content-Type": "application/json",
@@ -110,7 +124,7 @@ export default function AdminVaccinationsPage() {
 
       if (!res.ok) throw new Error("Failed");
 
-      await loadAllChildren();
+      await loadAllVaccinations();
     } catch (error) {
       alert("Could not update status. Please try again.");
     } finally {
