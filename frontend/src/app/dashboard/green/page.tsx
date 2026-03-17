@@ -80,12 +80,39 @@ export default function GoGreenPage() {
   };
 
   async function handleDownloadCert() {
-    if (!registrationId) return;
+    if (!registrationId) {
+      alert("Registration ID not found. Please refresh the page and try again.");
+      return;
+    }
+    
     setDownloading(true);
     try {
-      const res = await fetch(`${API_BASE}/registration/${registrationId}/certificate`);
-      if (!res.ok) throw new Error("Failed");
+      const res = await fetch(`${API_BASE}/registration/${registrationId}/certificate`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+      
+      if (!res.ok) {
+        const errorText = await res.text();
+        console.error('Certificate download failed:', res.status, errorText);
+        
+        if (res.status === 404) {
+          alert("Certificate not found. Please contact support.");
+        } else if (res.status === 500) {
+          alert("Server error while generating certificate. Please try again later.");
+        } else {
+          alert(`Failed to download certificate (Error ${res.status}). Please try again.`);
+        }
+        return;
+      }
+      
       const blob = await res.blob();
+      if (blob.size === 0) {
+        alert("Certificate file is empty. Please contact support.");
+        return;
+      }
+      
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
@@ -94,8 +121,13 @@ export default function GoGreenPage() {
       a.click();
       a.remove();
       URL.revokeObjectURL(url);
-    } catch {
-      alert("Could not download certificate.");
+      
+      // Show success message
+      console.log("Certificate downloaded successfully");
+      
+    } catch (error) {
+      console.error('Certificate download error:', error);
+      alert("Network error while downloading certificate. Please check your connection and try again.");
     } finally {
       setDownloading(false);
     }
