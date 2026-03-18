@@ -36,26 +36,28 @@ interface Child {
 interface Report {
   _id: string;
   registrationId: string;
-  reportName: string;
+  documentName: string;
   category: string;
-  reportDate: string;
+  recordDate: string;
   fileUrl: string;
+  fileName: string;
   fileType: string;
   fileSize: number;
   notes?: string;
-  uploadedBy?: string;
+  doctorName?: string;
+  uploadedBy: 'USER' | 'ADMIN';
   createdAt: string;
 }
 
 const categories = [
-  "Vaccination",
-  "Growth",
-  "Lab",
-  "Dental",
-  "Vision",
-  "Hearing",
-  "General Checkup",
-  "Specialist",
+  "Vaccination Cards",
+  "Annual Check-ups",
+  "Dental Records",
+  "Eye Check-ups",
+  "BMI Reports",
+  "Lab Tests",
+  "Prescriptions",
+  "Medical Certificates",
   "Other",
 ];
 
@@ -76,6 +78,7 @@ export default function AdminReportsPage() {
     category: "Vaccination",
     reportDate: "",
     notes: "",
+    doctorName: "",
   });
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [dragActive, setDragActive] = useState(false);
@@ -116,14 +119,14 @@ export default function AdminReportsPage() {
     setLoading(true);
     try {
       const token = localStorage.getItem("wt18_token");
-      const res = await fetch(`${API_BASE}/reports/child/${registrationId}`, {
+      const res = await fetch(`${API_BASE}/health-records/${registrationId}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
 
       if (!res.ok) throw new Error("Failed to load reports");
 
       const data = await res.json();
-      setReports(data.data || []);
+      setReports(data.data.records || []);
     } catch (error) {
       console.error("Failed to load reports:", error);
     } finally {
@@ -202,14 +205,14 @@ export default function AdminReportsPage() {
     try {
       const token = localStorage.getItem("wt18_token");
       const formData = new FormData();
-      formData.append("registrationId", selectedChild.registrationId);
-      formData.append("reportName", uploadForm.reportName);
-      formData.append("category", uploadForm.category);
-      formData.append("reportDate", uploadForm.reportDate);
-      formData.append("notes", uploadForm.notes);
       formData.append("file", selectedFile);
+      formData.append("documentName", uploadForm.reportName);
+      formData.append("category", uploadForm.category);
+      formData.append("recordDate", uploadForm.reportDate);
+      formData.append("notes", uploadForm.notes);
+      if (uploadForm.doctorName) formData.append("doctorName", uploadForm.doctorName);
 
-      const res = await fetch(`${API_BASE}/reports/upload`, {
+      const res = await fetch(`${API_BASE}/health-records/admin/upload/${selectedChild.registrationId}`, {
         method: "POST",
         headers: {
           Authorization: `Bearer ${token}`,
@@ -217,7 +220,10 @@ export default function AdminReportsPage() {
         body: formData,
       });
 
-      if (!res.ok) throw new Error("Failed to upload report");
+      if (!res.ok) {
+        const errorData = await res.json();
+        throw new Error(errorData.message || "Failed to upload report");
+      }
 
       alert("Report uploaded successfully");
       setUploadForm({
@@ -225,6 +231,7 @@ export default function AdminReportsPage() {
         category: "Vaccination",
         reportDate: "",
         notes: "",
+        doctorName: "",
       });
       setSelectedFile(null);
       setShowUploadModal(false);
@@ -241,7 +248,7 @@ export default function AdminReportsPage() {
 
     try {
       const token = localStorage.getItem("wt18_token");
-      const res = await fetch(`${API_BASE}/reports/${reportId}`, {
+      const res = await fetch(`${API_BASE}/health-records/${reportId}`, {
         method: "DELETE",
         headers: { Authorization: `Bearer ${token}` },
       });
@@ -276,14 +283,14 @@ export default function AdminReportsPage() {
 
   function getCategoryColor(category: string) {
     const colors: Record<string, string> = {
-      Vaccination: "bg-emerald-50 text-emerald-700",
-      Growth: "bg-blue-50 text-blue-700",
-      Lab: "bg-purple-50 text-purple-700",
-      Dental: "bg-pink-50 text-pink-700",
-      Vision: "bg-amber-50 text-amber-700",
-      Hearing: "bg-indigo-50 text-indigo-700",
-      "General Checkup": "bg-slate-50 text-slate-700",
-      Specialist: "bg-teal-50 text-teal-700",
+      "Vaccination Cards": "bg-emerald-50 text-emerald-700",
+      "Annual Check-ups": "bg-blue-50 text-blue-700",
+      "Dental Records": "bg-pink-50 text-pink-700",
+      "Eye Check-ups": "bg-violet-50 text-violet-700",
+      "BMI Reports": "bg-amber-50 text-amber-700",
+      "Lab Tests": "bg-cyan-50 text-cyan-700",
+      Prescriptions: "bg-rose-50 text-rose-700",
+      "Medical Certificates": "bg-indigo-50 text-indigo-700",
       Other: "bg-gray-50 text-gray-700",
     };
     return colors[category] || colors.Other;
@@ -467,8 +474,13 @@ export default function AdminReportsPage() {
                             <tr key={report._id} className="group hover:bg-slate-50">
                               <td className="px-4 py-4">
                                 <div>
-                                  <p className="font-medium text-slate-900">{report.reportName}</p>
-                                  <p className="text-xs text-slate-500">{report.notes || "No notes"}</p>
+                                  <p className="font-medium text-slate-900">{report.documentName}</p>
+                                  {report.doctorName && (
+                                    <p className="text-xs text-slate-500">Dr. {report.doctorName}</p>
+                                  )}
+                                  {report.notes && (
+                                    <p className="text-xs text-slate-500">{report.notes}</p>
+                                  )}
                                 </div>
                               </td>
                               <td className="px-4 py-4">
@@ -479,7 +491,7 @@ export default function AdminReportsPage() {
                               <td className="px-4 py-4">
                                 <div className="flex items-center gap-2 text-sm text-slate-600">
                                   <Calendar className="h-4 w-4 text-slate-400" />
-                                  {new Date(report.reportDate).toLocaleDateString("en-IN", {
+                                  {new Date(report.recordDate).toLocaleDateString("en-IN", {
                                     month: "short",
                                     day: "numeric",
                                     year: "numeric",
@@ -489,19 +501,33 @@ export default function AdminReportsPage() {
                               <td className="px-4 py-4">
                                 <div className="flex items-center gap-2">
                                   {getFileIcon(report.fileType)}
-                                  <span className="text-xs font-medium text-slate-600 uppercase">
-                                    {report.fileType.split("/")[1] || "PDF"}
-                                  </span>
+                                  <div className="flex flex-col">
+                                    <span className="text-xs font-medium text-slate-600 uppercase">
+                                      {report.fileType.split("/")[1] || "PDF"}
+                                    </span>
+                                    <span className="text-[10px] text-slate-400">
+                                      {(report.fileSize / 1024 / 1024).toFixed(2)} MB
+                                    </span>
+                                  </div>
                                 </div>
                               </td>
                               <td className="px-4 py-4">
                                 <div className="flex items-center justify-end gap-1">
-                                  <button className="rounded-lg p-1.5 text-slate-400 transition-colors hover:bg-emerald-50 hover:text-emerald-600">
+                                  <a
+                                    href={`${API_BASE}${report.fileUrl}`}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="rounded-lg p-1.5 text-slate-400 transition-colors hover:bg-emerald-50 hover:text-emerald-600"
+                                  >
                                     <Eye className="h-4 w-4" />
-                                  </button>
-                                  <button className="rounded-lg p-1.5 text-slate-400 transition-colors hover:bg-blue-50 hover:text-blue-600">
+                                  </a>
+                                  <a
+                                    href={`${API_BASE}${report.fileUrl}`}
+                                    download={report.fileName}
+                                    className="rounded-lg p-1.5 text-slate-400 transition-colors hover:bg-blue-50 hover:text-blue-600"
+                                  >
                                     <Download className="h-4 w-4" />
-                                  </button>
+                                  </a>
                                   <button
                                     onClick={() => handleDelete(report._id)}
                                     className="rounded-lg p-1.5 text-slate-400 transition-colors hover:bg-red-50 hover:text-red-600"
@@ -659,6 +685,20 @@ export default function AdminReportsPage() {
                       className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm text-slate-900 focus:border-emerald-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
                     />
                   </div>
+                </div>
+
+                {/* Doctor Name */}
+                <div>
+                  <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wider text-slate-500">
+                    Doctor Name (Optional)
+                  </label>
+                  <input
+                    type="text"
+                    value={uploadForm.doctorName || ""}
+                    onChange={(e) => setUploadForm({ ...uploadForm, doctorName: e.target.value })}
+                    placeholder="Dr. John Smith"
+                    className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm text-slate-900 placeholder-slate-400 focus:border-emerald-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
+                  />
                 </div>
 
                 {/* Optional Notes */}

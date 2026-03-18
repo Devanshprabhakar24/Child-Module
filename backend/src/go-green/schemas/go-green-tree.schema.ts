@@ -24,22 +24,40 @@ export enum TreeSpecies {
   COCONUT = 'Coconut (Cocos nucifera)',
 }
 
+export enum TierLevel {
+  SEEDLING = 'SEEDLING',
+  SAPLING = 'SAPLING',
+  YOUNG = 'YOUNG',
+  MATURE = 'MATURE',
+  GUARDIAN = 'GUARDIAN',
+  FOREST = 'FOREST',
+}
+
+export enum CertificateType {
+  DIGITAL_BADGE = 'DIGITAL_BADGE',
+  BRONZE = 'BRONZE',
+  SILVER = 'SILVER',
+  GOLD = 'GOLD',
+  PLATINUM = 'PLATINUM',
+  DIAMOND = 'DIAMOND',
+}
+
 // Tree Growth Timeline Interface
 export interface TreeGrowthStage {
   status: TreeStatus;
   date: Date;
   imageUrl?: string;
   notes?: string;
-  updatedBy?: string; // Admin who updated
+  updatedBy?: string;
 }
 
 @Schema({ timestamps: true, collection: 'go_green_trees' })
 export class GoGreenTree {
   @Prop({ type: String, required: true, unique: true, index: true })
-  treeId!: string; // Format: TREE-YYYY-XXXXXX
+  treeId!: string;
 
   @Prop({ type: String, required: true, index: true })
-  registrationId!: string; // Child's registration ID
+  registrationId!: string;
 
   @Prop({ type: String, required: true })
   childName!: string;
@@ -57,18 +75,17 @@ export class GoGreenTree {
   plantedDate!: Date;
 
   @Prop({ type: String, required: true })
-  location!: string; // Planting location (state/region)
+  location!: string;
 
   @Prop({ type: String, default: '' })
-  coordinates?: string; // GPS coordinates (optional)
+  coordinates?: string;
 
   @Prop({ type: String, default: '' })
-  plantingPartner?: string; // NGO/Organization that planted the tree
+  plantingPartner?: string;
 
   @Prop({ type: Number, default: 0 })
-  estimatedCO2Absorption!: number; // Estimated CO2 absorption in kg/year
+  estimatedCO2Absorption!: number;
 
-  // Growth Timeline - Array of growth stages with photos
   @Prop({
     type: [{
       status: { type: String, enum: TreeStatus, required: true },
@@ -81,23 +98,21 @@ export class GoGreenTree {
   })
   growthTimeline!: TreeGrowthStage[];
 
-  // Current stage photos
   @Prop({ type: String, default: '' })
-  currentImageUrl?: string; // Current stage photo
+  currentImageUrl?: string;
 
   @Prop({ type: Date, default: null })
   lastUpdatedDate?: Date;
 
   @Prop({ type: String, default: '' })
-  lastUpdatedBy?: string; // Admin who last updated
+  lastUpdatedBy?: string;
 
   @Prop({ type: String, default: '' })
-  notes?: string; // General notes about the tree
+  notes?: string;
 
   @Prop({ type: Boolean, default: true })
   isActive!: boolean;
 
-  // Estimated timeline dates (calculated based on species)
   @Prop({ type: Date, default: null })
   estimatedSaplingDate?: Date;
 
@@ -106,11 +121,35 @@ export class GoGreenTree {
 
   @Prop({ type: Date, default: null })
   estimatedMatureDate?: Date;
+
+  // Credit System Fields
+  @Prop({ type: String, enum: TierLevel, default: TierLevel.SAPLING })
+  tier!: TierLevel;
+
+  @Prop({ type: Number, default: 500 })
+  creditsUsed!: number;
+
+  @Prop({ type: String, enum: CertificateType, default: CertificateType.BRONZE })
+  certificateTier!: CertificateType;
+
+  @Prop({ type: String, default: '' })
+  certificateUrl?: string;
+
+  @Prop({ type: String, default: 'PENDING' })
+  plantingStatus!: 'PENDING' | 'SCHEDULED' | 'PLANTED' | 'VERIFIED';
+
+  @Prop({ type: Date, default: null })
+  actualPlantedDate?: Date;
+
+  @Prop({ type: Object, default: null })
+  gpsCoordinates?: {
+    latitude: number;
+    longitude: number;
+  };
 }
 
 export const GoGreenTreeSchema = SchemaFactory.createForClass(GoGreenTree);
 
-// Indexes for better performance
 GoGreenTreeSchema.index({ registrationId: 1 });
 GoGreenTreeSchema.index({ treeId: 1 });
 GoGreenTreeSchema.index({ plantedDate: -1 });
