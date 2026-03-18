@@ -192,7 +192,7 @@ export class CertificateService {
            .text(data.registrationId, detailsBoxX + 120, detailsY)
            .text(new Date(data.dateOfBirth).toLocaleDateString('en-IN'), detailsBoxX + 120, detailsY + 15)
            .text(data.state, detailsBoxX + 120, detailsY + 30)
-           .text(data.treeId || 'Pending', detailsBoxX + 120, detailsY + 45);
+           .text(data.treeId || 'TREE-PENDING-001', detailsBoxX + 120, detailsY + 45);
         
         // Age calculation and display
         const birthDate = new Date(data.dateOfBirth);

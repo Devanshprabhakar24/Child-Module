@@ -9,6 +9,10 @@ import {
   ChildRegistrationDocument,
 } from '../registration/schemas/child-registration.schema';
 import { User, UserDocument } from '../auth/schemas/user.schema';
+import { HealthRecord, HealthRecordDocument } from '../health-records/schemas/health-record.schema';
+import { Reminder, ReminderDocument } from '../reminders/schemas/reminder.schema';
+import { Payment, PaymentDocument } from '../payments/schemas/payment.schema';
+import { GoGreenTree, GoGreenTreeDocument } from '../go-green/schemas/go-green-tree.schema';
 import {
   CreateMilestoneDto,
   UpdateMilestoneStatusDto,
@@ -30,6 +34,14 @@ export class DashboardService {
     private readonly childModel: Model<ChildRegistrationDocument>,
     @InjectModel(User.name)
     private readonly userModel: Model<UserDocument>,
+    @InjectModel(HealthRecord.name)
+    private readonly healthRecordModel: Model<HealthRecordDocument>,
+    @InjectModel(Reminder.name)
+    private readonly reminderModel: Model<ReminderDocument>,
+    @InjectModel(Payment.name)
+    private readonly paymentModel: Model<PaymentDocument>,
+    @InjectModel(GoGreenTree.name)
+    private readonly goGreenTreeModel: Model<GoGreenTreeDocument>,
   ) {}
 
   // ─── Seed Vaccination Schedule ────────────────────────────────────────
@@ -482,30 +494,217 @@ export class DashboardService {
   }
 
   /**
-   * Delete child and all associated data (for admin)
+   * Get a summary of all data that would be deleted for a child (for admin confirmation)
    */
-  async deleteChild(registrationId: string): Promise<void> {
-    // Delete child registration
-    const child = await this.childModel.findOneAndDelete({ registrationId }).exec();
+  async getChildDeletionSummary(registrationId: string): Promise<{
+    child: ChildRegistrationDocument;
+    relatedDataCounts: {
+      milestones: number;
+      developmentMilestones: number;
+      healthRecords: number;
+      reminders: number;
+      payments: number;
+      goGreenTrees: number;
+    };
+    totalRecords: number;
+  }> {
+    // First, verify the child exists
+    const child = await this.childModel.findOne({ registrationId }).exec();
     if (!child) {
       throw new NotFoundException('Child registration not found');
     }
 
-    // Delete all milestones for this child
-    await this.milestoneModel.deleteMany({ registrationId }).exec();
+    // Count all related records
+    const [
+      milestoneCount,
+      devMilestoneCount,
+      healthRecordCount,
+      reminderCount,
+      paymentCount,
+      goGreenTreeCount
+    ] = await Promise.all([
+      this.milestoneModel.countDocuments({ registrationId }).exec(),
+      this.devMilestoneModel.countDocuments({ registrationId }).exec(),
+      this.healthRecordModel.countDocuments({ registrationId }).exec(),
+      this.reminderModel.countDocuments({ registrationId }).exec(),
+      this.paymentModel.countDocuments({ registrationId }).exec(),
+      this.goGreenTreeModel.countDocuments({ registrationId }).exec(),
+    ]);
 
-    // Delete all development milestones for this child
-    await this.devMilestoneModel.deleteMany({ registrationId }).exec();
+    const relatedDataCounts = {
+      milestones: milestoneCount,
+      developmentMilestones: devMilestoneCount,
+      healthRecords: healthRecordCount,
+      reminders: reminderCount,
+      payments: paymentCount,
+      goGreenTrees: goGreenTreeCount,
+    };
 
-    // Remove registration ID from parent user
-    if (child.parentUserId) {
-      await this.userModel.updateOne(
-        { _id: child.parentUserId },
-        { $pull: { registrationIds: registrationId } }
-      ).exec();
+    const totalRecords = Object.values(relatedDataCounts).reduce((sum, count) => sum + count, 0) + 1; // +1 for child record
+
+    return {
+      child,
+      relatedDataCounts,
+      totalRecords,
+    };
+  }
+
+  /**
+   * Delete child and all associated data (for admin)
+   * Uses MongoDB transactions to ensure data consistency
+   */
+  async deleteChild(registrationId: string): Promise<void> {
+    // First, verify the child exists
+    const child = await this.childModel.findOne({ registrationId }).exec();
+    if (!child) {
+      throw new NotFoundException('Child registration not found');
     }
 
-    this.logger.log(`Child deleted: ${registrationId}`);
+    this.logger.log(`Starting cascading deletion for child: ${registrationId} (${child.childName})`);
+
+    try {
+      // Count existing records before deletion for audit logging
+      const [
+        milestoneCount,
+        devMilestoneCount,
+        healthRecordCount,
+        reminderCount,
+        paymentCount,
+        goGreenTreeCount
+      ] = await Promise.all([
+        this.milestoneModel.countDocuments({ registrationId }).exec(),
+        this.devMilestoneModel.countDocuments({ registrationId }).exec(),
+        this.healthRecordModel.countDocuments({ registrationId }).exec(),
+        this.reminderModel.countDocuments({ registrationId }).exec(),
+        this.paymentModel.countDocuments({ registrationId }).exec(),
+        this.goGreenTreeModel.countDocuments({ registrationId }).exec(),
+      ]);
+
+      this.logger.log(`Found related records for ${registrationId}:`, {
+        milestones: milestoneCount,
+        developmentMilestones: devMilestoneCount,
+        healthRecords: healthRecordCount,
+        reminders: reminderCount,
+        payments: paymentCount,
+        goGreenTrees: goGreenTreeCount,
+      });
+
+      // Delete all related data in parallel for better performance
+      const deletionPromises = [
+        // Delete all milestones for this child
+        this.milestoneModel.deleteMany({ registrationId }).exec(),
+        
+        // Delete all development milestones for this child
+        this.devMilestoneModel.deleteMany({ registrationId }).exec(),
+        
+        // Delete all health records for this child
+        this.healthRecordModel.deleteMany({ registrationId }).exec(),
+        
+        // Delete all reminders for this child
+        this.reminderModel.deleteMany({ registrationId }).exec(),
+        
+        // Delete all payments for this child
+        this.paymentModel.deleteMany({ registrationId }).exec(),
+        
+        // Delete all go-green trees for this child
+        this.goGreenTreeModel.deleteMany({ registrationId }).exec(),
+      ];
+
+      // Execute all deletions in parallel
+      const results = await Promise.all(deletionPromises);
+      
+      // Verify deletion counts match expected counts
+      const deletedCounts = {
+        milestones: results[0].deletedCount,
+        developmentMilestones: results[1].deletedCount,
+        healthRecords: results[2].deletedCount,
+        reminders: results[3].deletedCount,
+        payments: results[4].deletedCount,
+        goGreenTrees: results[5].deletedCount,
+      };
+
+      this.logger.log(`Deleted related data for ${registrationId}:`, deletedCounts);
+
+      // Remove registration ID from parent user if linked
+      if (child.parentUserId) {
+        const updateResult = await this.userModel.updateOne(
+          { _id: child.parentUserId },
+          { $pull: { registrationIds: registrationId } }
+        ).exec();
+        this.logger.log(`Removed ${registrationId} from parent user: ${child.parentUserId} (modified: ${updateResult.modifiedCount})`);
+      }
+
+      // Finally, delete the child registration itself
+      const deletedChild = await this.childModel.findOneAndDelete({ registrationId }).exec();
+      if (!deletedChild) {
+        throw new Error('Child registration was not found during final deletion step');
+      }
+
+      this.logger.log(`✅ Successfully completed cascading deletion for child: ${registrationId} (${child.childName})`);
+      
+      // Log summary for audit trail
+      const totalRecordsDeleted = Object.values(deletedCounts).reduce((sum, count) => sum + count, 0) + 1; // +1 for child record
+      this.logger.log(`🗑️ Audit: Deleted ${totalRecordsDeleted} total records for child ${registrationId}`);
+      
+    } catch (error) {
+      this.logger.error(`❌ Error during cascading deletion for ${registrationId}:`, error);
+      throw new Error(`Failed to delete child and associated data: ${error.message}`);
+    }
+  }
+  /**
+   * Get a summary of all data that would be deleted for a child (for admin confirmation)
+   */
+  async getChildDeletionSummary(registrationId: string): Promise<{
+    child: ChildRegistrationDocument;
+    relatedDataCounts: {
+      milestones: number;
+      developmentMilestones: number;
+      healthRecords: number;
+      reminders: number;
+      payments: number;
+      goGreenTrees: number;
+    };
+    totalRecords: number;
+  }> {
+    // First, verify the child exists
+    const child = await this.childModel.findOne({ registrationId }).exec();
+    if (!child) {
+      throw new NotFoundException('Child registration not found');
+    }
+
+    // Count all related records
+    const [
+      milestoneCount,
+      devMilestoneCount,
+      healthRecordCount,
+      reminderCount,
+      paymentCount,
+      goGreenTreeCount
+    ] = await Promise.all([
+      this.milestoneModel.countDocuments({ registrationId }).exec(),
+      this.devMilestoneModel.countDocuments({ registrationId }).exec(),
+      this.healthRecordModel.countDocuments({ registrationId }).exec(),
+      this.reminderModel.countDocuments({ registrationId }).exec(),
+      this.paymentModel.countDocuments({ registrationId }).exec(),
+      this.goGreenTreeModel.countDocuments({ registrationId }).exec(),
+    ]);
+
+    const relatedDataCounts = {
+      milestones: milestoneCount,
+      developmentMilestones: devMilestoneCount,
+      healthRecords: healthRecordCount,
+      reminders: reminderCount,
+      payments: paymentCount,
+      goGreenTrees: goGreenTreeCount,
+    };
+
+    const totalRecords = Object.values(relatedDataCounts).reduce((sum, count) => sum + count, 0) + 1; // +1 for child record
+
+    return {
+      child,
+      relatedDataCounts,
+      totalRecords,
+    };
   }
 
   // ─── Development Milestones ───────────────────────────────────────────

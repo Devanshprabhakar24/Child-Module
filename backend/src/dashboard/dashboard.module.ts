@@ -6,6 +6,10 @@ import { Milestone, MilestoneSchema } from './schemas/milestone.schema';
 import { DevelopmentMilestone, DevelopmentMilestoneSchema } from './schemas/development-milestone.schema';
 import { ChildRegistration, ChildRegistrationSchema } from '../registration/schemas/child-registration.schema';
 import { User, UserSchema } from '../auth/schemas/user.schema';
+import { HealthRecord, HealthRecordSchema } from '../health-records/schemas/health-record.schema';
+import { Reminder, ReminderSchema } from '../reminders/schemas/reminder.schema';
+import { Payment, PaymentSchema } from '../payments/schemas/payment.schema';
+import { GoGreenTree, GoGreenTreeSchema } from '../go-green/schemas/go-green-tree.schema';
 import { AuthModule } from '../auth/auth.module';
 import { RemindersModule } from '../reminders/reminders.module';
 
@@ -16,6 +20,10 @@ import { RemindersModule } from '../reminders/reminders.module';
       { name: DevelopmentMilestone.name, schema: DevelopmentMilestoneSchema },
       { name: ChildRegistration.name, schema: ChildRegistrationSchema },
       { name: User.name, schema: UserSchema },
+      { name: HealthRecord.name, schema: HealthRecordSchema },
+      { name: Reminder.name, schema: ReminderSchema },
+      { name: Payment.name, schema: PaymentSchema },
+      { name: GoGreenTree.name, schema: GoGreenTreeSchema },
     ]),
     AuthModule,
     RemindersModule,

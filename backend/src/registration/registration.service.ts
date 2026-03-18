@@ -390,16 +390,14 @@ export class RegistrationService {
     };
 
     try {
-      // 1. Payment confirmation + invoice
-      await this.notificationsService.sendPaymentConfirmation({
-        ...commonPayload,
-        amount: registration.subscriptionAmount,
-      });
+      // NOTE: Payment confirmation with invoice is handled by PaymentsService
+      // We send welcome message and Go Green certificate here with proper sequencing
 
-      // 2. Welcome message with dashboard link
+      // 1. Welcome message with dashboard link (sent immediately)
       await this.notificationsService.sendWelcomeMessage(commonPayload);
+      this.logger.log(`Welcome message sent for ${registration.registrationId}`);
 
-      // Plant a tree for the child BEFORE sending certificate
+      // 2. Plant a tree for the child BEFORE sending certificate
       let plantedTree: any = null;
       try {
         plantedTree = await this.goGreenService.plantTree({
@@ -409,18 +407,14 @@ export class RegistrationService {
           location: registration.state,
           plantingPartner: 'WombTo18 Green Initiative',
         });
-        this.logger.log(`Tree planted: ${plantedTree.treeId} for ${registration.childName}`);
+        this.logger.log(`✅ Tree planted successfully: ${plantedTree.treeId} for ${registration.childName}`);
       } catch (treeError) {
-        this.logger.warn(`Could not plant tree: ${treeError instanceof Error ? treeError.message : treeError}`);
+        this.logger.error(`❌ Failed to plant tree for ${registration.registrationId}:`, treeError);
+        // Continue with certificate generation even if tree planting fails
       }
 
-      // 3. Go Green Participation Certificate
-      await this.notificationsService.sendGoGreenCertificate({
-        ...commonPayload,
-        state: registration.state,
-        dateOfBirth: registration.dateOfBirth.toISOString().split('T')[0],
-        treeId: plantedTree?.treeId,
-      });
+      // 3. Schedule certificate email to be sent after payment email (using Promise delay)
+      this.scheduleCertificateEmail(registration, plantedTree, commonPayload);
 
       // 4. AUTO-ACTIVATE ALL SERVICES: Comprehensive service activation
       await this.activateAllServicesForRegistration(registration, plantedTree);
@@ -428,12 +422,41 @@ export class RegistrationService {
       registration.goGreenCertSent = true;
       await registration.save();
 
-      this.logger.log(`All post-payment notifications sent for ${registration.registrationId}`);
+      this.logger.log(`✅ Post-payment notifications initiated for ${registration.registrationId} (certificate scheduled)`);
     } catch (error) {
       this.logger.error(
-        `Failed to send notifications for ${registration.registrationId}: ${error instanceof Error ? error.message : error}`,
+        `❌ Failed to send notifications for ${registration.registrationId}: ${error instanceof Error ? error.message : error}`,
       );
     }
+  }
+
+  /**
+   * Schedule Go Green certificate email to be sent after payment email
+   */
+  private async scheduleCertificateEmail(
+    registration: ChildRegistrationDocument,
+    plantedTree: any,
+    commonPayload: any,
+  ): Promise<void> {
+    // Use Promise-based delay instead of setTimeout for better error handling
+    const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+    
+    // Schedule certificate email after 5 seconds
+    delay(5000).then(async () => {
+      try {
+        await this.notificationsService.sendGoGreenCertificate({
+          ...commonPayload,
+          state: registration.state,
+          dateOfBirth: registration.dateOfBirth.toISOString().split('T')[0],
+          treeId: plantedTree?.treeId || `TREE-${new Date().getFullYear()}-PENDING`,
+        });
+        this.logger.log(`✅ Go Green certificate sent for ${registration.registrationId} with tree ID: ${plantedTree?.treeId || 'PENDING'}`);
+      } catch (certError) {
+        this.logger.error(`❌ Failed to send Go Green certificate for ${registration.registrationId}:`, certError);
+      }
+    }).catch((error) => {
+      this.logger.error(`❌ Error in certificate scheduling for ${registration.registrationId}:`, error);
+    });
   }
 
   // ─── Family Dashboard Queries ─────────────────────────────────────────

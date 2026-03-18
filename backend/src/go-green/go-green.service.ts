@@ -35,62 +35,95 @@ export class GoGreenService {
     const year = new Date().getFullYear();
     const prefix = `TREE-${year}-`;
     
-    // Find the last tree ID for this year
-    const lastTree = await this.treeModel
-      .findOne({ treeId: { $regex: `^${prefix}` } })
-      .sort({ treeId: -1 })
-      .select('treeId')
-      .lean()
-      .exec();
+    try {
+      // Find the last tree ID for this year
+      const lastTree = await this.treeModel
+        .findOne({ treeId: { $regex: `^${prefix}` } })
+        .sort({ treeId: -1 })
+        .select('treeId')
+        .lean()
+        .exec();
 
-    let nextSequence = 1;
-    if (lastTree) {
-      const lastSequence = parseInt(lastTree.treeId.split('-').pop() || '0', 10);
-      nextSequence = lastSequence + 1;
+      let nextSequence = 1;
+      if (lastTree) {
+        const lastSequence = parseInt(lastTree.treeId.split('-').pop() || '0', 10);
+        nextSequence = lastSequence + 1;
+      }
+
+      const treeId = `${prefix}${String(nextSequence).padStart(6, '0')}`;
+      this.logger.log(`Generated tree ID: ${treeId}`);
+      return treeId;
+    } catch (error) {
+      this.logger.error('Error generating tree ID:', error);
+      // Fallback to timestamp-based ID
+      const fallbackId = `TREE-${year}-${Date.now().toString().slice(-6)}`;
+      this.logger.warn(`Using fallback tree ID: ${fallbackId}`);
+      return fallbackId;
     }
-
-    return `${prefix}${String(nextSequence).padStart(6, '0')}`;
   }
 
   /**
    * Plants a tree for a child registration
    */
   async plantTree(dto: CreateTreeDto): Promise<GoGreenTreeDocument> {
-    const treeId = await this.generateTreeId();
-    
-    // Select a random tree species (can be made more sophisticated)
-    const speciesArray = Object.values(TreeSpecies);
-    const randomSpecies = speciesArray[Math.floor(Math.random() * speciesArray.length)];
-    
-    // Calculate estimated CO2 absorption based on species
-    const co2Rates: Record<string, number> = {
-      [TreeSpecies.NEEM]: 48,
-      [TreeSpecies.BANYAN]: 65,
-      [TreeSpecies.PEEPAL]: 52,
-      [TreeSpecies.MANGO]: 42,
-      [TreeSpecies.TEAK]: 38,
-      [TreeSpecies.BAMBOO]: 35,
-      [TreeSpecies.EUCALYPTUS]: 55,
-      [TreeSpecies.ASHOKA]: 40,
-      [TreeSpecies.GULMOHAR]: 45,
-      [TreeSpecies.COCONUT]: 30,
-    };
+    try {
+      // Check if tree already exists for this registration
+      const existingTree = await this.treeModel.findOne({ 
+        registrationId: dto.registrationId,
+        isActive: true 
+      }).exec();
+      
+      if (existingTree) {
+        this.logger.log(`Tree already exists for ${dto.registrationId}: ${existingTree.treeId}`);
+        return existingTree;
+      }
 
-    const tree = await this.treeModel.create({
-      treeId,
-      registrationId: dto.registrationId,
-      childName: dto.childName,
-      motherName: dto.motherName,
-      species: randomSpecies,
-      currentStatus: TreeStatus.PLANTED,
-      location: dto.location,
-      plantingPartner: dto.plantingPartner || 'WombTo18 Green Initiative',
-      estimatedCO2Absorption: co2Rates[randomSpecies] || 40,
-      plantedDate: new Date(),
-    });
+      const treeId = await this.generateTreeId();
+      
+      // Select a random tree species (can be made more sophisticated)
+      const speciesArray = Object.values(TreeSpecies);
+      const randomSpecies = speciesArray[Math.floor(Math.random() * speciesArray.length)];
+      
+      // Calculate estimated CO2 absorption based on species
+      const co2Rates: Record<string, number> = {
+        [TreeSpecies.NEEM]: 48,
+        [TreeSpecies.BANYAN]: 65,
+        [TreeSpecies.PEEPAL]: 52,
+        [TreeSpecies.MANGO]: 42,
+        [TreeSpecies.TEAK]: 38,
+        [TreeSpecies.BAMBOO]: 35,
+        [TreeSpecies.EUCALYPTUS]: 55,
+        [TreeSpecies.ASHOKA]: 40,
+        [TreeSpecies.GULMOHAR]: 45,
+        [TreeSpecies.COCONUT]: 30,
+      };
 
-    this.logger.log(`Tree planted: ${treeId} for child ${dto.childName} (${dto.registrationId})`);
-    return tree;
+      const tree = await this.treeModel.create({
+        treeId,
+        registrationId: dto.registrationId,
+        childName: dto.childName,
+        motherName: dto.motherName,
+        species: randomSpecies,
+        currentStatus: TreeStatus.PLANTED,
+        location: dto.location,
+        plantingPartner: dto.plantingPartner || 'WombTo18 Green Initiative',
+        estimatedCO2Absorption: co2Rates[randomSpecies] || 40,
+        plantedDate: new Date(),
+        growthTimeline: [{
+          status: TreeStatus.PLANTED,
+          date: new Date(),
+          imageUrl: '',
+          notes: 'Tree planted as part of WombTo18 Green Initiative',
+          updatedBy: 'System',
+        }],
+      });
+
+      this.logger.log(`✅ Tree planted successfully: ${treeId} for child ${dto.childName} (${dto.registrationId})`);
+      return tree;
+    } catch (error) {
+      this.logger.error(`❌ Failed to plant tree for ${dto.registrationId}:`, error);
+      throw error;
+    }
   }
 
   /**

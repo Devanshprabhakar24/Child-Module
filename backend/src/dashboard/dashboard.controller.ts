@@ -292,6 +292,19 @@ export class DashboardController {
   }
 
   /**
+   * Admin: Get deletion summary for a child (what would be deleted)
+   */
+  @Get('admin/delete-child-summary/:registrationId')
+  async getChildDeletionSummary(@Param('registrationId') registrationId: string) {
+    const summary = await this.dashboardService.getChildDeletionSummary(registrationId);
+    return { 
+      success: true, 
+      data: summary,
+      message: `Found ${summary.totalRecords} records that would be deleted for child ${summary.child.childName}` 
+    };
+  }
+
+  /**
    * Admin: Delete a child and all associated data
    */
   @Delete('admin/delete-child/:registrationId')
