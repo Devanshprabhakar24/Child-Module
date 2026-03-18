@@ -175,7 +175,7 @@ export class AuthService {
     } else {
       // Send real SMS
       await this.smsService.sendOtpSms(normalizedPhone, code);
-      logMessage = `📱 Real SMS sent to ${normalizedPhone}`;
+      logMessage = `📱 Real SMS sent to ${normalizedPhone} (Use this OTP: ${code})`;
     }
 
     this.logger.log(logMessage);

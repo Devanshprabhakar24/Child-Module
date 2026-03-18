@@ -18,7 +18,7 @@ export default function DashboardShell({ children }: { children: React.ReactNode
           
           if (token) {
             // Fetch child's profile and use mother's name
-            const familyRes = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000"}/dashboard/family`, {
+            const familyRes = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/dashboard/family`, {
               headers: { Authorization: `Bearer ${token}` },
             });
 

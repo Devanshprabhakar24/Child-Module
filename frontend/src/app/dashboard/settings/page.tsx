@@ -6,7 +6,7 @@ import NotificationPreferences from "@/components/dashboard/settings/Notificatio
 import LinkedAccounts from "@/components/dashboard/settings/LinkedAccounts";
 import { User, Camera, CreditCard, Receipt, BadgeCheck, Loader2, Zap } from "lucide-react";
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000";
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
 export default function SettingsPage() {
   const { loading, profile, registrationId, token } = useChildData();

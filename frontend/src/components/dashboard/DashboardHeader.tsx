@@ -8,7 +8,7 @@ interface HeaderProps {
   toggleMobile: () => void;
 }
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000";
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
 export default function DashboardHeader({ toggleMobile }: HeaderProps) {
   const [isEmergencyOpen, setIsEmergencyOpen] = useState(false);

@@ -5,7 +5,7 @@ import { Mail, AtSign, Phone, Smartphone, MapPin, Clock, ArrowLeft, ArrowRight, 
 import { getStateName } from "../../utils/stateMapping";
 import { handleNameInput } from "../../utils/textFormatting";
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000";
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
 export interface ContactDetails {
   email: string;
@@ -73,11 +73,15 @@ export default function Step2Form({ onNext, onPrev, onComplete, motherName, stat
     if (mobile.length !== 10) return;
     setMobileError(null);
     setMobileLoading(true);
+    
+    // Clear previous OTP input when sending new OTP
+    setMobileOtp(["", "", "", "", "", ""]);
+    
     try {
-      const res = await fetch(`${API_BASE}/auth/send-otp`, {
+      const res = await fetch(`${API_BASE}/auth/send-phone-otp`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: `+91${mobile}@sms.wombto18.com`, phone: `+91${mobile}` }),
+        body: JSON.stringify({ phone: `+91${mobile}` }),
       });
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
@@ -85,8 +89,7 @@ export default function Step2Form({ onNext, onPrev, onComplete, motherName, stat
       }
       setMobileStatus("sent");
     } catch (err: any) {
-      // In test mode the backend may not support phone OTP — just mark as sent
-      setMobileStatus("sent");
+      setMobileError(err.message || "Failed to send OTP. Please try again.");
     } finally {
       setMobileLoading(false);
     }
@@ -98,13 +101,31 @@ export default function Step2Form({ onNext, onPrev, onComplete, motherName, stat
     setMobileError(null);
     setVerifyMobileLoading(true);
     try {
-      // In OTP_TEST_MODE the backend accepts the test code directly
-      const testCode = process.env.NEXT_PUBLIC_OTP_TEST_CODE || "123456";
-      if (code === testCode) {
-        setMobileStatus("verified");
-        return;
+      // Use the phone OTP verification endpoint
+      const res = await fetch(`${API_BASE}/auth/verify-phone-otp`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ phone: `+91${mobile}`, otp: code }),
+      });
+      
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.message || "Invalid OTP. Please try again.");
       }
-      throw new Error("Invalid OTP. Please try again.");
+      
+      const data = await res.json();
+      const token = data.token ?? data.access_token;
+      
+      if (typeof window !== "undefined") {
+        if (token) {
+          localStorage.setItem("wt18_token", token);
+        }
+        if (data.user) {
+          localStorage.setItem("wt18_user", JSON.stringify(data.user));
+        }
+      }
+      
+      setMobileStatus("verified");
     } catch (err: any) {
       setMobileError(err.message || "Failed to verify OTP. Please try again.");
     } finally {
@@ -116,6 +137,10 @@ export default function Step2Form({ onNext, onPrev, onComplete, motherName, stat
     if (!email.includes("@")) return;
     setEmailError(null);
     setEmailLoading(true);
+    
+    // Clear previous OTP input when sending new OTP
+    setEmailOtp(["", "", "", "", "", ""]);
+    
     try {
       // Register user first (idempotent — returns existing if already registered)
       await fetch(`${API_BASE}/auth/register`, {

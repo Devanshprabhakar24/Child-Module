@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { Users, Syringe, AlertTriangle, CheckCircle, Loader2 } from "lucide-react";
 import Link from "next/link";
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000";
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
 export default function AdminDashboardPage() {
   const [loading, setLoading] = useState(true);
