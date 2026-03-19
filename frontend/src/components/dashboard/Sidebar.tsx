@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname, useSearchParams } from "next/navigation";
+import { usePathname } from "next/navigation";
 import {
   LayoutDashboard,
   Syringe,
@@ -23,10 +23,6 @@ interface SidebarProps {
 
 export default function Sidebar({ isDesktopCollapsed, isMobileOpen, closeMobile, toggleDesktop }: SidebarProps) {
   const pathname = usePathname();
-  const searchParams = useSearchParams();
-  
-  // Get registration ID from URL query parameters
-  const registrationId = searchParams.get('id') || '';
 
   const navItems = [
     { name: "Overview", icon: LayoutDashboard, href: "/dashboard" },
@@ -94,12 +90,11 @@ export default function Sidebar({ isDesktopCollapsed, isMobileOpen, closeMobile,
       <nav className="flex-1 space-y-1 overflow-x-hidden overflow-y-auto px-4 pt-4">
         {navItems.map((item, index) => {
           const isActive = pathname === item.href;
-          const hrefWithId = registrationId ? `${item.href}?id=${registrationId}` : item.href;
 
           return (
             <Link
               key={index}
-              href={hrefWithId}
+              href={item.href}
               onClick={closeMobile}
               title={isDesktopCollapsed ? item.name : ""}
               className={`flex items-center gap-4 rounded-r-full px-4 py-3 transition-colors lg:py-2
@@ -119,11 +114,7 @@ export default function Sidebar({ isDesktopCollapsed, isMobileOpen, closeMobile,
         
         <div className="my-6 border-t border-slate-100 lg:my-4"></div>
 
-        <Link 
-          href={registrationId ? `/dashboard/settings?id=${registrationId}` : "/dashboard/settings"} 
-          title={isDesktopCollapsed ? "Settings" : ""} 
-          className={`flex items-center gap-4 rounded-xl px-4 py-3.5 font-normal text-slate-600 transition-colors hover:bg-slate-50 hover:text-slate-900 lg:py-2.5 ${isDesktopCollapsed ? "lg:justify-center lg:gap-0 lg:px-0" : ""}`}
-        >
+        <Link href="/dashboard/settings" title={isDesktopCollapsed ? "Settings" : ""} className={`flex items-center gap-4 rounded-xl px-4 py-3.5 font-normal text-slate-600 transition-colors hover:bg-slate-50 hover:text-slate-900 lg:py-2.5 ${isDesktopCollapsed ? "lg:justify-center lg:gap-0 lg:px-0" : ""}`}>
           <Settings className="h-5 w-5 shrink-0" />
           <span className={isDesktopCollapsed ? "lg:hidden" : "block"}>Settings</span>
         </Link>

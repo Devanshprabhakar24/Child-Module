@@ -48,7 +48,6 @@ export default function HealthRecordsPage() {
   const [selectedCategory, setSelectedCategory] = useState<string>('All Records');
   const [searchTerm, setSearchTerm] = useState('');
   const [showUploadModal, setShowUploadModal] = useState(false);
-  const [registrationId, setRegistrationId] = useState<string | null>(null);
   const [uploadLoading, setUploadLoading] = useState(false);
   const [showDocumentViewer, setShowDocumentViewer] = useState(false);
   const [currentDocument, setCurrentDocument] = useState<HealthRecord | null>(null);
@@ -66,28 +65,6 @@ export default function HealthRecordsPage() {
   const [dragActive, setDragActive] = useState(false);
 
   useEffect(() => {
-    // Get registration ID from URL params or localStorage
-    const params = new URLSearchParams(window.location.search);
-    let regId = params.get('id') || localStorage.getItem('currentRegistrationId');
-
-    if (!regId) {
-      // Try to get from user data
-      const user = JSON.parse(localStorage.getItem('wt18_user') || '{}');
-      regId = user.registrationId || user.registrationIds?.[0];
-    }
-
-    if (!regId) {
-      alert('Child registration ID not found. Please register a child first or access from dashboard.');
-      router.push('/dashboard');
-      return;
-    }
-
-    setRegistrationId(regId);
-  }, []);
-
-  useEffect(() => {
-    if (!registrationId) return;
-
     const token = localStorage.getItem('wt18_token');
     if (!token) {
       router.push('/login');
@@ -95,17 +72,27 @@ export default function HealthRecordsPage() {
     }
 
     fetchHealthRecords();
-  }, [registrationId, selectedCategory, searchTerm]);
+  }, [selectedCategory, searchTerm]);
 
   const fetchHealthRecords = async () => {
-    if (!registrationId) return;
-
     try {
       const token = localStorage.getItem('wt18_token');
+      let registrationId = localStorage.getItem('currentRegistrationId');
+
+      if (!registrationId) {
+        // Try to get from user data
+        const user = JSON.parse(localStorage.getItem('wt18_user') || '{}');
+        registrationId = user.registrationId;
+      }
 
       if (!token) {
         alert('Please login first');
         router.push('/login');
+        return;
+      }
+
+      if (!registrationId) {
+        setLoading(false);
         return;
       }
 
@@ -195,19 +182,26 @@ export default function HealthRecordsPage() {
       return;
     }
 
-    if (!registrationId) {
-      alert('Child registration ID not found. Please register a child first.');
-      return;
-    }
-
     setUploadLoading(true);
 
     try {
       const token = localStorage.getItem('wt18_token');
+      let registrationId = localStorage.getItem('currentRegistrationId');
+
+      if (!registrationId) {
+        const user = JSON.parse(localStorage.getItem('wt18_user') || '{}');
+        registrationId = user.registrationId;
+      }
 
       if (!token) {
         alert('Please login first');
         router.push('/login');
+        return;
+      }
+
+      if (!registrationId) {
+        alert('Child registration ID not found. Please register a child first.');
+        setUploadLoading(false);
         return;
       }
 

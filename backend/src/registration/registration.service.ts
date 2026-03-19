@@ -29,7 +29,6 @@ import { DashboardService } from '../dashboard/dashboard.service';
 import { RemindersService } from '../reminders/reminders.service';
 import { CmsService } from '../cms/cms.service';
 import { GoGreenService } from '../go-green/go-green.service';
-import { InvoiceService } from '../payments/invoice.service';
 import { AgeGroupEnum } from '../dashboard/schemas/development-milestone.schema';
 
 @Injectable()
@@ -49,7 +48,6 @@ export class RegistrationService {
     private readonly remindersService: RemindersService,
     private readonly cmsService: CmsService,
     private readonly goGreenService: GoGreenService,
-    private readonly invoiceService: InvoiceService,
   ) {
     this.paymentTestMode = this.configService.get<string>('PAYMENT_TEST_MODE') === 'true';
     this.otpTestMode = this.configService.get<string>('OTP_TEST_MODE') === 'true';
@@ -185,96 +183,26 @@ export class RegistrationService {
       channelPartnerId: dto.channelPartnerId,
       subscriptionAmount: SUBSCRIPTION_TOTAL_PRICE,
       couponCode: dto.couponCode,
-      paymentStatus: 'COMPLETED', // ALWAYS mark as COMPLETED
+      paymentStatus: 'PENDING',
       razorpayOrderId: orderId,
-      razorpayPaymentId: `pay_${Date.now()}`, // Always add payment ID
       greenCohort: true,
     });
 
-    // ALWAYS send both emails immediately on registration (regardless of payment mode)
-    this.logger.log(`Sending both emails immediately for ${registrationId}`);
-    
-    // Send both emails immediately (don't wait for them to complete)
-    setImmediate(async () => {
-      try {
-        // EMAIL 1: Welcome + Payment Invoice (immediate)
-        this.logger.log(`📧 Sending Email 1: Welcome + Invoice for ${registrationId}`);
-        const invoiceData = {
-          invoiceNumber: `INV-${Date.now()}`,
-          date: new Date().toLocaleDateString('en-IN', {
-            day: '2-digit',
-            month: 'short',
-            year: 'numeric',
-          }),
-          parentName: registration.motherName,
-          childName: registration.childName,
-          registrationId: registration.registrationId,
-          email: registration.email,
-          phone: registration.phone,
-          amount: registration.subscriptionAmount,
-          currency: 'INR',
-          paymentMethod: this.paymentTestMode ? 'TEST-MODE' : 'RAZORPAY',
-          razorpayOrderId: registration.razorpayOrderId || '',
-          razorpayPaymentId: registration.razorpayPaymentId || '',
-        };
-
-        const pdfBuffer = await this.invoiceService.generateInvoice(invoiceData);
-
-        await this.notificationsService.sendWelcomeWithInvoice({
-          phone: registration.phone,
-          email: registration.email,
-          parentName: registration.motherName,
-          childName: registration.childName,
-          registrationId: registration.registrationId,
-          amount: registration.subscriptionAmount,
-          invoiceBuffer: pdfBuffer,
-        });
-
-        this.logger.log(`✅ Email 1 sent: Welcome + Invoice for ${registrationId}`);
-
-        // EMAIL 2: Go Green Certificate (immediate - no delay)
-        this.logger.log(`📧 Sending Email 2: Go Green Certificate for ${registrationId}`);
-        
-        // Plant tree first
-        let plantedTree: any = null;
-        try {
-          plantedTree = await this.goGreenService.plantTree({
-            registrationId: registration.registrationId,
-            childName: registration.childName,
-            motherName: registration.motherName,
-            location: registration.state,
-            plantingPartner: 'WombTo18 Green Initiative',
-          });
-          this.logger.log(`🌳 Tree planted: ${plantedTree.treeId} for ${registration.childName}`);
-        } catch (treeError) {
-          this.logger.error(`❌ Failed to plant tree for ${registration.registrationId}:`, treeError);
-        }
-
-        // Send Go Green certificate immediately
-        await this.notificationsService.sendGoGreenCertificate({
-          phone: registration.phone,
-          email: registration.email,
-          parentName: registration.motherName,
-          childName: registration.childName,
-          registrationId: registration.registrationId,
-          state: registration.state,
-          dateOfBirth: registration.dateOfBirth.toISOString().split('T')[0],
-          treeId: plantedTree?.treeId || `TREE-${new Date().getFullYear()}-PENDING`,
-        });
-
-        this.logger.log(`✅ Email 2 sent: Go Green Certificate for ${registrationId}`);
-
-        // Activate all services
-        await this.activateAllServicesForRegistration(registration, plantedTree);
-
-        registration.goGreenCertSent = true;
-        await registration.save();
-
-        this.logger.log(`🎉 Both emails sent and all services activated for ${registrationId}`);
-      } catch (error) {
-        this.logger.error(`❌ Failed to send emails for ${registrationId}: ${error instanceof Error ? error.message : error}`);
-      }
-    });
+    // Send registration confirmation email
+    try {
+      await this.notificationsService.sendRegistrationConfirmationEmail({
+        email: dto.email,
+        parentName: dto.motherName,
+        childName: dto.childName,
+        registrationId,
+        ageGroup,
+        state: dto.state,
+        subscriptionAmount: SUBSCRIPTION_TOTAL_PRICE,
+      });
+      this.logger.log(`Registration confirmation email sent for ${registrationId}`);
+    } catch (error) {
+      this.logger.warn(`Failed to send registration confirmation email for ${registrationId}: ${error instanceof Error ? error.message : error}`);
+    }
 
     this.logger.log(`Child registered: ${registrationId} | Order: ${orderId}`);
 
@@ -462,10 +390,14 @@ export class RegistrationService {
     };
 
     try {
-      // NOTE: Welcome email with payment invoice is sent by PaymentsService
-      // This method handles Go Green certificate and service activation
+      // NOTE: Payment confirmation with invoice is handled by PaymentsService
+      // We send welcome message and Go Green certificate here with proper sequencing
 
-      // 1. Plant a tree for the child BEFORE sending certificate
+      // 1. Welcome message with dashboard link (sent immediately)
+      await this.notificationsService.sendWelcomeMessage(commonPayload);
+      this.logger.log(`Welcome message sent for ${registration.registrationId}`);
+
+      // 2. Plant a tree for the child BEFORE sending certificate
       let plantedTree: any = null;
       try {
         plantedTree = await this.goGreenService.plantTree({
@@ -481,10 +413,10 @@ export class RegistrationService {
         // Continue with certificate generation even if tree planting fails
       }
 
-      // 2. Schedule certificate email to be sent after welcome email (using Promise delay)
+      // 3. Schedule certificate email to be sent after payment email (using Promise delay)
       this.scheduleCertificateEmail(registration, plantedTree, commonPayload);
 
-      // 3. AUTO-ACTIVATE ALL SERVICES: Comprehensive service activation
+      // 4. AUTO-ACTIVATE ALL SERVICES: Comprehensive service activation
       await this.activateAllServicesForRegistration(registration, plantedTree);
 
       registration.goGreenCertSent = true;
@@ -528,57 +460,6 @@ export class RegistrationService {
   }
 
   // ─── Family Dashboard Queries ─────────────────────────────────────────
-
-  /**
-   * Public method to trigger post-payment notifications for a registration
-   * Used by API endpoint to manually trigger emails for existing registrations
-   */
-  async triggerPostPaymentNotifications(
-    registration: ChildRegistrationDocument,
-  ): Promise<void> {
-    // First, generate and send the welcome email with invoice (Email 1)
-    try {
-      const invoiceData = {
-        invoiceNumber: `INV-${Date.now()}`,
-        date: new Date().toLocaleDateString('en-IN', {
-          day: '2-digit',
-          month: 'short',
-          year: 'numeric',
-        }),
-        parentName: registration.motherName,
-        childName: registration.childName,
-        registrationId: registration.registrationId,
-        email: registration.email,
-        phone: registration.phone,
-        amount: registration.subscriptionAmount,
-        currency: 'INR',
-        paymentMethod: this.paymentTestMode ? 'TEST-MODE' : 'RAZORPAY',
-        razorpayOrderId: registration.razorpayOrderId || '',
-        razorpayPaymentId: registration.razorpayPaymentId || '',
-      };
-
-      // Generate invoice PDF
-      const pdfBuffer = await this.invoiceService.generateInvoice(invoiceData);
-
-      // Send welcome email with invoice (Email 1)
-      await this.notificationsService.sendWelcomeWithInvoice({
-        phone: registration.phone,
-        email: registration.email,
-        parentName: registration.motherName,
-        childName: registration.childName,
-        registrationId: registration.registrationId,
-        amount: registration.subscriptionAmount,
-        invoiceBuffer: pdfBuffer,
-      });
-
-      this.logger.log(`✅ Welcome email with invoice sent for ${registration.registrationId}`);
-    } catch (error) {
-      this.logger.error(`❌ Failed to send welcome email with invoice for ${registration.registrationId}: ${error instanceof Error ? error.message : error}`);
-    }
-
-    // Then trigger the rest of the post-payment flow (Email 2 + service activation)
-    await this.sendPostPaymentNotifications(registration);
-  }
 
   /**
    * Find all children registered under a parent's user ID (family dashboard).
@@ -667,11 +548,15 @@ export class RegistrationService {
   // ─── Helper Methods ───────────────────────────────────────────────────
 
   /**
+   * Converts dashboard service age group enum to CMS age group string format
+   */
+  private convertToAgeGroupString(ageGroup: AgeGroupEnum): string {
+    return ageGroup; // They're already the same format (e.g., "0-1 years")
+  }
+
+  /**
    * Comprehensive service activation for new registrations
    * Activates all services: vaccination tracking, development milestones, reminders, and tree planting
-   * 
-   * AUTOMATIC TEMPLATE SEEDING: If milestone templates don't exist in the database,
-   * this method will automatically seed them before creating child-specific milestones.
    */
   private async activateAllServicesForRegistration(
     registration: ChildRegistrationDocument,
@@ -707,32 +592,15 @@ export class RegistrationService {
       try {
         this.logger.log(`🧠 Seeding development milestones for ${registration.registrationId}...`);
         
-        // Get child's current age group (returns enum value like "0-1 years")
+        // Get child's current age group
         const dashboardAgeGroup = this.dashboardService.getChildAgeGroup(registration.dateOfBirth);
-        this.logger.log(`Child age group: ${dashboardAgeGroup}`);
+        const cmsAgeGroup = this.convertToAgeGroupString(dashboardAgeGroup);
+        
+        this.logger.log(`Child age group: ${cmsAgeGroup}`);
         
         // Get milestone templates for current age group from CMS
-        let templates = await this.cmsService.getMilestoneTemplatesByAgeGroup(dashboardAgeGroup);
+        const templates = await this.cmsService.getMilestoneTemplatesByAgeGroup(cmsAgeGroup);
         
-        // AUTOMATIC FALLBACK: If no templates found, seed default templates
-        if (!templates || templates.length === 0) {
-          this.logger.warn(`⚠️ No milestone templates found for age group: ${dashboardAgeGroup}`);
-          this.logger.log(`🔧 Auto-seeding default milestone templates...`);
-          
-          try {
-            // Seed default CMS data (includes milestone templates)
-            const seedResults = await this.cmsService.seedDefaultData();
-            this.logger.log(`✅ Seeded ${seedResults.milestones} milestone templates`);
-            
-            // Try fetching templates again
-            templates = await this.cmsService.getMilestoneTemplatesByAgeGroup(dashboardAgeGroup);
-            this.logger.log(`✅ Found ${templates.length} templates after seeding`);
-          } catch (seedError) {
-            this.logger.error(`❌ Failed to auto-seed templates: ${seedError instanceof Error ? seedError.message : seedError}`);
-          }
-        }
-        
-        // Create child-specific development milestones from templates
         if (templates && templates.length > 0) {
           const developmentMilestones = await this.dashboardService.seedDevelopmentMilestones(
             registration.registrationId,
@@ -740,11 +608,9 @@ export class RegistrationService {
             templates
           );
           activationResults.developmentMilestones = developmentMilestones.length;
-          this.logger.log(`✅ Seeded ${developmentMilestones.length} development milestones for ${dashboardAgeGroup}`);
+          this.logger.log(`✅ Seeded ${developmentMilestones.length} development milestones`);
         } else {
-          const errorMsg = `No milestone templates available for age group: ${dashboardAgeGroup}`;
-          activationResults.errors.push(errorMsg);
-          this.logger.error(`❌ ${errorMsg}`);
+          this.logger.warn(`⚠️ No milestone templates found for age group: ${cmsAgeGroup}`);
         }
       } catch (devError) {
         const errorMsg = `Failed to seed development milestones: ${devError instanceof Error ? devError.message : devError}`;

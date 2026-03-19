@@ -1,0 +1,109 @@
+import { Injectable, Logger } from '@nestjs/common';
+import { OnEvent } from '@nestjs/event-emitter';
+import { GoGreenService } from './go-green.service';
+import { CreditType } from './schemas/credit-transaction.schema';
+
+export interface VaccinationCompletedEvent {
+  registrationId: string;
+  milestoneId: string;
+  vaccineName: string;
+  sequenceNumber: number;
+  completedDate: Date;
+}
+
+@Injectable()
+export class CreditAwardListener {
+  private readonly logger = new Logger(CreditAwardListener.name);
+
+  constructor(private readonly goGreenService: GoGreenService) {}
+
+  @OnEvent('vaccination.completed')
+  async handleVaccinationCompleted(payload: VaccinationCompletedEvent) {
+    this.logger.log(
+      `Vaccination completed event received: ${payload.vaccineName} for ${payload.registrationId}`,
+    );
+
+    try {
+      const creditAmount = this.goGreenService.calculateVaccineCredits(payload.sequenceNumber);
+
+      await this.goGreenService.awardCredits({
+        registrationId: payload.registrationId,
+        amount: creditAmount,
+        type: CreditType.VACCINATION,
+        description: `${payload.vaccineName} Vaccine Completed`,
+        metadata: {
+          vaccineId: payload.milestoneId,
+          vaccineName: payload.vaccineName,
+          sequenceNumber: payload.sequenceNumber,
+          completedDate: payload.completedDate,
+        },
+      });
+
+      this.logger.log(
+        `Credits awarded: ${creditAmount} to ${payload.registrationId}`,
+      );
+
+      if (payload.sequenceNumber === 6) {
+        this.logger.log(`Series completion bonus for ${payload.registrationId}`);
+        
+        await this.goGreenService.awardCredits({
+          registrationId: payload.registrationId,
+          amount: 200,
+          type: CreditType.BONUS,
+          description: 'Primary Vaccination Series Completion Bonus',
+          metadata: {
+            bonusType: 'SERIES_COMPLETE',
+            vaccineId: payload.milestoneId,
+          },
+        });
+      }
+    } catch (error) {
+      this.logger.error('Error awarding credits for vaccination:', error);
+    }
+  }
+
+  @OnEvent('health-record.uploaded')
+  async handleHealthRecordUploaded(payload: {
+    registrationId: string;
+    recordId: string;
+    category: string;
+  }) {
+    this.logger.log(
+      `Health record uploaded event received: ${payload.category} for ${payload.registrationId}`,
+    );
+
+    try {
+      await this.goGreenService.awardCredits({
+        registrationId: payload.registrationId,
+        amount: 10,
+        type: CreditType.HEALTH_RECORD,
+        description: `Health Record Uploaded: ${payload.category}`,
+        metadata: {
+          recordId: payload.recordId,
+          category: payload.category,
+        },
+      });
+    } catch (error) {
+      this.logger.error('Error awarding credits for health record:', error);
+    }
+  }
+
+  @OnEvent('profile.completed')
+  async handleProfileCompleted(payload: { registrationId: string }) {
+    this.logger.log(`Profile completed event received: ${payload.registrationId}`);
+
+    try {
+      await this.goGreenService.awardCredits({
+        registrationId: payload.registrationId,
+        amount: 50,
+        type: CreditType.ENGAGEMENT,
+        description: 'Profile Completed',
+        metadata: {
+          milestoneType: 'PROFILE_COMPLETE',
+        },
+      });
+    } catch (error) {
+      this.logger.error('Error awarding credits for profile completion:', error);
+    }
+  }
+}

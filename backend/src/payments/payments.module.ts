@@ -22,7 +22,7 @@ import { AuthModule } from '../auth/auth.module';
   ],
   controllers: [PaymentsController],
   providers: [PaymentsService, InvoiceService],
-  exports: [PaymentsService, InvoiceService],
+  exports: [PaymentsService],
 })
 export class PaymentsModule {}
 

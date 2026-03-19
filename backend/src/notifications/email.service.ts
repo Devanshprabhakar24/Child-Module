@@ -132,55 +132,6 @@ export class EmailService {
   }
 
   /**
-   * Sends welcome email with payment invoice PDF attachment
-   * This is Email 1: Welcome message + Payment invoice
-   */
-  async sendWelcomeWithInvoiceEmail(
-    to: string,
-    parentName: string,
-    childName: string,
-    registrationId: string,
-    amount: number,
-    pdfBuffer?: Buffer,
-  ): Promise<void> {
-    if (!this.transporter) {
-      this.logger.warn(`Cannot send welcome email to ${to}: transporter not configured`);
-      return;
-    }
-
-    try {
-      const dashboardLink = `${this.configService.get<string>('FRONTEND_URL', 'http://localhost:3000')}/dashboard?id=${registrationId}`;
-      
-      const mailOptions: any = {
-        from: this.fromAddress,
-        to,
-        subject: '🎉 Welcome to WombTo18 - Registration Successful!',
-        text: `Welcome to WombTo18, ${parentName}! ${childName} is now registered (${registrationId}). Payment of ₹${amount} received. Access your dashboard: ${dashboardLink}`,
-        html: this.getWelcomeWithInvoiceTemplate(parentName, childName, registrationId, amount, dashboardLink),
-      };
-
-      if (pdfBuffer) {
-        mailOptions.attachments = [
-          {
-            filename: `WombTo18_Invoice_${registrationId}.pdf`,
-            content: pdfBuffer,
-            contentType: 'application/pdf',
-          },
-        ];
-      }
-
-      await this.transporter.sendMail(mailOptions);
-      this.logger.log(`✅ Welcome email with invoice sent to ${to}`);
-    } catch (error) {
-      this.logger.error(
-        `Failed to send welcome email to ${to}: ${
-          error instanceof Error ? error.message : String(error)
-        }`,
-      );
-    }
-  }
-
-  /**
    * Sends Go Green Certificate email with PDF attachment
    */
   async sendGoGreenCertificateEmail(
@@ -466,79 +417,6 @@ export class EmailService {
           </div>
           <div class="footer">
             <p>© 2026 WombTo18. All rights reserved.</p>
-          </div>
-        </div>
-      </body>
-      </html>
-    `;
-  }
-
-  private getWelcomeWithInvoiceTemplate(
-    parentName: string, 
-    childName: string, 
-    registrationId: string, 
-    amount: number,
-    dashboardLink: string
-  ): string {
-    return `
-      <!DOCTYPE html>
-      <html>
-      <head>
-        <style>
-          body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
-          .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-          .header { background: linear-gradient(135deg, #10b981 0%, #059669 100%); color: white; padding: 30px; text-align: center; border-radius: 8px 8px 0 0; }
-          .content { background: #f9fafb; padding: 30px; border-radius: 0 0 8px 8px; }
-          .button { display: inline-block; background: #10b981; color: white; padding: 12px 30px; text-decoration: none; border-radius: 6px; margin: 20px 0; }
-          .info-box { background: white; border-left: 4px solid #10b981; padding: 15px; margin: 20px 0; }
-          .payment-box { background: #ecfdf5; border: 2px solid #10b981; padding: 20px; margin: 20px 0; border-radius: 8px; text-align: center; }
-          .amount { font-size: 28px; font-weight: bold; color: #10b981; }
-          .footer { text-align: center; margin-top: 20px; color: #6b7280; font-size: 12px; }
-        </style>
-      </head>
-      <body>
-        <div class="container">
-          <div class="header">
-            <h1>🎉 Welcome to WombTo18!</h1>
-          </div>
-          <div class="content">
-            <h2>Hello ${parentName},</h2>
-            <p>Congratulations! ${childName} is now successfully registered with WombTo18. We're thrilled to be part of your child's health journey from womb to 18 years!</p>
-            
-            <div class="info-box">
-              <strong>Registration ID:</strong> ${registrationId}<br>
-              <strong>Child Name:</strong> ${childName}
-            </div>
-
-            <div class="payment-box">
-              <p style="margin: 0 0 10px 0; color: #059669; font-weight: bold;">✅ Payment Confirmed</p>
-              <div class="amount">₹${amount}</div>
-              <p style="margin: 10px 0 0 0; font-size: 14px; color: #6b7280;">Your payment invoice is attached to this email</p>
-            </div>
-
-            <h3>What's Next?</h3>
-            <p>Your personalized dashboard is ready with:</p>
-            <ul>
-              <li>📅 <strong>Vaccination Tracker</strong> - Automated reminders for all vaccines</li>
-              <li>🌱 <strong>Go Green Certificate</strong> - A tree planted in ${childName}'s name</li>
-              <li>📊 <strong>Milestone Tracking</strong> - Monitor developmental progress</li>
-              <li>📱 <strong>Smart Notifications</strong> - SMS & WhatsApp updates</li>
-              <li>📁 <strong>Health Records</strong> - Secure document storage</li>
-            </ul>
-
-            <center>
-              <a href="${dashboardLink}" class="button">Access Your Dashboard</a>
-            </center>
-
-            <p style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #e5e7eb;">
-              <strong>📧 Coming Soon:</strong> You'll receive your Go Green Participation Certificate in a separate email shortly!
-            </p>
-
-            <p>If you have any questions, our support team is here to help.</p>
-          </div>
-          <div class="footer">
-            <p>© 2026 WombTo18. All rights reserved.</p>
-            <p>Empowering parents with smart health tracking</p>
           </div>
         </div>
       </body>

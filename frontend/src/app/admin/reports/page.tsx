@@ -160,7 +160,6 @@ export default function AdminReportsPage() {
       category: "Vaccination",
       reportDate: "",
       notes: "",
-      doctorName: "",
     });
     setSelectedFile(null);
   }

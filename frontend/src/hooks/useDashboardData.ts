@@ -61,15 +61,6 @@ export function useDashboardData(): UseDashboardDataResult {
         setLoading(true);
         setError(null);
 
-        // Get registration ID from URL parameter first
-        let regId: string | null = null;
-        
-        if (typeof window !== "undefined") {
-          const params = new URLSearchParams(window.location.search);
-          regId = params.get("id");
-          console.log("Dashboard - URL parameter ID:", regId);
-        }
-
         // 1) Family children
         const familyRes = await fetch(`${API_BASE}/dashboard/family`, {
           headers: {
@@ -92,22 +83,14 @@ export function useDashboardData(): UseDashboardDataResult {
         const kids: DashboardChild[] = familyData.children || familyData || [];
 
         setChildren(kids);
-        
-        // If no ID in URL, fall back to first child
-        if (!regId) {
-          regId = kids[0]?.registrationId;
-          console.log("Dashboard - No URL ID, using first child:", regId);
-        }
-        
+        const regId = kids[0]?.registrationId;
         if (!regId) {
           setMilestones([]);
           return;
         }
-        
-        console.log("Dashboard - Using registration ID:", regId);
         setSelectedRegId(regId);
 
-        // 2) Milestones for selected child
+        // 2) Milestones for first child
         const milRes = await fetch(
           `${API_BASE}/dashboard/milestones/${encodeURIComponent(regId)}`,
           {
@@ -119,37 +102,6 @@ export function useDashboardData(): UseDashboardDataResult {
         );
 
         if (!milRes.ok) {
-          // If the registration ID doesn't exist, fall back to first child
-          if (milRes.status === 404 && kids.length > 0) {
-            const fallbackId = kids[0]?.registrationId;
-            console.log("Dashboard - Registration not found, falling back to:", fallbackId);
-            
-            if (fallbackId && typeof window !== "undefined") {
-              // Update URL to correct registration ID
-              const newUrl = `${window.location.pathname}?id=${fallbackId}`;
-              window.history.replaceState({}, '', newUrl);
-              setSelectedRegId(fallbackId);
-              
-              // Fetch milestones for fallback child
-              const fallbackMilRes = await fetch(
-                `${API_BASE}/dashboard/milestones/${encodeURIComponent(fallbackId)}`,
-                {
-                  headers: {
-                    Authorization: `Bearer ${token}`,
-                  },
-                  signal: controller.signal,
-                },
-              );
-              
-              if (fallbackMilRes.ok) {
-                const milJson = await fallbackMilRes.json().catch(() => ({}));
-                const milData = milJson.data || milJson;
-                setMilestones(Array.isArray(milData) ? milData : []);
-              }
-            }
-            return;
-          }
-          
           const mErr = await milRes.json().catch(() => ({}));
           throw new Error(mErr.message || "Failed to load milestones");
         }

@@ -74,45 +74,27 @@ export function useChildData(): UseChildDataResult {
         setLoading(true);
         setError(null);
 
-        // Get registration ID from URL parameter first, then fall back to family data
-        let regId: string | null = null;
-        
-        if (typeof window !== "undefined") {
-          const params = new URLSearchParams(window.location.search);
-          regId = params.get("id");
-          
-          // Log for debugging
-          console.log("URL parameter ID:", regId);
+        // 1) Get family to find first child's registrationId
+        const familyRes = await fetch(`${API_BASE}/dashboard/family`, {
+          headers: { Authorization: `Bearer ${tok}` },
+          signal: controller.signal,
+        });
+
+        if (familyRes.status === 401) {
+          localStorage.removeItem("wt18_token");
+          localStorage.removeItem("wt18_user");
+          window.location.href = "/login";
+          return;
         }
 
-        // If no ID in URL, get from family data
-        if (!regId) {
-          console.log("No ID in URL, fetching from family data...");
-          const familyRes = await fetch(`${API_BASE}/dashboard/family`, {
-            headers: { Authorization: `Bearer ${tok}` },
-            signal: controller.signal,
-          });
-
-          if (familyRes.status === 401) {
-            localStorage.removeItem("wt18_token");
-            localStorage.removeItem("wt18_user");
-            window.location.href = "/login";
-            return;
-          }
-
-          const familyJson = await familyRes.json().catch(() => ({}));
-          const kids = familyJson.data?.children || familyJson.data || [];
-          regId = kids[0]?.registrationId;
-          console.log("Family data ID:", regId);
-        }
+        const familyJson = await familyRes.json().catch(() => ({}));
+        const kids = familyJson.data?.children || familyJson.data || [];
+        const regId: string = kids[0]?.registrationId;
 
         if (!regId) {
-          console.error("No registration ID found!");
           setLoading(false);
           return;
         }
-        
-        console.log("Using registration ID:", regId);
         setRegistrationId(regId);
 
         // 2) Full child dashboard (profile + vaccination + milestones)
@@ -133,37 +115,7 @@ export function useChildData(): UseChildDataResult {
 
         if (childRes.ok) {
           const childJson = await childRes.json();
-          console.log("Child profile loaded:", childJson.data?.profile?.childName);
           setProfile(childJson.data?.profile || null);
-        } else if (childRes.status === 404) {
-          // Registration ID doesn't exist, fetch family data and use first child
-          console.error("Registration not found, fetching family data...");
-          
-          const familyRes = await fetch(`${API_BASE}/dashboard/family`, {
-            headers: { Authorization: `Bearer ${tok}` },
-            signal: controller.signal,
-          });
-
-          if (familyRes.ok) {
-            const familyJson = await familyRes.json().catch(() => ({}));
-            const kids = familyJson.data?.children || familyJson.data || [];
-            const fallbackId = kids[0]?.registrationId;
-            
-            if (fallbackId && typeof window !== "undefined") {
-              console.log("Using fallback registration ID:", fallbackId);
-              // Update URL to correct registration ID
-              const newUrl = `${window.location.pathname}?id=${fallbackId}`;
-              window.history.replaceState({}, '', newUrl);
-              
-              // Reload with correct ID
-              window.location.reload();
-              return;
-            }
-          }
-          
-          console.error("Failed to load child profile:", childRes.status);
-        } else {
-          console.error("Failed to load child profile:", childRes.status);
         }
 
         if (vacRes.ok) {
@@ -177,7 +129,6 @@ export function useChildData(): UseChildDataResult {
         }
       } catch (err: any) {
         if (err.name === "AbortError") return;
-        console.error("Error loading child data:", err);
         setError(err.message || "Failed to load data");
       } finally {
         setLoading(false);
@@ -186,7 +137,7 @@ export function useChildData(): UseChildDataResult {
 
     load();
     return () => controller.abort();
-  }, []); // Empty dependency array - only runs once on mount
+  }, []);
 
   return { loading, error, profile, vaccination, milestones, registrationId, token };
 }

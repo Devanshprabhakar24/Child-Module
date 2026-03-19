@@ -89,40 +89,6 @@ export class NotificationsService {
   }
 
   /**
-   * Sends welcome message with payment invoice PDF via SMS, WhatsApp, and Email.
-   * This is Email 1: Welcome + Payment Invoice
-   */
-  async sendWelcomeWithInvoice(payload: {
-    phone: string;
-    email: string;
-    parentName: string;
-    childName: string;
-    registrationId: string;
-    amount: number;
-    invoiceBuffer?: Buffer;
-  }): Promise<void> {
-    const dashboardLink = `${this.baseUrl}/dashboard?id=${payload.registrationId}`;
-    const message = `Welcome to WombTo18, ${payload.parentName}! ${payload.childName} is now registered (${payload.registrationId}). Payment of ₹${payload.amount} received. Access your dashboard: ${dashboardLink}`;
-
-    await Promise.all([
-      this.sendSms(payload.phone, message),
-      this.sendWhatsApp(
-        payload.phone,
-        message + (payload.invoiceBuffer ? ' 📄 Payment invoice attached.' : ''),
-        payload.invoiceBuffer,
-      ),
-      this.emailService.sendWelcomeWithInvoiceEmail(
-        payload.email,
-        payload.parentName,
-        payload.childName,
-        payload.registrationId,
-        payload.amount,
-        payload.invoiceBuffer,
-      ),
-    ]);
-  }
-
-  /**
    * Sends welcome message with dashboard link via SMS, WhatsApp, and Email.
    */
   async sendWelcomeMessage(payload: {
