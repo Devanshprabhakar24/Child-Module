@@ -4,6 +4,10 @@ import { useState, useEffect } from "react";
 import { useChildData } from "@/hooks/useChildData";
 import GreenHeader from "@/components/dashboard/green/GreenHeader";
 import ShareWidget from "@/components/dashboard/green/ShareWidget";
+import CreditWidget from "@/components/dashboard/green/CreditWidget";
+import TreeRedemptionModal from "@/components/dashboard/green/TreeRedemptionModal";
+import SuccessCelebrationModal from "@/components/dashboard/green/SuccessCelebrationModal";
+import FloatingCredit, { useFloatingCredit } from "@/components/dashboard/green/FloatingCredit";
 import { Award, QrCode, Star, MapPin, BadgeCheck, Loader2, TrendingUp, Check, Sprout, Trees, Camera, X, FileText, TreePine } from "lucide-react";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
@@ -38,6 +42,34 @@ export default function GoGreenPage() {
   const [treeLoading, setTreeLoading] = useState(true);
   const [apiError, setApiError] = useState<string | null>(null);
   const [showTreeModal, setShowTreeModal] = useState(false);
+  
+  // Credit system state
+  const [showRedemptionModal, setShowRedemptionModal] = useState(false);
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [treeRedeemData, setTreeRedeemData] = useState<any>(null);
+  const { floatingCredits, showFloatingCredit, removeFloatingCredit } = useFloatingCredit();
+
+  // Listen for tree redemption success
+  useEffect(() => {
+    const handleTreeRedeemed = (event: CustomEvent) => {
+      setTreeRedeemData(event.detail);
+      setShowSuccessModal(true);
+    };
+
+    const handleOpenRedemption = () => {
+      if (registrationId) {
+        setShowRedemptionModal(true);
+      }
+    };
+
+    window.addEventListener('tree-redeemed' as any, handleTreeRedeemed as any);
+    window.addEventListener('open-tree-redemption' as any, handleOpenRedemption as any);
+
+    return () => {
+      window.removeEventListener('tree-redeemed' as any, handleTreeRedeemed as any);
+      window.removeEventListener('open-tree-redemption' as any, handleOpenRedemption as any);
+    };
+  }, [registrationId]);
 
   // Fetch tree data
   useEffect(() => {
@@ -193,6 +225,18 @@ export default function GoGreenPage() {
   return (
     <div className="mx-auto w-full max-w-8xl">
       <GreenHeader />
+
+      {/* Credit Widget */}
+      {registrationId && (
+        <section className="mb-8">
+          <CreditWidget
+            registrationId={registrationId}
+            onCreditsEarned={(amount) => {
+              showFloatingCredit(amount);
+            }}
+          />
+        </section>
+      )}
 
       {/* Impact Stats */}
       <section className="mb-8 grid grid-cols-1 gap-6 md:grid-cols-3">
@@ -548,6 +592,41 @@ export default function GoGreenPage() {
           </div>
         </div>
       )}
+
+      {/* Tree Redemption Modal */}
+      {registrationId && (
+        <TreeRedemptionModal
+          registrationId={registrationId}
+          childName={profile?.childName || 'Child'}
+          isOpen={showRedemptionModal}
+          onClose={() => setShowRedemptionModal(false)}
+          onSuccess={(data) => {
+            setTreeRedeemData(data);
+            setShowSuccessModal(true);
+          }}
+        />
+      )}
+
+      {/* Success Celebration Modal */}
+      <SuccessCelebrationModal
+        isOpen={showSuccessModal}
+        treeData={treeRedeemData}
+        onClose={() => {
+          setShowSuccessModal(false);
+          setTreeRedeemData(null);
+        }}
+      />
+
+      {/* Floating Credit Animations */}
+      {floatingCredits.map((credit) => (
+        <FloatingCredit
+          key={credit.id}
+          amount={credit.amount}
+          x={credit.x}
+          y={credit.y}
+          onComplete={() => removeFloatingCredit(credit.id)}
+        />
+      ))}
     </div>
   );
 }

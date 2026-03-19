@@ -1,6 +1,7 @@
 import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 
 import { Milestone, MilestoneDocument } from './schemas/milestone.schema';
 import { DevelopmentMilestone, DevelopmentMilestoneDocument, AgeGroupEnum } from './schemas/development-milestone.schema';
@@ -103,6 +104,7 @@ export class DashboardService {
       throw new NotFoundException('Milestone not found');
     }
 
+    const previousStatus = milestone.status;
     milestone.status = dto.status;
     if (dto.completedDate) {
       milestone.completedDate = new Date(dto.completedDate);
@@ -112,7 +114,58 @@ export class DashboardService {
     }
 
     await milestone.save();
+
+    // Emit event if vaccine was just completed
+    if (
+      milestone.category === MilestoneCategory.VACCINATION &&
+      previousStatus !== MilestoneStatus.COMPLETED &&
+      dto.status === MilestoneStatus.COMPLETED
+    ) {
+      // Determine sequence number from title
+      const sequenceNumber = this.getVaccineSequence(milestone.title);
+      
+      this.eventEmitter.emit('vaccination.completed', {
+        registrationId: milestone.registrationId,
+        milestoneId: milestone._id.toString(),
+        vaccineName: milestone.vaccineName || milestone.title,
+        sequenceNumber,
+        completedDate: milestone.completedDate || new Date(),
+      });
+    }
+
     return milestone;
+  }
+
+  private getVaccineSequence(vaccineName: string): number {
+    const vaccineMap: Record<string, number> = {
+      'BCG': 1,
+      'OPV-0': 1,
+      'HepB': 1,
+      'OPV-1': 2,
+      'Pentavalent-1': 2,
+      'IPV-1': 2,
+      'Rotavirus-1': 2,
+      'OPV-2': 3,
+      'Pentavalent-2': 3,
+      'IPV-2': 3,
+      'Rotavirus-2': 3,
+      'OPV-3': 4,
+      'Pentavalent-3': 4,
+      'IPV-3': 4,
+      'Rotavirus-3': 4,
+      'Measles-1': 5,
+      'MR-1': 5,
+      'MMR': 6,
+      'Measles-2': 6,
+      'MR-2': 6,
+    };
+
+    for (const [key, sequence] of Object.entries(vaccineMap)) {
+      if (vaccineName.toUpperCase().includes(key)) {
+        return sequence;
+      }
+    }
+    return 1;
   }
 
   // ─── Dashboard Queries ────────────────────────────────────────────────
@@ -474,6 +527,7 @@ export class DashboardService {
       throw new NotFoundException('This is not a vaccination milestone');
     }
 
+    const previousStatus = milestone.status;
     milestone.status = updateData.status;
     if (updateData.completedDate) {
       milestone.completedDate = updateData.completedDate;
@@ -489,6 +543,25 @@ export class DashboardService {
     }
 
     await milestone.save();
+    
+    // Emit event if vaccine was just completed by admin
+    if (
+      previousStatus !== MilestoneStatus.COMPLETED &&
+      updateData.status === MilestoneStatus.COMPLETED
+    ) {
+      const sequenceNumber = this.getVaccineSequence(milestone.vaccineName || milestone.title);
+      
+      this.eventEmitter.emit('vaccination.completed', {
+        registrationId: milestone.registrationId,
+        milestoneId: milestone._id.toString(),
+        vaccineName: milestone.vaccineName || milestone.title,
+        sequenceNumber,
+        completedDate: milestone.completedDate || new Date(),
+      });
+      
+      this.logger.log(`🌱 Credits will be awarded for ${milestone.vaccineName || milestone.title}`);
+    }
+    
     this.logger.log(`Vaccination status updated by admin: ${milestoneId} -> ${updateData.status}`);
     return milestone;
   }

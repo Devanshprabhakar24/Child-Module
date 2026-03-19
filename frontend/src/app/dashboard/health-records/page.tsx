@@ -4,6 +4,8 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import './health-records.css';
 
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+
 interface HealthRecord {
   _id: string;
   documentName: string;
@@ -63,14 +65,12 @@ export default function HealthRecordsPage() {
   const [dragActive, setDragActive] = useState(false);
 
   useEffect(() => {
-    // For testing: set a test token if none exists
     const token = localStorage.getItem('wt18_token');
     if (!token) {
-      // Set test admin token for development
-      const testToken = 'eyJzdWIiOiI2OWI3Y2VhODQwZTE2N2JjMTE2OTVmYTQiLCJlbWFpbCI6ImFkbWluQHdvbWJ0bzE4LmNvbSIsInJvbGUiOiJBRE1JTiIsImlhdCI6MTc3MzY1MDkwMjMzNiwiZXhwIjoxNzczNzM3MzAyMzM2fQ';
-      localStorage.setItem('wt18_token', testToken);
+      router.push('/login');
+      return;
     }
-    
+
     fetchHealthRecords();
   }, [selectedCategory, searchTerm]);
 
@@ -78,16 +78,21 @@ export default function HealthRecordsPage() {
     try {
       const token = localStorage.getItem('wt18_token');
       let registrationId = localStorage.getItem('currentRegistrationId');
-      
-      // Fallback: use test registration ID
+
       if (!registrationId) {
-        registrationId = 'CHD-KL-20260306-000001';
-        localStorage.setItem('currentRegistrationId', registrationId);
+        // Try to get from user data
+        const user = JSON.parse(localStorage.getItem('wt18_user') || '{}');
+        registrationId = user.registrationId;
       }
-      
+
       if (!token) {
         alert('Please login first');
-        router.push('/auth/login');
+        router.push('/login');
+        return;
+      }
+
+      if (!registrationId) {
+        setLoading(false);
         return;
       }
 
@@ -99,24 +104,19 @@ export default function HealthRecordsPage() {
         params.append('search', searchTerm);
       }
 
-      console.log('Fetching health records for:', registrationId);
-
-      const response = await fetch(`http://localhost:8000/health-records/${registrationId}?${params}`, {
+      const response = await fetch(`${API_BASE}/health-records/${registrationId}?${params}`, {
         headers: {
           'Authorization': `Bearer ${token}`,
         },
       });
 
-      console.log('Fetch response status:', response.status);
-
       if (response.ok) {
         const data = await response.json();
-        console.log('Fetched health records:', data);
-        setRecords(data.data.records);
-        setStats(data.data.stats);
-      } else {
-        const errorData = await response.json();
-        console.error('Failed to fetch health records:', errorData);
+        setRecords(data.data.records || []);
+        setStats(data.data.stats || null);
+      } else if (response.status === 401) {
+        alert('Session expired. Please login again.');
+        router.push('/login');
       }
     } catch (error) {
       console.error('Error fetching health records:', error);
@@ -176,7 +176,7 @@ export default function HealthRecordsPage() {
 
   const handleUpload = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!uploadForm.file || !uploadForm.documentName || !uploadForm.category || !uploadForm.recordDate) {
       alert('Please fill in all required fields and select a file.');
       return;
@@ -187,28 +187,23 @@ export default function HealthRecordsPage() {
     try {
       const token = localStorage.getItem('wt18_token');
       let registrationId = localStorage.getItem('currentRegistrationId');
-      
-      // Fallback: try to get registration ID from user data or use a test ID
+
       if (!registrationId) {
-        registrationId = 'CHD-KL-20260306-000001'; // Use the test registration ID
-        localStorage.setItem('currentRegistrationId', registrationId);
+        const user = JSON.parse(localStorage.getItem('wt18_user') || '{}');
+        registrationId = user.registrationId;
       }
-      
+
       if (!token) {
         alert('Please login first');
-        router.push('/auth/login');
+        router.push('/login');
         return;
       }
 
-      console.log('Uploading file:', {
-        fileName: uploadForm.file.name,
-        fileSize: uploadForm.file.size,
-        fileType: uploadForm.file.type,
-        registrationId,
-        documentName: uploadForm.documentName,
-        category: uploadForm.category,
-        recordDate: uploadForm.recordDate
-      });
+      if (!registrationId) {
+        alert('Child registration ID not found. Please register a child first.');
+        setUploadLoading(false);
+        return;
+      }
 
       const formData = new FormData();
       formData.append('file', uploadForm.file);
@@ -218,9 +213,7 @@ export default function HealthRecordsPage() {
       if (uploadForm.notes) formData.append('notes', uploadForm.notes);
       if (uploadForm.doctorName) formData.append('doctorName', uploadForm.doctorName);
 
-      console.log('Making API call to:', `http://localhost:8000/health-records/upload/${registrationId}`);
-
-      const response = await fetch(`http://localhost:8000/health-records/upload/${registrationId}`, {
+      const response = await fetch(`${API_BASE}/health-records/upload/${registrationId}`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -228,9 +221,7 @@ export default function HealthRecordsPage() {
         body: formData,
       });
 
-      console.log('Response status:', response.status);
       const responseData = await response.json();
-      console.log('Response data:', responseData);
 
       if (response.ok) {
         alert('Health record uploaded successfully!');
@@ -260,6 +251,37 @@ export default function HealthRecordsPage() {
     setShowDocumentViewer(true);
   };
 
+  const handleDeleteRecord = async (recordId: string) => {
+    if (!confirm('Are you sure you want to delete this health record?')) return;
+
+    try {
+      const token = localStorage.getItem('wt18_token');
+      if (!token) {
+        alert('Please login first');
+        router.push('/login');
+        return;
+      }
+
+      const response = await fetch(`${API_BASE}/health-records/${recordId}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+
+      if (response.ok) {
+        alert('Health record deleted successfully');
+        fetchHealthRecords();
+      } else {
+        const errorData = await response.json();
+        alert(`Failed to delete: ${errorData.message || 'Unknown error'}`);
+      }
+    } catch (error) {
+      console.error('Error deleting health record:', error);
+      alert('Failed to delete health record. Please try again.');
+    }
+  };
+
   const formatFileSize = (bytes: number): string => {
     if (bytes === 0) return '0 Bytes';
     const k = 1024;
@@ -276,49 +298,89 @@ export default function HealthRecordsPage() {
     });
   };
 
-  const getDocumentIcon = (category: string): string => {
+  const getCategoryConfig = (category: string) => {
     switch (category) {
       case 'Vaccination Cards':
-        return '💉';
+        return {
+          icon: '💉',
+          bgColor: 'bg-emerald-50',
+          iconColor: 'text-emerald-600',
+          badgeColor: 'bg-emerald-100 text-emerald-700',
+          borderColor: 'border-emerald-200',
+        };
       case 'Annual Check-ups':
-        return '📋';
+        return {
+          icon: '📋',
+          bgColor: 'bg-blue-50',
+          iconColor: 'text-blue-600',
+          badgeColor: 'bg-blue-100 text-blue-700',
+          borderColor: 'border-blue-200',
+        };
       case 'Dental Records':
-        return '🦷';
+        return {
+          icon: '🦷',
+          bgColor: 'bg-pink-50',
+          iconColor: 'text-pink-600',
+          badgeColor: 'bg-pink-100 text-pink-700',
+          borderColor: 'border-pink-200',
+        };
       case 'Eye Check-ups':
-        return '👁️';
+        return {
+          icon: '👁️',
+          bgColor: 'bg-violet-50',
+          iconColor: 'text-violet-600',
+          badgeColor: 'bg-violet-100 text-violet-700',
+          borderColor: 'border-violet-200',
+        };
       case 'BMI Reports':
-        return '📊';
+        return {
+          icon: '📊',
+          bgColor: 'bg-amber-50',
+          iconColor: 'text-amber-600',
+          badgeColor: 'bg-amber-100 text-amber-700',
+          borderColor: 'border-amber-200',
+        };
+      case 'Lab Tests':
       case 'Lab Reports':
-        return '🧪';
+        return {
+          icon: '🧪',
+          bgColor: 'bg-cyan-50',
+          iconColor: 'text-cyan-600',
+          badgeColor: 'bg-cyan-100 text-cyan-700',
+          borderColor: 'border-cyan-200',
+        };
       case 'Prescriptions':
-        return '💊';
+        return {
+          icon: '💊',
+          bgColor: 'bg-rose-50',
+          iconColor: 'text-rose-600',
+          badgeColor: 'bg-rose-100 text-rose-700',
+          borderColor: 'border-rose-200',
+        };
       case 'Medical Certificates':
-        return '📜';
+        return {
+          icon: '📜',
+          bgColor: 'bg-indigo-50',
+          iconColor: 'text-indigo-600',
+          badgeColor: 'bg-indigo-100 text-indigo-700',
+          borderColor: 'border-indigo-200',
+        };
+      case 'Growth':
+        return {
+          icon: '📈',
+          bgColor: 'bg-teal-50',
+          iconColor: 'text-teal-600',
+          badgeColor: 'bg-teal-100 text-teal-700',
+          borderColor: 'border-teal-200',
+        };
       default:
-        return '📄';
-    }
-  };
-
-  const getDocumentIconStyle = (category: string): string => {
-    switch (category) {
-      case 'Vaccination Cards':
-        return 'bg-red-500';
-      case 'Annual Check-ups':
-        return 'bg-blue-500';
-      case 'Dental Records':
-        return 'bg-purple-500';
-      case 'Eye Check-ups':
-        return 'bg-yellow-500';
-      case 'BMI Reports':
-        return 'bg-green-500';
-      case 'Lab Reports':
-        return 'bg-teal-500';
-      case 'Prescriptions':
-        return 'bg-pink-500';
-      case 'Medical Certificates':
-        return 'bg-indigo-500';
-      default:
-        return 'bg-gray-500';
+        return {
+          icon: '📄',
+          bgColor: 'bg-gray-50',
+          iconColor: 'text-gray-600',
+          badgeColor: 'bg-gray-100 text-gray-700',
+          borderColor: 'border-gray-200',
+        };
     }
   };
 
@@ -435,74 +497,101 @@ export default function HealthRecordsPage() {
               </div>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {records.map((record) => (
-                  <div key={record._id} className="bg-white border border-gray-200 rounded-xl p-6 hover:shadow-lg transition-all duration-200">
-                    {/* Document Icon */}
-                    <div className="flex items-start justify-between mb-4">
-                      <div className={`w-12 h-12 rounded-lg flex items-center justify-center text-white text-xl ${getDocumentIconStyle(record.category)}`}>
-                        {getDocumentIcon(record.category)}
+                {records.map((record) => {
+                  const categoryConfig = getCategoryConfig(record.category);
+                  return (
+                    <div key={record._id} className={`bg-white border ${categoryConfig.borderColor} rounded-xl p-5 hover:shadow-lg transition-all duration-200`}>
+                      {/* Document Icon & Header */}
+                      <div className="flex items-start justify-between mb-4">
+                        <div className={`w-14 h-14 rounded-xl flex items-center justify-center text-2xl ${categoryConfig.bgColor}`}>
+                          <span className={categoryConfig.iconColor}>{categoryConfig.icon}</span>
+                        </div>
+                        <span className={`px-2.5 py-1 rounded-full text-xs font-semibold ${categoryConfig.badgeColor}`}>
+                          {record.category.replace(' Records', '').replace(' Check-ups', '').replace(' Cards', '').replace(' Tests', '').replace(' Certificates', '')}
+                        </span>
                       </div>
-                      <div className="relative">
-                        <button className="text-gray-400 hover:text-gray-600 p-1">
-                          <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-                            <path d="M10 6a2 2 0 110-4 2 2 0 010 4zM10 12a2 2 0 110-4 2 2 0 010 4zM10 18a2 2 0 110-4 2 2 0 010 4z" />
+
+                      {/* Document Info */}
+                      <div className="mb-4">
+                        <h3 className="font-semibold text-gray-900 text-base mb-2 line-clamp-2">
+                          {record.documentName}
+                        </h3>
+                        <div className="flex items-center gap-2 text-xs text-gray-500 mb-2">
+                          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                          </svg>
+                          {formatDate(record.recordDate)}
+                        </div>
+                        <div className="flex items-center gap-2 text-xs text-gray-500">
+                          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                          </svg>
+                          {record.fileType.toUpperCase()} • {formatFileSize(record.fileSize)}
+                        </div>
+                        {record.uploadedBy === 'ADMIN' && (
+                          <span className="inline-flex items-center gap-1 mt-2 bg-emerald-50 text-emerald-700 px-2.5 py-1 rounded-full text-xs font-medium">
+                            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                            Admin Verified
+                          </span>
+                        )}
+                      </div>
+
+                      {/* Action Buttons */}
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => handleViewDocument(record)}
+                          className={`flex-1 ${categoryConfig.bgColor} ${categoryConfig.iconColor} px-4 py-2.5 rounded-lg text-sm font-semibold hover:opacity-80 transition-colors text-center flex items-center justify-center gap-2`}
+                        >
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                          </svg>
+                          View
+                        </button>
+                        <a
+                          href={record.fileUrl}
+                          download={record.fileName}
+                          className="bg-gray-100 text-gray-700 px-3 py-2.5 rounded-lg hover:bg-gray-200 transition-colors flex items-center justify-center"
+                          title="Download"
+                        >
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                          </svg>
+                        </a>
+                        <button
+                          onClick={() => handleDeleteRecord(record._id)}
+                          className="bg-red-50 text-red-600 px-3 py-2.5 rounded-lg hover:bg-red-100 transition-colors flex items-center justify-center"
+                          title="Delete"
+                        >
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                           </svg>
                         </button>
                       </div>
-                    </div>
 
-                    {/* Document Info */}
-                    <div className="mb-4">
-                      <h3 className="font-semibold text-gray-900 text-lg mb-1 line-clamp-2">
-                        {record.documentName}
-                      </h3>
-                      <p className="text-sm text-gray-500 mb-2">
-                        {formatDate(record.recordDate)} • {formatFileSize(record.fileSize)} • {record.fileType.toUpperCase()}
-                      </p>
-                      {record.uploadedBy === 'ADMIN' && (
-                        <span className="inline-block bg-blue-100 text-blue-800 px-2 py-1 rounded-full text-xs font-medium">
-                          Admin Upload
-                        </span>
+                      {/* Additional Info */}
+                      {(record.notes || record.doctorName) && (
+                        <div className="mt-4 pt-4 border-t border-gray-100">
+                          {record.doctorName && (
+                            <p className="text-xs text-gray-600 mb-1 flex items-center gap-1">
+                              <svg className="w-3 h-3 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                              </svg>
+                              Dr. {record.doctorName}
+                            </p>
+                          )}
+                          {record.notes && (
+                            <p className="text-xs text-gray-500 line-clamp-2 mt-1">
+                              {record.notes}
+                            </p>
+                          )}
+                        </div>
                       )}
                     </div>
-
-                    {/* Action Buttons */}
-                    <div className="flex gap-2">
-                      <button
-                        onClick={() => handleViewDocument(record)}
-                        className="flex-1 bg-gray-100 text-gray-700 px-4 py-2 rounded-lg text-sm font-medium hover:bg-gray-200 transition-colors text-center"
-                      >
-                        View
-                      </button>
-                      <a
-                        href={record.fileUrl}
-                        download={record.fileName}
-                        className="bg-gray-100 text-gray-700 px-3 py-2 rounded-lg hover:bg-gray-200 transition-colors"
-                        title="Download"
-                      >
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                        </svg>
-                      </a>
-                    </div>
-
-                    {/* Additional Info */}
-                    {(record.notes || record.doctorName) && (
-                      <div className="mt-4 pt-4 border-t border-gray-100">
-                        {record.doctorName && (
-                          <p className="text-sm text-gray-600 mb-1">
-                            <span className="font-medium">Doctor:</span> {record.doctorName}
-                          </p>
-                        )}
-                        {record.notes && (
-                          <p className="text-sm text-gray-600 line-clamp-2">
-                            {record.notes}
-                          </p>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </div>
