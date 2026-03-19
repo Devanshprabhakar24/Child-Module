@@ -112,8 +112,25 @@ export default function LoginForm() {
       const token = data.token ?? data.access_token;
       if (typeof window !== 'undefined') {
         if (token) localStorage.setItem("wt18_token", token);
-        if (data.user) localStorage.setItem("wt18_user", JSON.stringify(data.user));
-        window.location.href = "/dashboard";
+        if (data.user) {
+          localStorage.setItem("wt18_user", JSON.stringify(data.user));
+          
+          // Get registration ID from user data or login form
+          let regId = data.user.registrationId || data.user.registrationIds?.[0];
+          if (loginMethod === "regId" && registrationId.trim()) {
+            regId = registrationId.trim();
+          }
+          
+          // Store in localStorage for easy access
+          if (regId) {
+            localStorage.setItem("currentRegistrationId", regId);
+            window.location.href = `/dashboard?id=${regId}`;
+          } else {
+            window.location.href = "/dashboard";
+          }
+        } else {
+          window.location.href = "/dashboard";
+        }
       }
     } catch (err: any) {
       setError(err.message || "Login failed. Please try again.");

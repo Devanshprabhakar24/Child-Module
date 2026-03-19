@@ -11,7 +11,6 @@ import {
   Logger,
 } from '@nestjs/common';
 import { GoGreenService } from './go-green.service';
-import { AwardCreditDto, BulkAwardCreditDto, RedeemTreeDto } from './dto/credit.dto';
 
 @Controller('go-green')
 export class GoGreenController {
@@ -19,207 +18,101 @@ export class GoGreenController {
 
   constructor(private readonly goGreenService: GoGreenService) {}
 
-  // ==================== CREDIT MANAGEMENT ====================
+  // ==================== TREE MANAGEMENT ====================
 
   /**
-   * GET /go-green/credits/:registrationId
-   * Get credit balance, level, and transaction history
+   * GET /go-green/tree/:registrationId
+   * Get tree information for a child
    */
-  @Get('credits/:registrationId')
-  async getCredits(@Param('registrationId') registrationId: string) {
+  @Get('tree/:registrationId')
+  async getTree(@Param('registrationId') registrationId: string) {
     try {
-      const credits = await this.goGreenService.getCredits(registrationId);
-      const history = await this.goGreenService.getCreditHistory(registrationId, 20, 0);
-      const tier = await this.goGreenService.getTierForCredits(credits.current);
-      const nextTier = await this.goGreenService.getTierForCredits(credits.current + 1);
+      const tree = await this.goGreenService.getTreeByRegistrationId(registrationId);
       
-      // Calculate progress to next tier
-      const progressPercentage = Math.round(
-        ((credits.current - tier.minCredits) / (tier.maxCredits - tier.minCredits)) * 100
-      );
+      if (!tree) {
+        return {
+          success: false,
+          message: 'No tree found for this registration',
+        };
+      }
 
       return {
         success: true,
-        data: {
-          registrationId,
-          credits: {
-            total: credits.total,
-            current: credits.current,
-            level: credits.level,
-            nextTreeAt: credits.nextTreeAt,
-            treesPlanted: credits.treesPlanted,
-            co2Offset: credits.co2Offset,
-            lastCreditDate: credits.lastCreditDate,
-          },
-          tier: {
-            current: tier.level,
-            next: nextTier.level !== tier.level ? nextTier.level : null,
-            progress: progressPercentage,
-            creditsForNextTier: tier.maxCredits - credits.current,
-          },
-          transactions: history.transactions,
-        },
+        data: tree,
       };
     } catch (error) {
-      this.logger.error('Error getting credits:', error);
-      throw new BadRequestException('Failed to get credits');
+      this.logger.error('Error getting tree:', error);
+      throw new BadRequestException('Failed to get tree information');
     }
   }
 
   /**
-   * GET /go-green/credits/:registrationId/history
-   * Get detailed credit transaction history with pagination
+   * GET /go-green/stats
+   * Get Go Green statistics
    */
-  @Get('credits/:registrationId/history')
-  async getCreditHistory(
-    @Param('registrationId') registrationId: string,
+  @Get('stats')
+  async getStats() {
+    try {
+      const stats = await this.goGreenService.getGoGreenStats();
+
+      return {
+        success: true,
+        data: stats,
+      };
+    } catch (error) {
+      this.logger.error('Error getting Go Green stats:', error);
+      throw new BadRequestException('Failed to get statistics');
+    }
+  }
+
+  /**
+   * GET /go-green/trees
+   * Get all trees (admin)
+   */
+  @Get('trees')
+  async getAllTrees(
+    @Query('page') page: string = '1',
     @Query('limit') limit: string = '50',
-    @Query('offset') offset: string = '0',
-    @Query('type') type?: string,
   ) {
     try {
-      const history = await this.goGreenService.getCreditHistory(
-        registrationId,
-        parseInt(limit),
-        parseInt(offset),
+      const result = await this.goGreenService.getAllTrees(
+        parseInt(page),
+        parseInt(limit)
       );
 
       return {
         success: true,
-        data: history,
-      };
-    } catch (error) {
-      this.logger.error('Error getting credit history:', error);
-      throw new BadRequestException('Failed to get credit history');
-    }
-  }
-
-  /**
-   * POST /go-green/credits/award
-   * Award credits (admin/system triggered)
-   */
-  @Post('credits/award')
-  async awardCredits(@Body() dto: AwardCreditDto) {
-    try {
-      const result = await this.goGreenService.awardCredits(dto);
-
-      return {
-        success: true,
         data: result,
       };
     } catch (error) {
-      this.logger.error('Error awarding credits:', error);
+      this.logger.error('Error getting all trees:', error);
+      throw new BadRequestException('Failed to get trees');
+    }
+  }
+
+  /**
+   * GET /go-green/search
+   * Search trees by child name or registration ID
+   */
+  @Get('search')
+  async searchTrees(@Query('q') query: string) {
+    try {
+      if (!query || query.trim().length < 2) {
+        throw new BadRequestException('Search query must be at least 2 characters');
+      }
+
+      const trees = await this.goGreenService.searchTrees(query.trim());
+
+      return {
+        success: true,
+        data: trees,
+      };
+    } catch (error) {
+      this.logger.error('Error searching trees:', error);
       if (error instanceof BadRequestException) {
         throw error;
       }
-      throw new BadRequestException('Failed to award credits');
-    }
-  }
-
-  /**
-   * POST /go-green/credits/bulk-award
-   * Award credits for multiple past vaccinations (migration tool)
-   */
-  @Post('credits/bulk-award')
-  async bulkAwardCredits(@Body() dto: BulkAwardCreditDto) {
-    try {
-      const results = [];
-      
-      for (const vaccine of dto.vaccines) {
-        // Determine sequence number from vaccine name or order
-        const sequenceNumber = this.getVaccineSequence(vaccine.vaccineName);
-        const credits = this.goGreenService.calculateVaccineCredits(sequenceNumber);
-
-        const result = await this.goGreenService.awardCredits({
-          registrationId: dto.registrationId,
-          amount: credits,
-          type: 'VACCINATION' as any,
-          description: `${vaccine.vaccineName} Vaccine Completed`,
-          metadata: {
-            vaccineId: vaccine.vaccineId,
-            vaccineName: vaccine.vaccineName,
-            sequenceNumber,
-          },
-        });
-
-        results.push(result);
-      }
-
-      return {
-        success: true,
-        data: {
-          totalTransactions: results.length,
-          totalCreditsAwarded: results.reduce((sum, r) => sum + r.creditsAwarded, 0),
-          transactions: results,
-        },
-      };
-    } catch (error) {
-      this.logger.error('Error bulk awarding credits:', error);
-      throw new BadRequestException('Failed to award credits');
-    }
-  }
-
-  // ==================== TREE REDEMPTION ====================
-
-  /**
-   * GET /go-green/tree/options
-   * Get available tree options for redemption
-   */
-  @Get('tree/options')
-  async getTreeOptions(@Query('registrationId') registrationId: string) {
-    try {
-      const options = await this.goGreenService.getTreeOptions(registrationId);
-
-      return {
-        success: true,
-        data: options,
-      };
-    } catch (error) {
-      this.logger.error('Error getting tree options:', error);
-      throw new BadRequestException('Failed to get tree options');
-    }
-  }
-
-  /**
-   * POST /go-green/tree/redeem
-   * Exchange credits for tree planting
-   */
-  @Post('tree/redeem')
-  async redeemTree(@Body() dto: RedeemTreeDto) {
-    try {
-      const result = await this.goGreenService.redeemTree(dto);
-
-      return {
-        success: true,
-        data: result,
-      };
-    } catch (error) {
-      this.logger.error('Error redeeming tree:', error);
-      if (error instanceof BadRequestException) {
-        throw error;
-      }
-      throw new BadRequestException('Failed to redeem tree');
-    }
-  }
-
-  // ==================== TIER INFORMATION ====================
-
-  /**
-   * GET /go-green/levels
-   * Get all tier information
-   */
-  @Get('levels')
-  async getAllTiers() {
-    try {
-      const tiers = await this.goGreenService.getAllTiers();
-
-      return {
-        success: true,
-        data: tiers,
-      };
-    } catch (error) {
-      this.logger.error('Error getting tiers:', error);
-      throw new BadRequestException('Failed to get tiers');
+      throw new BadRequestException('Failed to search trees');
     }
   }
 
@@ -230,7 +123,27 @@ export class GoGreenController {
   @Get('config')
   async getCreditConfig() {
     try {
-      const config = this.goGreenService.getCreditConfig();
+      const config = {
+        vaccination: {
+          1: { credits: 50, name: 'Birth Dose' },
+          2: { credits: 100, name: '6 Weeks' },
+          3: { credits: 100, name: '10 Weeks' },
+          4: { credits: 100, name: '14 Weeks' },
+          5: { credits: 150, name: '9 Months' },
+          6: { credits: 350, name: '12-18 Months (includes 200 bonus)' },
+        },
+        healthRecords: {
+          upload: 10,
+          growthCheck: 25,
+          annualCheckup: 50,
+        },
+        engagement: {
+          share: 5,
+          profileComplete: 50,
+          referral: 100,
+          loginStreak: 25,
+        },
+      };
 
       return {
         success: true,
@@ -240,62 +153,5 @@ export class GoGreenController {
       this.logger.error('Error getting credit config:', error);
       throw new BadRequestException('Failed to get credit config');
     }
-  }
-
-  // ==================== LEADERBOARD (OPTIONAL) ====================
-
-  /**
-   * GET /go-green/leaderboard
-   * Top children by credits
-   */
-  @Get('leaderboard')
-  async getLeaderboard(
-    @Query('limit') limit: string = '10',
-    @Query('timeframe') timeframe: string = 'all-time',
-    @Query('region') region?: string,
-  ) {
-    try {
-      // This would require aggregation from registration service
-      // Placeholder implementation
-      return {
-        success: true,
-        data: {
-          leaderboard: [],
-          message: 'Leaderboard coming soon',
-        },
-      };
-    } catch (error) {
-      this.logger.error('Error getting leaderboard:', error);
-      throw new BadRequestException('Failed to get leaderboard');
-    }
-  }
-
-  // ==================== HELPER METHODS ====================
-
-  private getVaccineSequence(vaccineName: string): number {
-    const vaccineMap: Record<string, number> = {
-      'BCG': 1,
-      'OPV-0': 1,
-      'HepB': 1,
-      'OPV-1': 2,
-      'Pentavalent-1': 2,
-      'OPV-2': 3,
-      'Pentavalent-2': 3,
-      'OPV-3': 4,
-      'Pentavalent-3': 4,
-      'Measles-1': 5,
-      'MMR': 6,
-      'Measles-2': 6,
-    };
-
-    // Find matching vaccine
-    for (const [key, sequence] of Object.entries(vaccineMap)) {
-      if (vaccineName.toUpperCase().includes(key)) {
-        return sequence;
-      }
-    }
-
-    // Default based on order in array
-    return 1;
   }
 }

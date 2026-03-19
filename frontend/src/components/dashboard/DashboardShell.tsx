@@ -1,8 +1,17 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense } from "react";
 import Sidebar from "./Sidebar";
 import DashboardHeader from "./DashboardHeader";
+
+// Wrapper component for Sidebar with Suspense boundary
+function SidebarWithSuspense(props: any) {
+  return (
+    <Suspense fallback={<div className="fixed left-0 top-0 bottom-0 w-72 bg-white border-r border-primary/10" />}>
+      <Sidebar {...props} />
+    </Suspense>
+  );
+}
 
 export default function DashboardShell({ children }: { children: React.ReactNode }) {
   const [isDesktopCollapsed, setIsDesktopCollapsed] = useState(false);
@@ -64,11 +73,11 @@ export default function DashboardShell({ children }: { children: React.ReactNode
         />
       )}
 
-      <Sidebar 
+      <SidebarWithSuspense 
         isDesktopCollapsed={isDesktopCollapsed} 
         isMobileOpen={isMobileOpen}
         closeMobile={() => setIsMobileOpen(false)}
-        toggleDesktop={() => setIsDesktopCollapsed(!isDesktopCollapsed)} // Moved here!
+        toggleDesktop={() => setIsDesktopCollapsed(!isDesktopCollapsed)}
       />
       
       {/* Content wrapper adjusts left margin on desktop, stays 0 on mobile */}

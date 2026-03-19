@@ -3,271 +3,190 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>WombTo18 Go Green Participation Certificate</title>
+  <title>WombTo18 Certificate</title>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700&display=swap" rel="stylesheet">
   <style>
-    @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700&family=Inter:wght@300;400;500;600&display=swap');
-    
-    * {
-      margin: 0;
-      padding: 0;
-      box-sizing: border-box;
-    }
-    
     body {
-      font-family: 'Inter', sans-serif;
-      background: linear-gradient(135deg, #e8f5e9 0%, #c8e6c9 100%);
-      color: #2e7d32;
-      padding: 20px;
-      min-height: 100vh;
+      margin: 0;
+      background: #0b3d2e;
       display: flex;
-      align-items: center;
       justify-content: center;
+      align-items: center;
+      height: 100vh;
+      font-family: 'Poppins', sans-serif;
     }
-    
+
+    /* MAIN */
     .certificate {
-      background: #ffffff;
+      width: 900px;
+      height: 650px;
+      background: #f8f5ec;
       border-radius: 20px;
-      box-shadow: 0 20px 40px rgba(46, 125, 50, 0.15);
-      max-width: 800px;
-      width: 100%;
-      padding: 60px 50px;
-      text-align: center;
-      border: 6px solid #4caf50;
       position: relative;
       overflow: hidden;
     }
-    
-    .certificate::before {
-      content: '';
+
+    /* TOP GREEN */
+    .top {
+      height: 120px;
+      background: #1b5e20;
+      border-bottom-left-radius: 80% 100%;
+      border-bottom-right-radius: 80% 100%;
+    }
+
+    /* BOTTOM GREEN */
+    .bottom {
       position: absolute;
-      top: -50%;
-      left: -50%;
-      width: 200%;
-      height: 200%;
-      background: radial-gradient(circle, rgba(76, 175, 80, 0.05) 0%, transparent 70%);
-      z-index: 0;
+      bottom: 0;
+      width: 100%;
+      height: 120px;
+      background: #1b5e20;
+      border-top-left-radius: 80% 100%;
+      border-top-right-radius: 80% 100%;
     }
-    
-    .certificate-content {
-      position: relative;
-      z-index: 1;
+
+    /* GOLD BAND */
+    .gold-band {
+      position: absolute;
+      top: 80px;
+      width: 100%;
+      height: 60px;
+      background: linear-gradient(90deg, #caa64b, #f5e6a3, #caa64b);
+      border-radius: 50px;
     }
-    
-    .header {
-      margin-bottom: 40px;
+
+    /* LOGO */
+    .logo {
+      position: absolute;
+      top: 40px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: white;
+      width: 110px;
+      height: 110px;
+      border-radius: 50%;
+      border: 5px solid #caa64b;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      font-size: 40px;
     }
-    
-    .platform-name {
-      font-family: 'Playfair Display', serif;
-      font-size: 2.8em;
+
+    /* CONTENT */
+    .content {
+      text-align: center;
+      padding: 140px 60px 0;
+    }
+
+    .small {
+      letter-spacing: 3px;
+      font-size: 14px;
+      color: #1b5e20;
+    }
+
+    .title {
+      font-size: 32px;
       font-weight: 700;
-      color: #2e7d32;
-      margin-bottom: 8px;
-      letter-spacing: -1px;
+      color: #1b5e20;
+      margin: 10px 0;
     }
-    
-    .platform-tagline {
-      font-size: 1.1em;
-      color: #66bb6a;
-      font-weight: 400;
-      margin-bottom: 30px;
-    }
-    
-    .certificate-title {
-      background: linear-gradient(135deg, #4caf50, #66bb6a);
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
-      background-clip: text;
-      font-family: 'Playfair Display', serif;
-      font-size: 2.2em;
-      font-weight: 700;
-      margin-bottom: 40px;
-      text-transform: uppercase;
+
+    .subtitle {
+      font-size: 20px;
       letter-spacing: 2px;
+      margin-bottom: 20px;
     }
-    
-    .certification-text {
-      font-size: 1.3em;
-      color: #424242;
-      margin-bottom: 30px;
+
+    .name {
+      font-size: 30px;
+      font-weight: bold;
+      margin: 15px 0;
+    }
+
+    .line {
+      width: 60%;
+      height: 2px;
+      background: #1b5e20;
+      margin: 15px auto;
+    }
+
+    .desc {
+      width: 75%;
+      margin: auto;
+      font-size: 15px;
       line-height: 1.6;
     }
-    
-    .child-name {
-      font-family: 'Playfair Display', serif;
-      font-size: 3em;
-      font-weight: 700;
-      color: #2e7d32;
-      margin: 30px 0;
-      text-shadow: 0 2px 4px rgba(46, 125, 50, 0.1);
-    }
-    
-    .child-details {
-      background: rgba(76, 175, 80, 0.08);
-      border-radius: 15px;
-      padding: 25px;
-      margin: 30px 0;
-      border-left: 5px solid #4caf50;
-    }
-    
-    .detail-row {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin: 12px 0;
-      font-size: 1.1em;
-    }
-    
-    .detail-label {
-      font-weight: 600;
-      color: #2e7d32;
-      flex: 1;
-      text-align: left;
-    }
-    
-    .detail-value {
-      font-weight: 500;
-      color: #424242;
-      flex: 2;
-      text-align: right;
-    }
-    
-    .environmental-message {
-      background: linear-gradient(135deg, #e8f5e9, #f1f8e9);
-      border-radius: 15px;
-      padding: 25px;
-      margin: 30px 0;
-      border: 2px solid #c8e6c9;
-    }
-    
-    .environmental-message p {
-      font-size: 1.2em;
-      color: #2e7d32;
-      line-height: 1.7;
-      margin-bottom: 15px;
-    }
-    
-    .tree-icon {
-      font-size: 3em;
-      color: #4caf50;
-      margin: 20px 0;
-    }
-    
+
+    /* FOOTER */
     .footer {
-      margin-top: 40px;
-      padding-top: 30px;
-      border-top: 2px solid #e8f5e9;
-    }
-    
-    .footer-row {
+      position: absolute;
+      bottom: 40px;
+      width: 100%;
       display: flex;
-      justify-content: space-between;
+      justify-content: space-around;
+      text-align: center;
+    }
+
+    .footer div {
+      font-size: 14px;
+    }
+
+    .badge {
+      position: absolute;
+      bottom: 90px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 90px;
+      height: 90px;
+      border-radius: 50%;
+      background: #1b5e20;
+      color: white;
+      display: flex;
+      justify-content: center;
       align-items: center;
-      margin-top: 20px;
-    }
-    
-    .issue-date {
-      color: #757575;
-      font-size: 1em;
-      font-weight: 500;
-    }
-    
-    .platform-commitment {
-      color: #4caf50;
-      font-size: 1em;
-      font-weight: 600;
-    }
-    
-    .support-contact {
-      color: #757575;
-      font-size: 0.9em;
-      margin-top: 10px;
-    }
-    
-    @media (max-width: 768px) {
-      .certificate {
-        padding: 40px 30px;
-        margin: 10px;
-      }
-      
-      .platform-name {
-        font-size: 2.2em;
-      }
-      
-      .certificate-title {
-        font-size: 1.8em;
-      }
-      
-      .child-name {
-        font-size: 2.2em;
-      }
-      
-      .detail-row {
-        flex-direction: column;
-        align-items: flex-start;
-        gap: 5px;
-      }
-      
-      .detail-value {
-        text-align: left;
-      }
-      
-      .footer-row {
-        flex-direction: column;
-        gap: 15px;
-        text-align: center;
-      }
+      border: 5px solid #caa64b;
     }
   </style>
 </head>
 <body>
   <div class="certificate">
-    <div class="certificate-content">
-      <div class="header">
-        <div class="platform-name">WombTo18</div>
-        <div class="platform-tagline">Maternal-to-Child Health Platform</div>
-      </div>
+    <div class="top"></div>
+    <div class="gold-band"></div>
+    <div class="logo">🌱</div>
+    
+    <div class="content">
+      <div class="small">GO GREEN INITIATIVE</div>
+      <div class="title">CERTIFICATE</div>
+      <div class="subtitle">OF COMMITMENT</div>
       
-      <div class="certificate-title">
-        GO GREEN PARTICIPATION<br>CERTIFICATE
-      </div>
+      <p>This certificate is proudly presented to</p>
       
-      <div class="tree-icon">🌱</div>
+      <div class="name">{{childName}}</div>
       
-      <p class="certification-text">
-        This is to certify that
-      </p>
+      <div class="line"></div>
       
-      <div class="child-name">{{childName}}</div>
-      
-      <div class="child-details">
-        <div class="detail-row">
-          <span class="detail-label">Child of:</span>
-          <span class="detail-value">{{motherName}}</span>
-        </div>
-        <div class="detail-row">
-          <span class="detail-label">Registration ID:</span>
-          <span class="detail-value">{{registrationId}}</span>
-        </div>
-        <div class="detail-row">
-          <span class="detail-label">State:</span>
-          <span class="detail-value">{{state}}</span>
-        </div>
-      </div>
-      
-      <div class="environmental-message">
-        <p>has been enrolled in the <strong>WombTo18 Green Cohort</strong> and a tree has been planted in their name as part of our environmental initiative.</p>
-        <p>Together, we are committed to creating a greener, healthier future for our children and the planet they will inherit.</p>
-      </div>
-      
-      <div class="footer">
-        <div class="footer-row">
-          <div class="issue-date">Issued on: {{issueDate}}</div>
-          <div class="platform-commitment">WombTo18 — Committed to a Greener Future</div>
-        </div>
-        <div class="support-contact">{{supportEmail}}</div>
+      <div class="desc">
+        In recognition of the <b>valuable contribution</b> towards nurturing a healthier and more
+        sustainable planet through the <b>WombTo18 Go Green Initiative</b> — where every registration
+        supports the planting of a <b>sapling</b> for a greener tomorrow.<br><br>
+        Thank you for being an integral part of this collective commitment.
       </div>
     </div>
+    
+    <div class="badge">ECO</div>
+    
+    <div class="footer">
+      <div>
+        <b>Sowjanya Reddy</b><br>
+        FOUNDER
+      </div>
+      <div>
+        {{issueDate}}<br>
+        DATE
+      </div>
+    </div>
+    
+    <div class="bottom"></div>
   </div>
 </body>
 </html>

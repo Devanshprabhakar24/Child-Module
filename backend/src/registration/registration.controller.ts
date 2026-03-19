@@ -96,6 +96,28 @@ export class RegistrationController {
     };
   }
 
+  @Post('trigger-post-payment')
+  @HttpCode(HttpStatus.OK)
+  async triggerPostPaymentNotifications(@Body() body: { registrationId: string }) {
+    const registration = await this.registrationService.findByRegistrationId(body.registrationId);
+    if (!registration) {
+      throw new NotFoundException('Registration not found');
+    }
+
+    // Call the public method to trigger post-payment notifications
+    await this.registrationService.triggerPostPaymentNotifications(registration);
+    
+    return {
+      success: true,
+      message: 'Post-payment notifications triggered successfully',
+      data: {
+        registrationId: registration.registrationId,
+        childName: registration.childName,
+        email: registration.email,
+      },
+    };
+  }
+
   // ─── Go Green Certificate Download ──────────────────────────────────
 
   @Get(':registrationId/certificate')

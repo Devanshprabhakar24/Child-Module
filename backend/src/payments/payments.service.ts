@@ -200,8 +200,8 @@ export class PaymentsService {
       this.invoiceCache.set(payment.registrationId, pdfBuffer);
       this.logger.log(`Invoice generated for ${payment.registrationId} (${pdfBuffer.length} bytes)`);
 
-      // Send payment confirmation with invoice attachment
-      await this.notificationsService.sendPaymentConfirmation({
+      // Send welcome email with payment invoice attachment (Email 1)
+      await this.notificationsService.sendWelcomeWithInvoice({
         phone,
         email,
         parentName,
@@ -210,6 +210,8 @@ export class PaymentsService {
         amount: payment.amount,
         invoiceBuffer: pdfBuffer,
       });
+      
+      this.logger.log(`✅ Welcome email with invoice sent for ${payment.registrationId}`);
     } catch (err) {
       this.logger.error(
         `Failed to generate/send invoice for ${payment.registrationId}: ${

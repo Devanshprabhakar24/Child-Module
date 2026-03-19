@@ -120,12 +120,20 @@ export default function UploadRecordModal({ isOpen, onClose, onUploadSuccess }: 
     setUploadLoading(true);
 
     try {
-      let registrationId = localStorage.getItem('currentRegistrationId');
+      // Get registration ID from URL params first, then localStorage, then user data
+      const params = new URLSearchParams(window.location.search);
+      let registrationId = params.get('id') || localStorage.getItem('currentRegistrationId');
       
-      // Fallback: use test registration ID
       if (!registrationId) {
-        registrationId = 'CHD-KL-20260306-000001';
-        localStorage.setItem('currentRegistrationId', registrationId);
+        // Try to get from user data
+        const user = JSON.parse(localStorage.getItem('wt18_user') || '{}');
+        registrationId = user.registrationId || user.registrationIds?.[0];
+      }
+
+      if (!registrationId) {
+        alert('Child registration ID not found. Please register a child first or access from dashboard.');
+        setUploadLoading(false);
+        return;
       }
 
       console.log('Uploading file:', {
