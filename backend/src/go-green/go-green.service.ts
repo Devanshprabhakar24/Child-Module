@@ -219,6 +219,38 @@ export class GoGreenService {
   }
 
   /**
+   * Upload tree image (admin)
+   */
+  async uploadTreeImage(
+    treeId: string,
+    imageUrl: string,
+    updatedBy?: string
+  ): Promise<GoGreenTreeDocument> {
+    const tree = await this.treeModel.findOne({ treeId }).exec();
+    if (!tree) {
+      throw new NotFoundException('Tree not found');
+    }
+
+    // Update current image
+    tree.currentImageUrl = imageUrl;
+    tree.lastUpdatedDate = new Date();
+    tree.lastUpdatedBy = updatedBy || 'Admin';
+
+    // Add to growth timeline
+    tree.growthTimeline.push({
+      status: tree.currentStatus,
+      date: new Date(),
+      imageUrl,
+      notes: 'Tree photo uploaded',
+      updatedBy: updatedBy || 'Admin',
+    });
+
+    await tree.save();
+    this.logger.log(`Tree image uploaded for: ${treeId} by ${updatedBy || 'Admin'}`);
+    return tree;
+  }
+
+  /**
    * Get tree with full growth timeline (admin)
    */
   async getTreeWithTimeline(treeId: string): Promise<GoGreenTreeDocument | null> {

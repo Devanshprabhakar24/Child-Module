@@ -154,4 +154,38 @@ export class GoGreenController {
       throw new BadRequestException('Failed to get credit config');
     }
   }
+
+  /**
+   * POST /go-green/admin/tree/:treeId/upload-image
+   * Upload tree image (admin)
+   */
+  @Post('admin/tree/:treeId/upload-image')
+  async uploadTreeImage(
+    @Param('treeId') treeId: string,
+    @Body() body: { imageUrl: string; updatedBy?: string }
+  ) {
+    try {
+      if (!body.imageUrl) {
+        throw new BadRequestException('Image URL is required');
+      }
+
+      const tree = await this.goGreenService.uploadTreeImage(
+        treeId,
+        body.imageUrl,
+        body.updatedBy
+      );
+
+      return {
+        success: true,
+        message: 'Tree image uploaded successfully',
+        data: tree,
+      };
+    } catch (error) {
+      this.logger.error('Error uploading tree image:', error);
+      if (error instanceof BadRequestException) {
+        throw error;
+      }
+      throw new BadRequestException('Failed to upload tree image');
+    }
+  }
 }
