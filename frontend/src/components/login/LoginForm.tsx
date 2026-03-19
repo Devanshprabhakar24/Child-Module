@@ -240,7 +240,7 @@ export default function LoginForm() {
               <label className="mb-3 block text-center text-sm font-medium text-slate-700">
                 Enter 6-digit OTP
                 {process.env.NODE_ENV !== "production" && (
-                  <span className="ml-2 text-xs text-amber-500">(test mode: 123456)</span>
+                  <span className="ml-2 text-xs text-amber-500"></span>
                 )}
               </label>
               <div className="flex justify-between gap-2 px-2">
