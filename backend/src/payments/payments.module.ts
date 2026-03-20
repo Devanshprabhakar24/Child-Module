@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { Module, forwardRef } from '@nestjs/common';
 import { MongooseModule } from '@nestjs/mongoose';
 import { ConfigModule } from '@nestjs/config';
 import { PaymentsService } from './payments.service';
@@ -10,6 +10,7 @@ import {
   ChildRegistrationSchema,
 } from '../registration/schemas/child-registration.schema';
 import { AuthModule } from '../auth/auth.module';
+import { RegistrationModule } from '../registration/registration.module';
 
 @Module({
   imports: [
@@ -19,6 +20,7 @@ import { AuthModule } from '../auth/auth.module';
       { name: ChildRegistration.name, schema: ChildRegistrationSchema },
     ]),
     AuthModule,
+    forwardRef(() => RegistrationModule),
   ],
   controllers: [PaymentsController],
   providers: [PaymentsService, InvoiceService],

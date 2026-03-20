@@ -7,11 +7,13 @@ import {
   Body,
   Param,
   Query,
+  Res,
   BadRequestException,
   Logger,
 } from '@nestjs/common';
+import { Response } from 'express';
 import { GoGreenService } from './go-green.service';
-import { AwardCreditDto, BulkAwardCreditDto, RedeemTreeDto } from './dto/credit.dto';
+import { AwardCreditDto, BulkAwardCreditsDto, RedeemTreeDto } from './dto/credit.dto';
 
 @Controller('go-green')
 export class GoGreenController {
@@ -121,14 +123,16 @@ export class GoGreenController {
    * Award credits for multiple past vaccinations (migration tool)
    */
   @Post('credits/bulk-award')
-  async bulkAwardCredits(@Body() dto: BulkAwardCreditDto) {
+  async bulkAwardCredits(@Body() dto: BulkAwardCreditsDto) {
     try {
       const results = [];
+      let totalCredits = 0;
       
       for (const vaccine of dto.vaccines) {
         // Determine sequence number from vaccine name or order
         const sequenceNumber = this.getVaccineSequence(vaccine.vaccineName);
         const credits = this.goGreenService.calculateVaccineCredits(sequenceNumber);
+        totalCredits += credits;
 
         const result = await this.goGreenService.awardCredits({
           registrationId: dto.registrationId,
@@ -149,7 +153,7 @@ export class GoGreenController {
         success: true,
         data: {
           totalTransactions: results.length,
-          totalCreditsAwarded: results.reduce((sum, r) => sum + r.creditsAwarded, 0),
+          totalCreditsAwarded: totalCredits,
           transactions: results,
         },
       };
@@ -298,4 +302,58 @@ export class GoGreenController {
     // Default based on order in array
     return 1;
   }
+
+  // ==================== ADMIN TREE MANAGEMENT ====================
+
+  /**
+   * GET /go-green/tree/:treeId/certificate
+   * Download tree planting certificate PDF
+   */
+  @Get('tree/:treeId/certificate')
+  async downloadTreeCertificate(
+    @Param('treeId') treeId: string,
+    @Res() res: Response,
+  ) {
+    try {
+      const certificate = await this.goGreenService.generateTreeCertificatePDF(treeId);
+      
+      res.set({
+        'Content-Type': 'application/pdf',
+        'Content-Disposition': `attachment; filename="${treeId}_Certificate.pdf"`,
+        'Content-Length': certificate.length,
+      });
+      
+      res.send(certificate);
+    } catch (error) {
+      this.logger.error('Error generating certificate:', error);
+      throw new BadRequestException('Failed to generate certificate');
+    }
+  }
+
+  /**
+   * POST /go-green/admin/tree/:treeId/upload-image
+   * Upload tree image (admin)
+   */
+  @Post('admin/tree/:treeId/upload-image')
+  async uploadTreeImage(
+    @Param('treeId') treeId: string,
+    @Body() body: { imageUrl: string; updatedBy: string },
+  ) {
+    try {
+      const tree = await this.goGreenService.uploadTreeImage(
+        treeId,
+        body.imageUrl,
+        body.updatedBy,
+      );
+
+      return {
+        success: true,
+        data: tree,
+      };
+    } catch (error) {
+      this.logger.error('Error uploading tree image:', error);
+      throw new BadRequestException('Failed to upload tree image');
+    }
+  }
 }
+

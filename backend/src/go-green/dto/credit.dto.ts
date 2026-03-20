@@ -1,5 +1,12 @@
 import { IsString, IsNumber, IsEnum, IsOptional, IsObject, Min } from 'class-validator';
-import { CreditType } from '../schemas/credit-transaction.schema';
+
+export enum CreditType {
+  VACCINATION = 'VACCINATION',
+  HEALTH_RECORD = 'HEALTH_RECORD',
+  ENGAGEMENT = 'ENGAGEMENT',
+  BONUS = 'BONUS',
+  REDEMPTION = 'REDEMPTION',
+}
 
 export class AwardCreditDto {
   @IsString()
@@ -15,21 +22,9 @@ export class AwardCreditDto {
   @IsString()
   description!: string;
 
-  @IsObject()
   @IsOptional()
+  @IsObject()
   metadata?: Record<string, any>;
-}
-
-export class BulkAwardCreditDto {
-  @IsString()
-  registrationId!: string;
-
-  @IsString()
-  vaccines!: Array<{
-    vaccineId: string;
-    vaccineName: string;
-    completedDate: string;
-  }>;
 }
 
 export class RedeemTreeDto {
@@ -39,11 +34,27 @@ export class RedeemTreeDto {
   @IsString()
   tier!: string;
 
-  @IsString()
   @IsOptional()
+  @IsString()
   treeSpecies?: string;
 
-  @IsString()
   @IsOptional()
+  @IsString()
   dedicateTo?: string;
+
+  @IsOptional()
+  @IsString()
+  location?: string;
+}
+
+export class BulkAwardCreditsDto {
+  @IsString()
+  registrationId!: string;
+
+  vaccines!: Array<{
+    vaccineId: string;
+    vaccineName: string;
+    completedDate: string;
+    sequenceNumber: number;
+  }>;
 }

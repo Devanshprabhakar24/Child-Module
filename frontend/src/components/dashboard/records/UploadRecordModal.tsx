@@ -1,8 +1,9 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import { CloudUpload, X, FileText, Image as ImageIcon, Trash2, ChevronDown } from "lucide-react";
+import { getRegistrationId } from "@/utils/registrationId";
 
 interface UploadRecordModalProps {
   isOpen: boolean;
@@ -23,7 +24,7 @@ const CATEGORIES = [
 ];
 
 export default function UploadRecordModal({ isOpen, onClose, onUploadSuccess }: UploadRecordModalProps) {
-  const router = useRouter();
+  const searchParams = useSearchParams();
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [uploadLoading, setUploadLoading] = useState(false);
   const [dragActive, setDragActive] = useState(false);
@@ -120,12 +121,20 @@ export default function UploadRecordModal({ isOpen, onClose, onUploadSuccess }: 
     setUploadLoading(true);
 
     try {
-      let registrationId = localStorage.getItem('currentRegistrationId');
+      // Use utility function to get registration ID
+      const registrationId = getRegistrationId(searchParams);
       
-      // Fallback: use test registration ID
+      // If still no registration ID, show helpful error with instructions
       if (!registrationId) {
-        registrationId = 'CHD-KL-20260306-000001';
-        localStorage.setItem('currentRegistrationId', registrationId);
+        alert(
+          'Error: No registration ID found.\n\n' +
+          'Please navigate to the dashboard first to load your child profile:\n' +
+          '1. Go to /dashboard\n' +
+          '2. Then navigate to Health Records\n\n' +
+          'The registration ID will be automatically set from your profile.'
+        );
+        setUploadLoading(false);
+        return;
       }
 
       console.log('Uploading file:', {
@@ -161,7 +170,14 @@ export default function UploadRecordModal({ isOpen, onClose, onUploadSuccess }: 
           onUploadSuccess();
         }
       } else {
-        alert(`Failed to upload: ${responseData.message || 'Unknown error'}`);
+        alert(
+          `Failed to upload: ${responseData.message || 'Unknown error'}\n\n` +
+          `Registration ID used: ${registrationId}\n\n` +
+          'If this registration ID is incorrect:\n' +
+          '1. Go back to /dashboard\n' +
+          '2. The correct ID will be loaded from your profile\n' +
+          '3. Then try uploading again'
+        );
       }
     } catch (error) {
       console.error('Error uploading health record:', error);

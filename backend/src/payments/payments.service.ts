@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, forwardRef, Inject } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { ConfigService } from '@nestjs/config';
 import { Model } from 'mongoose';
@@ -9,6 +9,7 @@ const Razorpay = require('razorpay') as typeof import('razorpay');
 import { Payment, PaymentDocument } from './schemas/payment.schema';
 import { InvoiceService, InvoiceData } from './invoice.service';
 import { NotificationsService } from '../notifications/notifications.service';
+import { RegistrationService } from '../registration/registration.service';
 import {
   ChildRegistration,
   ChildRegistrationDocument,
@@ -37,6 +38,8 @@ export class PaymentsService {
     private readonly configService: ConfigService,
     private readonly invoiceService: InvoiceService,
     private readonly notificationsService: NotificationsService,
+    @Inject(forwardRef(() => RegistrationService))
+    private readonly registrationService: RegistrationService,
   ) {
     this.testMode = this.configService.get<string>('PAYMENT_TEST_MODE') === 'true';
     this.demoMode = this.configService.get<string>('PAYMENT_DEMO_MODE') === 'true';
@@ -164,16 +167,27 @@ export class PaymentsService {
   // ─── Invoice Generation & Delivery ────────────────────────────────────
 
   private async generateAndSendInvoice(payment: PaymentDocument): Promise<void> {
+    // Prevent duplicate invoice emails
+    if (payment.invoiceSent) {
+      this.logger.log(`📧 Invoice already sent for ${payment.registrationId}, skipping duplicate`);
+      return;
+    }
+
     try {
       // Fetch child registration for parent info
       const registration = await this.registrationModel
         .findOne({ registrationId: payment.registrationId })
         .exec();
 
-      const parentName = registration?.motherName ?? 'Parent';
-      const childName = registration?.childName ?? payment.notes?.['childName'] ?? 'Child';
-      const email = registration?.email ?? '';
-      const phone = registration?.phone ?? '';
+      if (!registration) {
+        this.logger.error(`❌ Registration not found for ${payment.registrationId}`);
+        return;
+      }
+
+      const parentName = registration.motherName ?? 'Parent';
+      const childName = registration.childName ?? payment.notes?.['childName'] ?? 'Child';
+      const email = registration.email ?? '';
+      const phone = registration.phone ?? '';
 
       const invoiceData: InvoiceData = {
         invoiceNumber: `INV-${Date.now()}`,
@@ -198,7 +212,7 @@ export class PaymentsService {
 
       // Cache the PDF for download
       this.invoiceCache.set(payment.registrationId, pdfBuffer);
-      this.logger.log(`Invoice generated for ${payment.registrationId} (${pdfBuffer.length} bytes)`);
+      this.logger.log(`📄 Invoice generated for ${payment.registrationId} (${pdfBuffer.length} bytes)`);
 
       // Send payment confirmation with invoice attachment
       await this.notificationsService.sendPaymentConfirmation({
@@ -210,9 +224,32 @@ export class PaymentsService {
         amount: payment.amount,
         invoiceBuffer: pdfBuffer,
       });
+
+      // Mark invoice as sent to prevent duplicates
+      payment.invoiceSent = true;
+      await payment.save();
+      this.logger.log(`✅ Invoice email sent for ${payment.registrationId}`);
+
+      // IMPORTANT: Trigger post-payment notifications (welcome + Go Green certificate)
+      // This is called from RegistrationService which handles all post-payment flows
+      this.logger.log(`🚀 Triggering post-payment notifications for ${payment.registrationId}...`);
+      
+      // Update registration payment status
+      registration.paymentStatus = 'COMPLETED';
+      await registration.save();
+      
+      // Call registration service to send welcome message and Go Green certificate
+      // Note: This is safe because we check invoiceSent flag to prevent duplicates
+      try {
+        await this.registrationService['sendPostPaymentNotifications'](registration);
+        this.logger.log(`✅ Post-payment notifications completed for ${payment.registrationId}`);
+      } catch (notifError) {
+        this.logger.error(`❌ Failed to send post-payment notifications for ${payment.registrationId}:`, notifError);
+      }
+
     } catch (err) {
       this.logger.error(
-        `Failed to generate/send invoice for ${payment.registrationId}: ${
+        `❌ Failed to generate/send invoice for ${payment.registrationId}: ${
           err instanceof Error ? err.message : String(err)
         }`,
       );

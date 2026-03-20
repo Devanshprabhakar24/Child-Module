@@ -31,6 +31,9 @@ export class Payment {
 
   @Prop({ type: Object, default: {} })
   notes!: Record<string, string>;
+
+  @Prop({ type: Boolean, default: false })
+  invoiceSent!: boolean;
 }
 
 export const PaymentSchema = SchemaFactory.createForClass(Payment);

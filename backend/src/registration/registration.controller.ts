@@ -216,6 +216,56 @@ export class RegistrationController {
   }
 
   /**
+   * POST /registration/test-send-certificate
+   * Test endpoint to manually send Go Green certificate email
+   * Useful for debugging email delivery issues
+   */
+  @Post('test-send-certificate')
+  @HttpCode(HttpStatus.OK)
+  async testSendCertificate(@Body() body: {
+    registrationId: string;
+    email: string;
+    phone: string;
+    parentName: string;
+    childName: string;
+    state?: string;
+    dateOfBirth?: string;
+    treeId?: string;
+  }) {
+    try {
+      const { NotificationsService } = await import('../notifications/notifications.service');
+      const notificationsService = this.registrationService['notificationsService'] as any;
+      
+      await notificationsService.sendGoGreenCertificate({
+        phone: body.phone,
+        email: body.email,
+        parentName: body.parentName,
+        childName: body.childName,
+        registrationId: body.registrationId,
+        state: body.state,
+        dateOfBirth: body.dateOfBirth,
+        treeId: body.treeId,
+      });
+
+      return {
+        success: true,
+        message: `Go Green certificate sent to ${body.email}`,
+        data: {
+          registrationId: body.registrationId,
+          email: body.email,
+          childName: body.childName,
+        },
+      };
+    } catch (error) {
+      this.logger.error(`Failed to send test certificate: ${error instanceof Error ? error.message : error}`);
+      return {
+        success: false,
+        message: `Failed to send certificate: ${error instanceof Error ? error.message : error}`,
+      };
+    }
+  }
+
+  /**
    * POST /registration/activate-all-incomplete
    * Find and activate services for all registrations that are missing services
    * Useful for bulk activation after system updates

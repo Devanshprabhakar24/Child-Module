@@ -142,12 +142,24 @@ export class EmailService {
     certificateBuffer: Buffer,
   ): Promise<void> {
     if (!this.transporter) {
-      this.logger.warn(`Cannot send Go Green certificate email to ${to}: transporter not configured`);
+      this.logger.error(`❌ Cannot send Go Green certificate email to ${to}: transporter not configured`);
       return;
     }
 
     try {
-      await this.transporter.sendMail({
+      this.logger.log(`📧 ========================================`);
+      this.logger.log(`📧 SENDING GO GREEN CERTIFICATE EMAIL`);
+      this.logger.log(`📧 ========================================`);
+      this.logger.log(`📧 To: ${to}`);
+      this.logger.log(`📧 Parent: ${parentName}`);
+      this.logger.log(`📧 Child: ${childName}`);
+      this.logger.log(`📧 Registration: ${registrationId}`);
+      this.logger.log(`📧 From: ${this.fromAddress}`);
+      this.logger.log(`📧 Subject: 🌱 ${childName}'s Go Green Participation Certificate - WombTo18`);
+      this.logger.log(`📧 Attachment size: ${certificateBuffer.length} bytes`);
+      this.logger.log(`📧 ========================================`);
+      
+      const result = await this.transporter.sendMail({
         from: this.fromAddress,
         to,
         subject: `🌱 ${childName}'s Go Green Participation Certificate - WombTo18`,
@@ -161,13 +173,25 @@ export class EmailService {
           },
         ],
       });
-      this.logger.log(`Go Green certificate email sent to ${to}`);
+      this.logger.log(`✅ ========================================`);
+      this.logger.log(`✅ GO GREEN CERTIFICATE EMAIL SENT SUCCESSFULLY`);
+      this.logger.log(`✅ To: ${to}`);
+      this.logger.log(`✅ Message ID: ${result.messageId}`);
+      this.logger.log(`✅ Response: ${result.response}`);
+      this.logger.log(`✅ ========================================`);
     } catch (error) {
+      this.logger.error(`❌ ========================================`);
+      this.logger.error(`❌ FAILED TO SEND GO GREEN CERTIFICATE EMAIL`);
+      this.logger.error(`❌ To: ${to}`);
       this.logger.error(
-        `Failed to send Go Green certificate email to ${to}: ${
+        `❌ Error: ${
           error instanceof Error ? error.message : String(error)
         }`,
       );
+      if (error instanceof Error && error.stack) {
+        this.logger.error(`❌ Stack: ${error.stack}`);
+      }
+      this.logger.error(`❌ ========================================`);
     }
   }
 
@@ -374,6 +398,8 @@ export class EmailService {
   }
 
   private getPaymentConfirmationTemplate(parentName: string, childName: string, registrationId: string, amount: number): string {
+    const dashboardLink = `${this.configService.get<string>('APP_BASE_URL') || 'https://wombto18.com'}/dashboard`;
+    
     return `
       <!DOCTYPE html>
       <html>
@@ -386,34 +412,52 @@ export class EmailService {
           .success-icon { font-size: 48px; text-align: center; margin: 20px 0; }
           .amount-box { background: white; border: 2px solid #10b981; padding: 20px; text-align: center; margin: 20px 0; border-radius: 8px; }
           .amount { font-size: 32px; font-weight: bold; color: #10b981; }
+          .button { display: inline-block; background: #10b981; color: white; padding: 12px 30px; text-decoration: none; border-radius: 6px; margin: 20px 0; }
+          .info-box { background: white; border-left: 4px solid #10b981; padding: 15px; margin: 20px 0; }
           .footer { text-align: center; margin-top: 20px; color: #6b7280; font-size: 12px; }
         </style>
       </head>
       <body>
         <div class="container">
           <div class="header">
-            <h1>Payment Confirmed ✓</h1>
+            <h1>Welcome to WombTo18! 🎉</h1>
+            <p>Payment Confirmed</p>
           </div>
           <div class="content">
             <div class="success-icon">✅</div>
             <h2>Thank you, ${parentName}!</h2>
-            <p>Your payment has been successfully received.</p>
+            <p>Your payment has been successfully received and ${childName}'s registration is now complete!</p>
             
             <div class="amount-box">
               <div class="amount">₹${amount}</div>
               <p style="margin: 5px 0 0 0; color: #6b7280;">Annual Subscription</p>
             </div>
 
-            <p><strong>Registration ID:</strong> ${registrationId}<br>
-            <strong>Child Name:</strong> ${childName}</p>
+            <div class="info-box">
+              <strong>Registration ID:</strong> ${registrationId}<br>
+              <strong>Child Name:</strong> ${childName}
+            </div>
 
-            <p>Your invoice is attached to this email. All services have been activated:</p>
+            <p><strong>Your invoice is attached to this email.</strong></p>
+
+            <p>All services have been activated:</p>
             <ul>
               <li>✓ Vaccination tracker with 27 milestones</li>
               <li>✓ Automated reminders (SMS & WhatsApp)</li>
-              <li>✓ Go Green tree planting</li>
+              <li>✓ Go Green tree planting initiative</li>
+              <li>✓ Development milestone tracking</li>
               <li>✓ Dashboard access</li>
             </ul>
+
+            <center>
+              <a href="${dashboardLink}" class="button">Access Your Dashboard</a>
+            </center>
+
+            <p style="margin-top: 20px; padding: 15px; background: #e8f5e9; border-radius: 6px;">
+              <strong>🌱 What's Next?</strong><br>
+              You'll receive your Go Green Participation Certificate in a separate email shortly. 
+              A tree has been planted in ${childName}'s name as part of our environmental initiative!
+            </p>
           </div>
           <div class="footer">
             <p>© 2026 WombTo18. All rights reserved.</p>

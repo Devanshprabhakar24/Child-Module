@@ -1,10 +1,25 @@
 import { Injectable, NotFoundException, BadRequestException, Logger } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
-import { Model } from 'mongoose';
+import { Model, Document } from 'mongoose';
 import { GoGreenTree, TreeSpecies, TreeStatus, TierLevel, CertificateType } from './schemas/go-green-tree.schema';
 import { CreditTransaction, CreditType } from './schemas/credit-transaction.schema';
 import { TierConfig } from './schemas/tier-config.schema';
+import { PlantedTree, TreeStatus as PlantedTreeStatus } from './schemas/planted-tree.schema';
+import { ChildRegistration, ChildRegistrationDocument } from '../registration/schemas/child-registration.schema';
 import { AwardCreditDto, RedeemTreeDto } from './dto/credit.dto';
+import { TreeCertificateService } from './tree-certificate.service';
+
+// Type definitions
+export type GoGreenTreeDocument = GoGreenTree & Document;
+export type PlantedTreeDocument = PlantedTree & Document;
+
+export interface CreateTreeDto {
+  registrationId: string;
+  childName: string;
+  motherName: string;
+  location: string;
+  plantingPartner?: string;
+}
 
 interface GoGreenCredits {
   total: number;
@@ -27,6 +42,11 @@ export class GoGreenService {
     private readonly creditTransactionModel: Model<CreditTransaction>,
     @InjectModel(TierConfig.name)
     private readonly tierConfigModel: Model<TierConfig>,
+    @InjectModel(PlantedTree.name)
+    private readonly plantedTreeModel: Model<PlantedTree>,
+    @InjectModel(ChildRegistration.name)
+    private readonly childModel: Model<ChildRegistrationDocument>,
+    private readonly treeCertificateService: TreeCertificateService,
   ) {}
 
   // ==================== CREDIT MANAGEMENT ====================
@@ -34,73 +54,90 @@ export class GoGreenService {
   /**
    * Award credits to a child
    */
-  async generateTreeId(): Promise<string> {
-    const year = new Date().getFullYear();
-    const prefix = `TREE-${year}-`;
-    
-    // Find the last tree ID for this year
-    const lastTree = await this.treeModel
-      .findOne({ treeId: { $regex: `^${prefix}` } })
-      .sort({ treeId: -1 })
-      .select('treeId')
-      .lean()
-      .exec();
+  async awardCredits(dto: AwardCreditDto): Promise<{
+    success: boolean;
+    newBalance: number;
+    tier: TierConfig;
+    tierChanged: boolean;
+    message: string;
+  }> {
+    const session = await this.treeModel.db.startSession();
+    session.startTransaction();
 
-    let nextSequence = 1;
-    if (lastTree) {
-      const lastSequence = parseInt(lastTree.treeId.split('-').pop() || '0', 10);
-      nextSequence = lastSequence + 1;
+    try {
+      // Get current credits
+      const credits = await this.getCredits(dto.registrationId, session);
+      const previousTier = await this.getTierForCredits(credits.current);
+
+      // Calculate new balance
+      const newBalance = credits.current + dto.amount;
+      const newTier = await this.getTierForCredits(newBalance);
+      const tierChanged = previousTier.level !== newTier.level;
+
+      // Create transaction record
+      await this.creditTransactionModel.create([{
+        registrationId: dto.registrationId,
+        amount: dto.amount,
+        type: dto.type,
+        description: dto.description,
+        balanceAfter: newBalance,
+        metadata: dto.metadata,
+      }], { session });
+
+      // Update child credits
+      await this.updateChildCredits(dto.registrationId, {
+        total: credits.total + dto.amount,
+        current: newBalance,
+        level: newTier.level,
+        nextTreeAt: this.getNextTierCredits(newTier.level),
+        treesPlanted: credits.treesPlanted,
+        co2Offset: credits.co2Offset,
+        lastCreditDate: new Date(),
+      }, session);
+
+      await session.commitTransaction();
+
+      return {
+        success: true,
+        newBalance,
+        tier: newTier,
+        tierChanged,
+        message: this.getCreditAwardMessage(dto.amount, newBalance, newTier, tierChanged),
+      };
+    } catch (error) {
+      await session.abortTransaction();
+      this.logger.error('Error awarding credits:', error);
+      throw new BadRequestException('Failed to award credits');
+    } finally {
+      await session.endSession();
     }
-
-    return `${prefix}${String(nextSequence).padStart(6, '0')}`;
   }
 
   /**
-   * Plants a tree for a child registration
+   * Get credits for a child
    */
-  async plantTree(dto: CreateTreeDto): Promise<GoGreenTreeDocument> {
-    const treeId = await this.generateTreeId();
-    
-    // Select a random tree species (can be made more sophisticated)
-    const speciesArray = Object.values(TreeSpecies);
-    const randomSpecies = speciesArray[Math.floor(Math.random() * speciesArray.length)];
-    
-    // Calculate estimated CO2 absorption based on species
-    const co2Rates: Record<string, number> = {
-      [TreeSpecies.NEEM]: 48,
-      [TreeSpecies.BANYAN]: 65,
-      [TreeSpecies.PEEPAL]: 52,
-      [TreeSpecies.MANGO]: 42,
-      [TreeSpecies.TEAK]: 38,
-      [TreeSpecies.BAMBOO]: 35,
-      [TreeSpecies.EUCALYPTUS]: 55,
-      [TreeSpecies.ASHOKA]: 40,
-      [TreeSpecies.GULMOHAR]: 45,
-      [TreeSpecies.COCONUT]: 30,
+  async getCredits(registrationId: string, session?: any): Promise<GoGreenCredits> {
+    const transactions = await this.creditTransactionModel
+      .find({ registrationId })
+      .session(session || null);
+
+    const total = transactions.reduce((sum, t) => sum + t.amount, 0);
+    const current = transactions.length > 0 
+      ? transactions[transactions.length - 1].balanceAfter 
+      : 0;
+
+    const tier = await this.getTierForCredits(current);
+    const trees = await this.treeModel.countDocuments({ registrationId });
+
+    return {
+      total,
+      current,
+      level: tier.level,
+      nextTreeAt: this.getNextTierCredits(tier.level),
+      treesPlanted: trees,
+      co2Offset: tier.co2Absorption * trees,
+      lastCreditDate: transactions.length > 0 ? transactions[transactions.length - 1].createdAt : undefined,
     };
-
-    const tree = await this.treeModel.create({
-      treeId,
-      registrationId: dto.registrationId,
-      childName: dto.childName,
-      motherName: dto.motherName,
-      species: randomSpecies,
-      currentStatus: TreeStatus.PLANTED,
-      location: dto.location,
-      plantingPartner: dto.plantingPartner || 'WombTo18 Green Initiative',
-      estimatedCO2Absorption: co2Rates[randomSpecies] || 40,
-      plantedDate: new Date(),
-    });
-
-    this.logger.log(`Tree planted: ${treeId} for child ${dto.childName} (${dto.registrationId})`);
-    return tree;
-  }
-
-  /**
-   * Get tree information by registration ID
-   */
-  async getTreeByRegistrationId(registrationId: string): Promise<GoGreenTreeDocument | null> {
-    return this.treeModel.findOne({ registrationId, isActive: true }).exec();
   }
 
   /**
@@ -136,11 +173,18 @@ export class GoGreenService {
     certificateUrl: string;
     estimatedPlantingDate: Date;
     message: string;
+    treeDetails: any;
   }> {
     const session = await this.treeModel.db.startSession();
     session.startTransaction();
 
     try {
+      // Get child registration
+      const child = await this.childModel.findOne({ registrationId: dto.registrationId }).session(session);
+      if (!child) {
+        throw new NotFoundException('Child registration not found');
+      }
+
       // Get current credits
       const credits = await this.getCredits(dto.registrationId, session);
 
@@ -167,14 +211,54 @@ export class GoGreenService {
         species = this.getDefaultSpeciesForTier(dto.tier as TierLevel);
       }
 
-      // Create tree record
-      const treeId = await this.generateTreeId();
-      const tree = await this.treeModel.create([{
+      // Generate tree ID based on registration ID
+      const treeId = await this.generateTreeId(dto.registrationId);
+      const plantedDate = new Date();
+
+      // Determine location with proper fallback
+      const treeLocation = dto.location || (child.state ? String(child.state) : null) || 'India';
+      
+      this.logger.log(`🌍 Tree location determined: ${treeLocation} (dto: ${dto.location}, state: ${child.state})`);
+      this.logger.log(`📝 Creating PlantedTree with data:`, {
         treeId,
         registrationId: dto.registrationId,
-        childName: dto.dedicateTo || 'Child',
-        motherName: 'Mother',
+        location: treeLocation,
+        species,
+      });
+
+      // Create PlantedTree record
+      const plantedTree = await this.plantedTreeModel.create([{
+        treeId,
+        registrationId: dto.registrationId,
+        childName: child.childName,
+        motherName: child.motherName,
+        species,
+        location: treeLocation,
+        plantingPartner: 'WombTo18 Green Initiative',
+        plantedDate,
+        creditsUsed: tierConfig.minCredits,
+        status: PlantedTreeStatus.PLANTED,
+        co2OffsetKg: tierConfig.co2Absorption,
+        heightCm: 0,
+        ageMonths: 0,
+        growthTimeline: [{
+          date: plantedDate,
+          heightCm: 0,
+          notes: `Tree redeemed using ${tierConfig.minCredits} credits - ${tierConfig.treeType}`,
+          updatedBy: 'SYSTEM',
+        }],
+      }], { session });
+      
+      this.logger.log(`✅ PlantedTree created successfully: ${treeId}`);
+
+      // Create GoGreenTree record (for backward compatibility)
+      await this.treeModel.create([{
+        treeId,
+        registrationId: dto.registrationId,
+        childName: child.childName,
+        motherName: child.motherName,
         species: species as TreeSpecies,
+        location: treeLocation,
         tier: dto.tier as TierLevel,
         creditsUsed: tierConfig.minCredits,
         certificateTier: tierConfig.certificateType,
@@ -182,7 +266,7 @@ export class GoGreenService {
         estimatedCO2Absorption: tierConfig.co2Absorption,
         growthTimeline: [{
           status: 'PLANTED',
-          date: new Date(),
+          date: plantedDate,
           notes: 'Tree redemption initiated',
         }],
       }], { session });
@@ -202,21 +286,44 @@ export class GoGreenService {
         },
       }], { session });
 
-      // Update child credits
+      // Update child credits and add tree to plantedTrees array
+      const newTier = await this.getTierForCredits(newBalance);
       await this.updateChildCredits(dto.registrationId, {
         total: credits.total,
         current: newBalance,
-        level: (await this.getTierForCredits(newBalance)).level,
-        nextTreeAt: this.getNextTierCredits((await this.getTierForCredits(newBalance)).level),
+        level: newTier.level,
+        nextTreeAt: this.getNextTierCredits(newTier.level),
         treesPlanted: credits.treesPlanted + 1,
         co2Offset: credits.co2Offset + tierConfig.co2Absorption,
         lastCreditDate: credits.lastCreditDate,
       }, session);
 
+      // Add tree to child's plantedTrees array
+      await this.childModel.updateOne(
+        { registrationId: dto.registrationId },
+        {
+          $push: {
+            plantedTrees: {
+              treeId,
+              species,
+              location: treeLocation,
+              plantedDate,
+              creditsUsed: tierConfig.minCredits,
+              status: 'PLANTED',
+              imageUrl: null,
+              co2Offset: tierConfig.co2Absorption,
+            },
+          },
+        },
+        { session }
+      );
+
       // Generate certificate URL (placeholder - implement actual certificate generation)
       const certificateUrl = `/certificates/${treeId}_${tierConfig.certificateType}.pdf`;
 
       await session.commitTransaction();
+
+      this.logger.log(`✅ Tree redeemed: ${treeId} for ${dto.registrationId} - ${tierConfig.minCredits} credits used, ${newBalance} remaining`);
 
       return {
         treeId,
@@ -225,7 +332,16 @@ export class GoGreenService {
         remainingCredits: newBalance,
         certificateUrl,
         estimatedPlantingDate: this.getEstimatedPlantingDate(),
-        message: `Congratulations! A ${tierConfig.treeType} will be planted in ${dto.dedicateTo || 'your child'}'s name!`,
+        message: `Congratulations! A ${tierConfig.treeType} will be planted in ${child.childName}'s name!`,
+        treeDetails: {
+          treeId,
+          species,
+          location: treeLocation,
+          plantedDate,
+          status: 'PLANTED',
+          co2OffsetKg: tierConfig.co2Absorption,
+          tier: dto.tier,
+        },
       };
     } catch (error) {
       await session.abortTransaction();
@@ -305,12 +421,24 @@ export class GoGreenService {
   // ==================== HELPER METHODS ====================
 
   private async updateChildCredits(registrationId: string, credits: GoGreenCredits, session: any) {
-    // This would update the registration/child document
-    // For now, we'll just log it
-    this.logger.log(`Updating credits for ${registrationId}:`, credits);
-    
-    // In production, inject RegistrationService and call:
-    // await this.registrationService.updateCredits(registrationId, credits, session);
+    // Update the child registration document with new credit values
+    await this.childModel.updateOne(
+      { registrationId },
+      {
+        $set: {
+          goGreenCredits: {
+            total: credits.total,
+            current: credits.current,
+            level: credits.level,
+            nextTreeAt: credits.nextTreeAt,
+            treesPlanted: credits.treesPlanted,
+            co2Offset: credits.co2Offset,
+            lastCreditDate: credits.lastCreditDate,
+          },
+        },
+      },
+      { session },
+    ).exec();
   }
 
   private getCreditAwardMessage(amount: number, balance: number, tier: TierConfig, tierChanged: boolean): string {
@@ -326,13 +454,39 @@ export class GoGreenService {
     return `${amount} credits awarded! You're ${nextTreeCredits} credits away from planting your first tree!`;
   }
 
-  private async generateTreeId(): Promise<string> {
-    const year = new Date().getFullYear();
-    const count = await this.treeModel.countDocuments({
-      treeId: { $regex: `^TREE-${year}-` },
-    });
-    const sequence = String(count + 1).padStart(6, '0');
-    return `TREE-${year}-${sequence}`;
+  private async generateTreeId(registrationId: string): Promise<string> {
+    // Extract parts from registration ID: CHD-GJ-20230120-000001
+    // Tree ID format: TREE-GJ-20230120-XXXXXX (with unique sequence)
+    const parts = registrationId.split('-');
+    
+    if (parts.length !== 4 || parts[0] !== 'CHD') {
+      throw new BadRequestException('Invalid registration ID format');
+    }
+    
+    const state = parts[1];      // GJ
+    const date = parts[2];       // 20230120
+    
+    // Find the highest tree sequence number for this state and date
+    const prefix = `TREE-${state}-${date}-`;
+    const lastTree = await this.treeModel
+      .findOne({ treeId: { $regex: `^${prefix}` } })
+      .sort({ treeId: -1 })
+      .select('treeId')
+      .lean()
+      .exec();
+    
+    let sequence = 1;
+    if (lastTree) {
+      const lastSequence = parseInt(lastTree.treeId.split('-').pop() || '0', 10);
+      sequence = lastSequence + 1;
+    }
+    
+    const paddedSequence = String(sequence).padStart(6, '0');
+    const treeId = `TREE-${state}-${date}-${paddedSequence}`;
+    
+    this.logger.log(`🆔 Generated tree ID: ${treeId} (sequence: ${sequence}) for registration: ${registrationId}`);
+    
+    return treeId;
   }
 
   private getDefaultSpeciesForTier(tier: TierLevel): string {
@@ -442,7 +596,7 @@ export class GoGreenService {
     location?: string;
     plantingPartner?: string;
   }): Promise<GoGreenTree> {
-    const treeId = await this.generateTreeId();
+    const treeId = await this.generateTreeId(data.registrationId);
     
     const tree = await this.treeModel.create({
       treeId,
@@ -468,4 +622,123 @@ export class GoGreenService {
 
     return tree;
   }
+
+  async uploadTreeImage(
+    treeId: string,
+    imageUrl: string,
+    updatedBy: string,
+  ): Promise<GoGreenTree> {
+    const tree = await this.treeModel.findOne({ treeId }).exec();
+    if (!tree) {
+      throw new NotFoundException(`Tree with ID ${treeId} not found`);
+    }
+
+    // Update current image
+    tree.currentImageUrl = imageUrl;
+    tree.lastUpdatedDate = new Date();
+    tree.lastUpdatedBy = updatedBy;
+
+    // Add to growth timeline
+    tree.growthTimeline.push({
+      status: tree.currentStatus,
+      date: new Date(),
+      imageUrl,
+      notes: 'Image uploaded',
+      updatedBy,
+    });
+
+    await tree.save();
+    this.logger.log(`Image uploaded for tree ${treeId}`);
+
+    return tree;
+  }
+
+  /**
+   * Generate tree planting certificate PDF
+   */
+  async generateTreeCertificatePDF(treeId: string): Promise<Buffer> {
+    // Find tree in both collections
+    let tree = await this.treeModel.findOne({ treeId }).exec();
+    let plantedTree = await this.plantedTreeModel.findOne({ treeId }).exec();
+    
+    if (!tree && !plantedTree) {
+      throw new NotFoundException(`Tree with ID ${treeId} not found`);
+    }
+
+    // Get child registration for additional details
+    const registrationId = tree?.registrationId || plantedTree?.registrationId;
+    const child = await this.childModel.findOne({ registrationId }).exec();
+    
+    if (!child) {
+      throw new NotFoundException('Child registration not found');
+    }
+
+    // Prepare certificate data
+    const certificateData = {
+      treeId,
+      childName: child.childName,
+      motherName: child.motherName,
+      species: tree?.species || plantedTree?.species || 'Neem',
+      plantedDate: tree?.plantedDate || plantedTree?.plantedDate || new Date(),
+      registrationId: registrationId || '',
+      tier: tree?.tier || 'SAPLING',
+      co2Offset: tree?.estimatedCO2Absorption || plantedTree?.co2OffsetKg || 15,
+    };
+
+    this.logger.log(`📜 Generating PDF certificate for tree ${treeId}`);
+
+    // Generate PDF using TreeCertificateService
+    const pdfBuffer = await this.treeCertificateService.generateTreeCertificate(certificateData);
+
+    return pdfBuffer;
+  }
+
+  /**
+   * Generate tree planting certificate (legacy - returns data only)
+   */
+  async generateTreeCertificate(treeId: string): Promise<{
+    certificateUrl: string;
+    treeData: any;
+  }> {
+    // Find tree in both collections
+    let tree = await this.treeModel.findOne({ treeId }).exec();
+    let plantedTree = await this.plantedTreeModel.findOne({ treeId }).exec();
+    
+    if (!tree && !plantedTree) {
+      throw new NotFoundException(`Tree with ID ${treeId} not found`);
+    }
+
+    // Get child registration for additional details
+    const registrationId = tree?.registrationId || plantedTree?.registrationId;
+    const child = await this.childModel.findOne({ registrationId }).exec();
+    
+    if (!child) {
+      throw new NotFoundException('Child registration not found');
+    }
+
+    // Prepare certificate data
+    const certificateData = {
+      treeId,
+      childName: child.childName,
+      motherName: child.motherName,
+      species: tree?.species || plantedTree?.species || 'Neem',
+      plantedDate: tree?.plantedDate || plantedTree?.plantedDate || new Date(),
+      location: tree?.location || plantedTree?.location || child.state,
+      tier: tree?.tier || 'SAPLING',
+      certificateType: tree?.certificateTier || 'BRONZE',
+      co2Offset: tree?.estimatedCO2Absorption || plantedTree?.co2OffsetKg || 15,
+      creditsUsed: tree?.creditsUsed || plantedTree?.creditsUsed || 500,
+    };
+
+    // Certificate URL for download
+    const certificateUrl = `/go-green/tree/${treeId}/certificate`;
+
+    this.logger.log(`📜 Certificate data prepared for tree ${treeId}`);
+
+    return {
+      certificateUrl,
+      treeData: certificateData,
+    };
+  }
+
 }

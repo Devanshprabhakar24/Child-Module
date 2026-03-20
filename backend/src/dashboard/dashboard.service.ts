@@ -43,6 +43,7 @@ export class DashboardService {
     private readonly paymentModel: Model<PaymentDocument>,
     @InjectModel(GoGreenTree.name)
     private readonly goGreenTreeModel: Model<GoGreenTreeDocument>,
+    private readonly eventEmitter: EventEmitter2,
   ) {}
 
   // ─── Seed Vaccination Schedule ────────────────────────────────────────
@@ -721,63 +722,9 @@ export class DashboardService {
       
     } catch (error) {
       this.logger.error(`❌ Error during cascading deletion for ${registrationId}:`, error);
-      throw new Error(`Failed to delete child and associated data: ${error.message}`);
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      throw new Error(`Failed to delete child and associated data: ${errorMessage}`);
     }
-  }
-  /**
-   * Get a summary of all data that would be deleted for a child (for admin confirmation)
-   */
-  async getChildDeletionSummary(registrationId: string): Promise<{
-    child: ChildRegistrationDocument;
-    relatedDataCounts: {
-      milestones: number;
-      developmentMilestones: number;
-      healthRecords: number;
-      reminders: number;
-      payments: number;
-      goGreenTrees: number;
-    };
-    totalRecords: number;
-  }> {
-    // First, verify the child exists
-    const child = await this.childModel.findOne({ registrationId }).exec();
-    if (!child) {
-      throw new NotFoundException('Child registration not found');
-    }
-
-    // Count all related records
-    const [
-      milestoneCount,
-      devMilestoneCount,
-      healthRecordCount,
-      reminderCount,
-      paymentCount,
-      goGreenTreeCount
-    ] = await Promise.all([
-      this.milestoneModel.countDocuments({ registrationId }).exec(),
-      this.devMilestoneModel.countDocuments({ registrationId }).exec(),
-      this.healthRecordModel.countDocuments({ registrationId }).exec(),
-      this.reminderModel.countDocuments({ registrationId }).exec(),
-      this.paymentModel.countDocuments({ registrationId }).exec(),
-      this.goGreenTreeModel.countDocuments({ registrationId }).exec(),
-    ]);
-
-    const relatedDataCounts = {
-      milestones: milestoneCount,
-      developmentMilestones: devMilestoneCount,
-      healthRecords: healthRecordCount,
-      reminders: reminderCount,
-      payments: paymentCount,
-      goGreenTrees: goGreenTreeCount,
-    };
-
-    const totalRecords = Object.values(relatedDataCounts).reduce((sum, count) => sum + count, 0) + 1; // +1 for child record
-
-    return {
-      child,
-      relatedDataCounts,
-      totalRecords,
-    };
   }
 
   // ─── Development Milestones ───────────────────────────────────────────

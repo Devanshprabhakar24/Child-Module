@@ -1,91 +1,123 @@
-import { CheckCircle, User, Calendar, Images, UserCheck, AlertTriangle, FileText } from "lucide-react";
+"use client";
+
+import { Building2, FileText, Bell, Contact, Image, HelpCircle, Headphones, ChevronRight } from "lucide-react";
 
 export default function LinkedSchoolProfile() {
+  const isConnected = false; // Change to true when school is connected
+
+  if (!isConnected) {
+    return (
+      <div className="flex flex-col gap-6">
+        {/* No School Connected Card */}
+        <div className="rounded-2xl border border-slate-200 bg-white p-8 shadow-sm text-center">
+          <div className="mb-4 flex justify-center">
+            <div className="flex h-20 w-20 items-center justify-center rounded-2xl bg-slate-100">
+              <Building2 className="h-10 w-10 text-slate-400" />
+            </div>
+          </div>
+          <h3 className="mb-2 text-lg font-semibold text-slate-900">No School Connected</h3>
+          <p className="mb-6 text-sm text-slate-500">
+            Connect your school to access health records, notifications, and emergency features
+          </p>
+
+          {/* Benefits of Connecting */}
+          <div className="mb-6 space-y-3 text-left">
+            <h4 className="text-xs font-semibold uppercase tracking-wider text-slate-500">Benefits of Connecting</h4>
+            
+            <div className="flex items-start gap-3 rounded-lg bg-slate-50 p-3">
+              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-purple-100">
+                <FileText className="h-4 w-4 text-purple-600" />
+              </div>
+              <div>
+                <p className="text-sm font-medium text-slate-900">Health Records</p>
+                <p className="text-xs text-slate-500">View school health checkup history</p>
+              </div>
+            </div>
+
+            <div className="flex items-start gap-3 rounded-lg bg-slate-50 p-3">
+              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-amber-100">
+                <Bell className="h-4 w-4 text-amber-600" />
+              </div>
+              <div>
+                <p className="text-sm font-medium text-slate-900">Smart Notifications</p>
+                <p className="text-xs text-slate-500">Get alerts for upcoming checkups</p>
+              </div>
+            </div>
+
+            <div className="flex items-start gap-3 rounded-lg bg-slate-50 p-3">
+              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-pink-100">
+                <Contact className="h-4 w-4 text-pink-600" />
+              </div>
+              <div>
+                <p className="text-sm font-medium text-slate-900">Emergency Access</p>
+                <p className="text-xs text-slate-500">Quick emergency contact to school</p>
+              </div>
+            </div>
+
+            <div className="flex items-start gap-3 rounded-lg bg-slate-50 p-3">
+              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-slate-100">
+                <Image className="h-4 w-4 text-slate-600" />
+              </div>
+              <div>
+                <p className="text-sm font-medium text-slate-900">Class Memories</p>
+                <p className="text-xs text-slate-500">Access class photos and events</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Quick Links */}
+        <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+          <h3 className="mb-4 text-sm font-semibold text-slate-900">Quick Links</h3>
+          <div className="space-y-2">
+            <button className="flex w-full items-center justify-between rounded-lg bg-slate-50 p-3 text-left transition-colors hover:bg-slate-100">
+              <div className="flex items-center gap-3">
+                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-100">
+                  <FileText className="h-4 w-4 text-emerald-600" />
+                </div>
+                <span className="text-sm font-medium text-slate-900">Health Card Guidelines</span>
+              </div>
+              <ChevronRight className="h-4 w-4 text-slate-400" />
+            </button>
+
+            <button className="flex w-full items-center justify-between rounded-lg bg-slate-50 p-3 text-left transition-colors hover:bg-slate-100">
+              <div className="flex items-center gap-3">
+                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-100">
+                  <HelpCircle className="h-4 w-4 text-blue-600" />
+                </div>
+                <span className="text-sm font-medium text-slate-900">FAQs</span>
+              </div>
+              <ChevronRight className="h-4 w-4 text-slate-400" />
+            </button>
+
+            <button className="flex w-full items-center justify-between rounded-lg bg-slate-50 p-3 text-left transition-colors hover:bg-slate-100">
+              <div className="flex items-center gap-3">
+                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-purple-100">
+                  <Headphones className="h-4 w-4 text-purple-600" />
+                </div>
+                <span className="text-sm font-medium text-slate-900">Contact Support</span>
+              </div>
+              <ChevronRight className="h-4 w-4 text-slate-400" />
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Connected state (existing code)
   return (
     <div className="flex flex-col gap-6">
-
-      {/* Main Profile Card */}
-      <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-        {/* Banner */}
-        <div className="relative h-28 bg-primary">
-          <div className="absolute -bottom-8 left-6 rounded-xl bg-white p-1 shadow-md">
-            <div
-              className="h-16 w-16 rounded-lg bg-slate-100 bg-cover bg-center"
-              style={{ backgroundImage: "url('https://lh3.googleusercontent.com/aida-public/AB6AXuABUZzQMbnb6cUAqqZK1mzjFqUe0oDGrwH2tTuiLOzKxcWgKFMOZ9YAQaWbQ4N8bJzApOil1gNaXNriHVJpTQZA21kCla7jyNTRE1-Vd8G6lHbDXFKbo-aABuF4xNspgp_8WoJe_I2WvUkewAjVambslW8Y-VLTMJutWnApvG-rleZ_UiGzn1RWYxVfbp372KrguTlMgLSe0KSu9FDeHC9Q88lBYJlR--RXBXmnx7fx0BQ5s6GYkzubB_FtTFPbdzym8GwtnfJXyqOi')" }}
-              title="School Logo"
-            ></div>
-          </div>
-        </div>
-
-        <div className="p-6 pt-12 md:p-8 md:pt-12">
-          <div className="mb-8 flex flex-col items-start justify-between gap-4 sm:flex-row">
-            <div>
-              <h3 className="text-xl font-medium text-slate-900">Delhi Public School</h3>
-              <p className="text-sm text-slate-500">Sector 12, RK Puram, New Delhi</p>
-            </div>
-            <div className="flex items-center gap-1.5 rounded-full bg-emerald-100 px-3 py-1 text-xs font-medium uppercase tracking-wide text-emerald-700">
-              <CheckCircle className="h-3.5 w-3.5" />
-              Connected
-            </div>
-          </div>
-
-          {/* Quick Actions Grid */}
-          <div className="mb-8 grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-2 xl:grid-cols-4">
-            <button className="flex flex-col items-center justify-center gap-2 rounded-xl border border-transparent bg-slate-50 p-4 transition-colors hover:border-primary/20 hover:bg-primary/5">
-              <FileText className="h-6 w-6 text-primary" />
-              <span className="text-xs font-medium text-slate-700">Health Card</span>
-            </button>
-            <button className="flex flex-col items-center justify-center gap-2 rounded-xl border border-transparent bg-slate-50 p-4 transition-colors hover:border-primary/20 hover:bg-primary/5">
-              <Calendar className="h-6 w-6 text-primary" />
-              <span className="text-xs font-medium text-slate-700">HPS Schedule</span>
-            </button>
-            <button className="flex flex-col items-center justify-center gap-2 rounded-xl border border-transparent bg-slate-50 p-4 transition-colors hover:border-primary/20 hover:bg-primary/5">
-              <Images className="h-6 w-6 text-primary" />
-              <span className="text-xs font-medium text-slate-700">Class Gallery</span>
-            </button>
-            <button className="flex flex-col items-center justify-center gap-1 rounded-xl border border-transparent bg-slate-50 p-4 text-center transition-colors hover:border-primary/20 hover:bg-primary/5">
-              <UserCheck className="h-6 w-6 text-primary" />
-              <span className="text-[10px] font-medium leading-tight text-slate-700">Ambassador<br/>Dr. Sharma</span>
-            </button>
-          </div>
-
-          <button className="mb-4 flex w-full items-center justify-center gap-2 rounded-xl bg-red-500 py-4 font-medium text-white transition-all hover:bg-red-600 hover:shadow-lg hover:shadow-red-500/20">
-            <AlertTriangle className="h-5 w-5" />
-            Emergency Button
-          </button>
-
-          <div className="flex flex-col items-center gap-4">
-            <button className="w-full rounded-xl bg-primary/10 py-3 text-sm font-medium text-primary transition-all hover:bg-primary/20">
-              View School Dashboard
-            </button>
-            <button className="text-xs font-normal text-slate-400 transition-colors hover:text-red-500 hover:underline">
-              Unlink School Profile
-            </button>
-          </div>
-        </div>
-      </div>
-
-      {/* Recent Updates Card */}
+      {/* Connected School Profile - Keep existing implementation */}
       <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-        <h4 className="mb-5 text-sm font-semibold text-slate-900">Recent School Updates</h4>
-        <div className="space-y-5">
-          <div className="flex gap-4">
-            <div className="w-1 shrink-0 rounded-full bg-primary"></div>
-            <div>
-              <p className="text-sm font-medium text-slate-900">Vision Screening Results</p>
-              <p className="text-xs text-slate-500">Uploaded 2 hours ago by School Nurse</p>
-            </div>
-          </div>
-          <div className="flex gap-4">
-            <div className="w-1 shrink-0 rounded-full bg-slate-200"></div>
-            <div>
-              <p className="text-sm font-medium text-slate-900">Upcoming Health Talk</p>
-              <p className="text-xs text-slate-500">Scheduled for Friday, 10:00 AM</p>
-            </div>
-          </div>
+        <div className="mb-4 flex items-center justify-between">
+          <h3 className="text-lg font-semibold text-slate-900">Delhi Public School</h3>
+          <span className="rounded-full bg-emerald-100 px-3 py-1 text-xs font-semibold text-emerald-700">
+            Connected
+          </span>
         </div>
+        <p className="text-sm text-slate-500">Sector 12, RK Puram, New Delhi</p>
       </div>
-
     </div>
   );
 }

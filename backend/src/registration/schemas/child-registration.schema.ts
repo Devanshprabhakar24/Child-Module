@@ -106,6 +106,64 @@ export class ChildRegistration {
   /** Parent user ID (for family dashboard linking) */
   @Prop({ type: String, default: null, index: true })
   parentUserId?: string;
+
+  // ─── Go Green Credits ───────────────────────────────────────────────
+
+  @Prop({
+    type: {
+      total: { type: Number, default: 0 },
+      current: { type: Number, default: 0 },
+      level: { type: String, default: 'SEEDLING' },
+      nextTreeAt: { type: Number, default: 500 },
+      treesPlanted: { type: Number, default: 0 },
+      co2Offset: { type: Number, default: 0 },
+      lastCreditDate: { type: Date, default: null },
+    },
+    default: {
+      total: 0,
+      current: 0,
+      level: 'SEEDLING',
+      nextTreeAt: 500,
+      treesPlanted: 0,
+      co2Offset: 0,
+      lastCreditDate: null,
+    },
+  })
+  goGreenCredits?: {
+    total: number;
+    current: number;
+    level: string;
+    nextTreeAt: number;
+    treesPlanted: number;
+    co2Offset: number;
+    lastCreditDate?: Date;
+  };
+
+  // ─── Planted Trees ──────────────────────────────────────────────────
+
+  @Prop({
+    type: [{
+      treeId: { type: String, required: true },
+      species: { type: String, required: true },
+      location: { type: String, required: true },
+      plantedDate: { type: Date, required: true },
+      creditsUsed: { type: Number, required: true },
+      status: { type: String, default: 'PLANTED' },
+      imageUrl: { type: String, default: null },
+      co2Offset: { type: Number, default: 0 },
+    }],
+    default: [],
+  })
+  plantedTrees?: Array<{
+    treeId: string;
+    species: string;
+    location: string;
+    plantedDate: Date;
+    creditsUsed: number;
+    status: string;
+    imageUrl?: string;
+    co2Offset: number;
+  }>;
 }
 
 export const ChildRegistrationSchema = SchemaFactory.createForClass(ChildRegistration);

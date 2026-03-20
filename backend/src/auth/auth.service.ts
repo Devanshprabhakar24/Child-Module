@@ -296,10 +296,21 @@ export class AuthService {
     // Send welcome back message for returning users
     if (isReturningUser && childRegs.length > 0) {
       try {
+        // Get parent name from user or fallback to mother's name from first child
+        let parentName = user.fullName;
+        if (!parentName || parentName.trim() === '') {
+          const firstChild = await this.childRegModel
+            .findOne({ registrationId: childRegs[0].registrationId })
+            .select('motherName')
+            .lean()
+            .exec();
+          parentName = firstChild?.motherName || 'Parent';
+        }
+
         await this.notificationsService.sendWelcomeBackMessage({
           phone: user.phone,
           email: user.email,
-          parentName: user.fullName,
+          parentName: parentName,
           childrenNames: childRegs.map(child => child.childName),
           lastLoginDate: lastLoginDate?.toISOString(),
         });

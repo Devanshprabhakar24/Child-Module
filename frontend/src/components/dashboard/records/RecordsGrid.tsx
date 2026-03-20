@@ -1,8 +1,9 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { FileText, Upload, Eye, Download, Calendar, User } from "lucide-react";
+import { getRegistrationId } from "@/utils/registrationId";
 
 interface HealthRecord {
   _id: string;
@@ -26,6 +27,7 @@ interface RecordsGridProps {
 
 export default function RecordsGrid({ refreshTrigger }: RecordsGridProps) {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [records, setRecords] = useState<HealthRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [showDocumentViewer, setShowDocumentViewer] = useState(false);
@@ -37,12 +39,14 @@ export default function RecordsGrid({ refreshTrigger }: RecordsGridProps) {
 
   const fetchHealthRecords = async () => {
     try {
-      let registrationId = localStorage.getItem('currentRegistrationId');
+      // Use utility function to get registration ID
+      const registrationId = getRegistrationId(searchParams);
       
-      // Fallback: use test registration ID
+      // If still no registration ID, show error and return
       if (!registrationId) {
-        registrationId = 'CHD-KL-20260306-000001';
-        localStorage.setItem('currentRegistrationId', registrationId);
+        console.error('No registration ID found. Please navigate to /dashboard first to load your profile.');
+        setLoading(false);
+        return;
       }
 
       const response = await fetch(`http://localhost:8000/health-records/${registrationId}`);

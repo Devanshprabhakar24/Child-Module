@@ -37,6 +37,7 @@ export default function TreeRedemptionModal({
 }: TreeRedemptionModalProps) {
   const [loading, setLoading] = useState(true);
   const [redeeming, setRedeeming] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [creditData, setCreditData] = useState<CreditData | null>(null);
   const [selectedTier, setSelectedTier] = useState<string | null>(null);
   const [dedicateTo, setDedicateTo] = useState(childName);
@@ -49,6 +50,7 @@ export default function TreeRedemptionModal({
 
   const fetchTreeOptions = async () => {
     try {
+      setError(null);
       const token = localStorage.getItem('wt18_token');
       const response = await fetch(`${API_BASE}/go-green/tree/options?registrationId=${registrationId}`, {
         headers: {
@@ -59,9 +61,13 @@ export default function TreeRedemptionModal({
       if (response.ok) {
         const result = await response.json();
         setCreditData(result.data);
+      } else {
+        const errorData = await response.json();
+        setError(errorData.message || 'Failed to load tree options');
       }
     } catch (error) {
       console.error('Error fetching tree options:', error);
+      setError('Network error. Please check your connection.');
     } finally {
       setLoading(false);
     }
@@ -71,8 +77,18 @@ export default function TreeRedemptionModal({
     if (!selectedTier) return;
 
     setRedeeming(true);
+    setError(null);
+    
     try {
       const token = localStorage.getItem('wt18_token');
+      
+      console.log('🌳 Redeeming tree:', {
+        registrationId,
+        tier: selectedTier,
+        dedicateTo,
+        location: 'India',
+      });
+      
       const response = await fetch(`${API_BASE}/go-green/tree/redeem`, {
         method: 'POST',
         headers: {
@@ -83,29 +99,43 @@ export default function TreeRedemptionModal({
           registrationId,
           tier: selectedTier,
           dedicateTo,
+          location: 'India', // Default location
         }),
       });
 
-      if (response.ok) {
-        const result = await response.json();
+      const result = await response.json();
+      
+      console.log('🌳 Redemption response:', result);
+
+      if (response.ok && result.success) {
+        console.log('✅ Tree redeemed successfully:', result.data);
         
         // Dispatch success event
         window.dispatchEvent(new CustomEvent('tree-redeemed', {
           detail: result.data,
         }));
+        
+        // Dispatch refresh credits event
+        window.dispatchEvent(new CustomEvent('refresh-credits'));
 
+        // Call success callback
         if (onSuccess) {
           onSuccess(result.data);
         }
         
+        // Close modal
         onClose();
+        
+        // Show success message
+        alert(`🎉 Success! ${result.data.message}\n\nTree ID: ${result.data.treeId}\nCredits Used: ${result.data.creditsUsed}\nRemaining: ${result.data.remainingCredits}`);
       } else {
-        const error = await response.json();
-        alert(error.message || 'Failed to redeem tree');
+        const errorMessage = result.message || 'Failed to redeem tree';
+        console.error('❌ Redemption failed:', errorMessage);
+        setError(errorMessage);
       }
     } catch (error) {
-      console.error('Error redeeming tree:', error);
-      alert('Failed to redeem tree. Please try again.');
+      console.error('❌ Error redeeming tree:', error);
+      setError('Network error. Please check your connection and try again.');
     } finally {
       setRedeeming(false);
     }
@@ -172,11 +202,39 @@ export default function TreeRedemptionModal({
               <p className="mt-4 text-sm text-slate-500">Loading tree options...</p>
             </div>
           ) : !creditData ? (
-            <div className="py-16 text-center text-slate-500">
-              <p>Failed to load tree options</p>
+            <div className="py-16 text-center">
+              <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-red-100">
+                <span className="text-3xl">❌</span>
+              </div>
+              <p className="text-lg font-semibold text-slate-900">Failed to load tree options</p>
+              <p className="mt-2 text-sm text-slate-500">{error || 'Please try again later'}</p>
+              <button
+                onClick={fetchTreeOptions}
+                className="mt-4 rounded-lg bg-emerald-500 px-6 py-2 text-sm font-semibold text-white hover:bg-emerald-600"
+              >
+                Retry
+              </button>
             </div>
           ) : (
             <>
+              {/* Error Alert */}
+              {error && (
+                <div className="mb-6 rounded-xl border border-red-200 bg-red-50 p-4">
+                  <div className="flex items-start gap-3">
+                    <span className="text-2xl">⚠️</span>
+                    <div className="flex-1">
+                      <h4 className="font-bold text-red-900">Error</h4>
+                      <p className="mt-1 text-sm text-red-700">{error}</p>
+                    </div>
+                    <button
+                      onClick={() => setError(null)}
+                      className="text-red-400 hover:text-red-600"
+                    >
+                      <X className="h-5 w-5" />
+                    </button>
+                  </div>
+                </div>
+              )}
               {/* Current Credits */}
               <div className="mb-6 rounded-xl border border-emerald-100 bg-emerald-50 p-4">
                 <div className="flex items-center justify-between">

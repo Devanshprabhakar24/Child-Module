@@ -374,7 +374,7 @@ export class RegistrationService {
 
   /**
    * Sends all post-payment communications:
-   * 1. Payment confirmation (SMS, WhatsApp, Email with invoice)
+   * 1. Payment confirmation (SMS, WhatsApp, Email with invoice) - handled by PaymentsService
    * 2. Welcome message with dashboard link (SMS, WhatsApp, Email)
    * 3. Go Green Participation Certificate (WhatsApp, Email)
    */
@@ -389,17 +389,16 @@ export class RegistrationService {
       registrationId: registration.registrationId,
     };
 
+    this.logger.log(`📧 Starting post-payment notifications for ${registration.registrationId}`);
+
     try {
-      // NOTE: Payment confirmation with invoice is handled by PaymentsService
-      // We send welcome message and Go Green certificate here with proper sequencing
+      // NOTE: Payment confirmation with invoice is already sent by PaymentsService
+      // We only send Go Green certificate here (no welcome message to avoid duplicates)
 
-      // 1. Welcome message with dashboard link (sent immediately)
-      await this.notificationsService.sendWelcomeMessage(commonPayload);
-      this.logger.log(`Welcome message sent for ${registration.registrationId}`);
-
-      // 2. Plant a tree for the child BEFORE sending certificate
+      // 1. Plant a tree for the child BEFORE sending certificate
       let plantedTree: any = null;
       try {
+        this.logger.log(`🌳 Planting tree for ${registration.registrationId}...`);
         plantedTree = await this.goGreenService.plantTree({
           registrationId: registration.registrationId,
           childName: registration.childName,
@@ -413,37 +412,9 @@ export class RegistrationService {
         // Continue with certificate generation even if tree planting fails
       }
 
-      // 3. Schedule certificate email to be sent after payment email (using Promise delay)
-      this.scheduleCertificateEmail(registration, plantedTree, commonPayload);
-
-      // 4. AUTO-ACTIVATE ALL SERVICES: Comprehensive service activation
-      await this.activateAllServicesForRegistration(registration, plantedTree);
-
-      registration.goGreenCertSent = true;
-      await registration.save();
-
-      this.logger.log(`✅ Post-payment notifications initiated for ${registration.registrationId} (certificate scheduled)`);
-    } catch (error) {
-      this.logger.error(
-        `❌ Failed to send notifications for ${registration.registrationId}: ${error instanceof Error ? error.message : error}`,
-      );
-    }
-  }
-
-  /**
-   * Schedule Go Green certificate email to be sent after payment email
-   */
-  private async scheduleCertificateEmail(
-    registration: ChildRegistrationDocument,
-    plantedTree: any,
-    commonPayload: any,
-  ): Promise<void> {
-    // Use Promise-based delay instead of setTimeout for better error handling
-    const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
-    
-    // Schedule certificate email after 5 seconds
-    delay(5000).then(async () => {
+      // 2. Send Go Green certificate email
       try {
+        this.logger.log(`📧 Sending Go Green certificate for ${registration.registrationId}...`);
         await this.notificationsService.sendGoGreenCertificate({
           ...commonPayload,
           state: registration.state,
@@ -451,12 +422,25 @@ export class RegistrationService {
           treeId: plantedTree?.treeId || `TREE-${new Date().getFullYear()}-PENDING`,
         });
         this.logger.log(`✅ Go Green certificate sent for ${registration.registrationId} with tree ID: ${plantedTree?.treeId || 'PENDING'}`);
+        
+        registration.goGreenCertSent = true;
+        await registration.save();
       } catch (certError) {
         this.logger.error(`❌ Failed to send Go Green certificate for ${registration.registrationId}:`, certError);
+        this.logger.error('Certificate error stack:', certError);
       }
-    }).catch((error) => {
-      this.logger.error(`❌ Error in certificate scheduling for ${registration.registrationId}:`, error);
-    });
+
+      // 3. AUTO-ACTIVATE ALL SERVICES: Comprehensive service activation
+      this.logger.log(`⚙️  Activating all services for ${registration.registrationId}...`);
+      await this.activateAllServicesForRegistration(registration, plantedTree);
+
+      this.logger.log(`✅ Post-payment notifications completed for ${registration.registrationId}`);
+    } catch (error) {
+      this.logger.error(
+        `❌ Failed to send notifications for ${registration.registrationId}: ${error instanceof Error ? error.message : error}`,
+      );
+      this.logger.error('Stack trace:', error);
+    }
   }
 
   // ─── Family Dashboard Queries ─────────────────────────────────────────
