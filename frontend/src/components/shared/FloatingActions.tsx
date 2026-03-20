@@ -1,3 +1,5 @@
+"use client";
+
 import { Siren } from "lucide-react";
 
 export default function FloatingActions() {
