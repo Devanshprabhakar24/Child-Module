@@ -16,6 +16,7 @@ export default function RegistrationFlow() {
 
   const [childDetails, setChildDetails] = useState<ChildDetails | null>(null);
   const [contactDetails, setContactDetails] = useState<ContactDetails | null>(null);
+  const [selectedPlan, setSelectedPlan] = useState<'ANNUAL' | 'FIVE_YEAR'>('FIVE_YEAR');
 
   const nextStep = () => setCurrentStep((prev) => Math.min(prev + 1, totalSteps));
   const prevStep = () => setCurrentStep((prev) => Math.max(prev - 1, 1));
@@ -46,6 +47,7 @@ export default function RegistrationFlow() {
       phone: `+91${phoneDigits}`,
       address: contactDetails.address,
       registrationType: "DIRECT",
+      subscriptionPlan: selectedPlan,
     };
 
     const res = await fetch(`${API_BASE}/registration`, {
@@ -169,7 +171,12 @@ export default function RegistrationFlow() {
           
             <RegistrationProgress title="Subscription & Pricing" step={3} totalSteps={totalSteps} />
          
-          <Step3Form onNext={nextStep} onPrev={prevStep} />
+          <Step3Form 
+            onNext={nextStep} 
+            onPrev={prevStep} 
+            onSelectPlan={setSelectedPlan}
+            selectedPlan={selectedPlan}
+          />
         </div>
       )}
 
@@ -187,6 +194,7 @@ export default function RegistrationFlow() {
               onConfirm={handleCompleteRegistration}
               onPrev={prevStep}
               childName={childDetails?.childName ?? ""}
+              selectedPlan={selectedPlan}
             />
           </div>
 

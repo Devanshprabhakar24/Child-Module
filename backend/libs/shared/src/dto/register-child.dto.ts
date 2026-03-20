@@ -97,4 +97,11 @@ export class RegisterChildDto {
   @IsOptional()
   @IsString()
   couponCode?: string;
+
+  // ─── Subscription Plan ────────────────────────────────────────────
+
+  /** Subscription plan: ANNUAL (₹249) or FIVE_YEAR (₹999) */
+  @IsOptional()
+  @IsEnum(['ANNUAL', 'FIVE_YEAR'], { message: 'subscriptionPlan must be ANNUAL or FIVE_YEAR' })
+  subscriptionPlan?: 'ANNUAL' | 'FIVE_YEAR';
 }

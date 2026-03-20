@@ -18,11 +18,14 @@ import {
   calculateAgeInYears,
   IndianState,
   SUBSCRIPTION_TOTAL_PRICE,
+  SUBSCRIPTION_PLANS,
+  DEFAULT_PLAN,
   CURRENCY,
   RazorpayWebhookEvent,
   UpdateChildDto,
   ReminderChannel,
 } from '@wombto18/shared';
+import type { SubscriptionPlanId } from '@wombto18/shared/constants/pricing.constants';
 import { BadRequestException } from '@nestjs/common';
 import { NotificationsService } from '../notifications/notifications.service';
 import { DashboardService } from '../dashboard/dashboard.service';
@@ -69,6 +72,14 @@ export class RegistrationService {
   }
 
   // ─── Registration ID Generation ───────────────────────────────────────
+
+  /**
+   * Check if email is already registered
+   */
+  async isEmailRegistered(email: string): Promise<boolean> {
+    const count = await this.childModel.countDocuments({ email: email.toLowerCase() });
+    return count > 0;
+  }
 
   /**
    * Generates a unique Registration ID in format: CHD-{STATE}-{DOB_YYYYMMDD}-{6_DIGIT_NUMBER}
@@ -181,7 +192,8 @@ export class RegistrationService {
       address: dto.address,
       registrationType: dto.registrationType ?? RegistrationType.DIRECT,
       channelPartnerId: dto.channelPartnerId,
-      subscriptionAmount: SUBSCRIPTION_TOTAL_PRICE,
+      subscriptionPlan: dto.subscriptionPlan ?? DEFAULT_PLAN,
+      subscriptionAmount: SUBSCRIPTION_PLANS[dto.subscriptionPlan ?? DEFAULT_PLAN].price,
       couponCode: dto.couponCode,
       paymentStatus: 'PENDING',
       razorpayOrderId: orderId,
@@ -197,7 +209,7 @@ export class RegistrationService {
         registrationId,
         ageGroup,
         state: dto.state,
-        subscriptionAmount: SUBSCRIPTION_TOTAL_PRICE,
+        subscriptionAmount: SUBSCRIPTION_PLANS[dto.subscriptionPlan ?? DEFAULT_PLAN].price,
       });
       this.logger.log(`Registration confirmation email sent for ${registrationId}`);
     } catch (error) {
@@ -238,20 +250,25 @@ export class RegistrationService {
     razorpay_payment_id: string;
     razorpay_signature: string;
   }): Promise<ChildRegistrationDocument> {
-    const secret = this.configService.getOrThrow<string>('RAZORPAY_KEY_SECRET');
-    const body = data.razorpay_order_id + '|' + data.razorpay_payment_id;
-    const expectedSignature = crypto
-      .createHmac('sha256', secret)
-      .update(body)
-      .digest('hex');
+    // In test mode, skip signature verification
+    if (!this.paymentTestMode) {
+      const secret = this.configService.getOrThrow<string>('RAZORPAY_KEY_SECRET');
+      const body = data.razorpay_order_id + '|' + data.razorpay_payment_id;
+      const expectedSignature = crypto
+        .createHmac('sha256', secret)
+        .update(body)
+        .digest('hex');
 
-    const isValid = crypto.timingSafeEqual(
-      Buffer.from(expectedSignature, 'hex'),
-      Buffer.from(data.razorpay_signature, 'hex'),
-    );
+      const isValid = crypto.timingSafeEqual(
+        Buffer.from(expectedSignature, 'hex'),
+        Buffer.from(data.razorpay_signature, 'hex'),
+      );
 
-    if (!isValid) {
-      throw new BadRequestException('Payment verification failed. Invalid signature.');
+      if (!isValid) {
+        throw new BadRequestException('Payment verification failed. Invalid signature.');
+      }
+    } else {
+      this.logger.log('[TEST MODE] Skipping payment signature verification');
     }
 
     const registration = await this.childModel.findOne({

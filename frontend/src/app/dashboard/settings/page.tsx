@@ -1,45 +1,38 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
+import { useSearchParams } from "next/navigation";
 import { useChildData } from "@/hooks/useChildData";
 import NotificationPreferences from "@/components/dashboard/settings/NotificationPreferences";
 import LinkedAccounts from "@/components/dashboard/settings/LinkedAccounts";
+import SubscriptionCard from "@/components/dashboard/settings/SubscriptionCard";
 import EditableProfileSettings from "@/components/dashboard/settings/EditableProfileSettings";
-import { User, Camera, CreditCard, Receipt, BadgeCheck, Loader2, Zap } from "lucide-react";
+import { User, Camera, Loader2, Zap, CheckCircle, X } from "lucide-react";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
 export default function SettingsPage() {
+  const searchParams = useSearchParams();
+  const upgraded = searchParams.get("upgraded") === "true";
+  
   const { loading, profile, registrationId, token, refetch } = useChildData();
-  const [downloadingInvoice, setDownloadingInvoice] = useState(false);
   const [activating, setActivating] = useState(false);
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
+  const [showUpgradeSuccess, setShowUpgradeSuccess] = useState(upgraded);
+
+  useEffect(() => {
+    if (upgraded) {
+      // Auto-hide success message after 10 seconds
+      const timer = setTimeout(() => {
+        setShowUpgradeSuccess(false);
+      }, 10000);
+      return () => clearTimeout(timer);
+    }
+  }, [upgraded]);
 
   const handleProfileUpdate = () => {
     refetch();
   };
-
-  async function handleDownloadInvoice() {
-    if (!registrationId) return;
-    setDownloadingInvoice(true);
-    try {
-      const res = await fetch(`${API_BASE}/payments/${registrationId}/invoice`);
-      if (!res.ok) throw new Error("Failed");
-      const blob = await res.blob();
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `WombTo18_Invoice_${registrationId}.pdf`;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      URL.revokeObjectURL(url);
-    } catch {
-      alert("Could not download invoice.");
-    } finally {
-      setDownloadingInvoice(false);
-    }
-  }
 
   async function handleActivateServices() {
     if (!registrationId || !profile?.dateOfBirth) return;
@@ -124,19 +117,34 @@ export default function SettingsPage() {
     ? new Date(profile.dateOfBirth).toLocaleDateString("en-IN", { day: "2-digit", month: "long", year: "numeric" })
     : "—";
 
-  const renewalDate = (() => {
-    if (!registrationId) return "—";
-    const parts = registrationId.split("-");
-    const ds = parts[2];
-    if (!ds || ds.length !== 8) return "—";
-    const d = new Date(`${ds.slice(0, 4)}-${ds.slice(4, 6)}-${ds.slice(6, 8)}`);
-    d.setFullYear(d.getFullYear() + 1);
-    return d.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
-  })();
-
   return (
     <div className="mx-auto w-[80%] max-w-8xl space-y-10 pb-12">
       <h1 className="mb-2 text-3xl font-medium tracking-tight text-slate-900">Settings</h1>
+
+      {/* Upgrade Success Banner */}
+      {showUpgradeSuccess && (
+        <div className="overflow-hidden rounded-2xl border-2 border-emerald-200 bg-gradient-to-r from-emerald-50 to-teal-50 p-6 shadow-sm">
+          <div className="flex items-start justify-between gap-4">
+            <div className="flex items-start gap-4">
+              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-emerald-500 text-white">
+                <CheckCircle className="h-6 w-6" />
+              </div>
+              <div>
+                <h3 className="text-lg font-semibold text-slate-900">Upgrade Successful! 🎉</h3>
+                <p className="mt-1 text-sm text-slate-600">
+                  Your subscription has been upgraded to the 5-Year Plan. You now have access to all features for the next 5 years!
+                </p>
+              </div>
+            </div>
+            <button
+              onClick={() => setShowUpgradeSuccess(false)}
+              className="shrink-0 rounded-lg p-1 text-slate-400 transition-colors hover:bg-slate-200 hover:text-slate-600"
+            >
+              <X className="h-5 w-5" />
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Activate Services Banner */}
       <section className="overflow-hidden rounded-2xl border-2 border-primary/20 bg-gradient-to-br from-primary/5 to-primary/10 p-6 shadow-sm">
@@ -240,34 +248,7 @@ export default function SettingsPage() {
 
       <div className="grid grid-cols-1 gap-8 md:grid-cols-2">
         <LinkedAccounts />
-
-        {/* Subscription Card */}
-        <section>
-          <h3 className="mb-4 flex items-center gap-3 text-lg font-medium text-slate-900">
-            <CreditCard className="h-6 w-6 text-primary" />
-            Subscription
-          </h3>
-          <div className="relative overflow-hidden rounded-2xl bg-primary p-8 text-white shadow-lg shadow-primary/20">
-            <div className="relative z-10">
-              <p className="text-sm font-semibold text-white/90">WombTo18 Annual Plan</p>
-              <p className="mt-1 text-3xl font-bold">₹960 + GST</p>
-              <p className="mt-6 text-xs font-medium text-white/90">
-                Renews on {renewalDate}
-              </p>
-              <button
-                onClick={handleDownloadInvoice}
-                disabled={downloadingInvoice || !registrationId}
-                className="mt-6 flex w-full items-center justify-center gap-2 rounded-xl bg-white/20 py-3 text-sm font-medium backdrop-blur-sm transition-all hover:bg-white/30 disabled:opacity-60"
-              >
-                <Receipt className="h-4 w-4" />
-                {downloadingInvoice ? "Downloading..." : "Download Invoice"}
-              </button>
-            </div>
-            <div className="absolute -bottom-8 -right-8 opacity-10 mix-blend-overlay">
-              <BadgeCheck className="h-40 w-40" />
-            </div>
-          </div>
-        </section>
+        <SubscriptionCard />
       </div>
     </div>
   );

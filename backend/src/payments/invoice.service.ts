@@ -14,6 +14,8 @@ export interface InvoiceData {
   paymentMethod?: string;
   razorpayOrderId: string;
   razorpayPaymentId?: string;
+  subscriptionPlan?: 'ANNUAL' | 'FIVE_YEAR';
+  planDuration?: string;
 }
 
 @Injectable()
@@ -154,6 +156,9 @@ export class InvoiceService {
 
         // Row 1: Base price
         const basePrice = Math.round((data.amount / 1.18) * 100) / 100;
+        const planName = data.subscriptionPlan === 'ANNUAL' ? 'Annual Plan (1 Year)' : '5-Year Plan';
+        const description = `WombTo18 ${planName} — Child Healthcare Subscription`;
+        
         doc
           .rect(50, y, doc.page.width - 100, 30)
           .fill(lightBg);
@@ -162,7 +167,7 @@ export class InvoiceService {
           .font('Helvetica')
           .fontSize(10)
           .fillColor(darkColor)
-          .text('WombTo18 Full Subscription — Child Healthcare', 60, y + 9)
+          .text(description, 60, y + 9)
           .text(`₹${basePrice.toFixed(2)}`, doc.page.width - 160, y + 9, { width: 100, align: 'right' });
 
         y += 30;

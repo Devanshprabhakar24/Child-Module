@@ -36,6 +36,33 @@ export class RegistrationController {
 
   // ─── Child Registration ────────────────────────────────────────────────
 
+  /**
+   * Check if email is already registered
+   * GET /registration/check-email?email=test@example.com
+   */
+  @Get('check-email')
+  async checkEmail(@Req() req: Request) {
+    const email = req.query.email as string;
+    
+    if (!email) {
+      return {
+        success: false,
+        exists: false,
+        message: 'Email parameter is required',
+      };
+    }
+
+    const exists = await this.registrationService.isEmailRegistered(email);
+
+    return {
+      success: true,
+      exists,
+      message: exists 
+        ? 'This email address is already registered. Each email can only be used for one registration.'
+        : 'Email is available',
+    };
+  }
+
   @Post()
   async register(@Body() dto: RegisterChildDto) {
     const { registration, razorpayOrderId, testMode } =

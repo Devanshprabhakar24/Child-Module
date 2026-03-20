@@ -87,6 +87,9 @@ export class ChildRegistration {
 
   // ─── Payment ────────────────────────────────────────────────────────
 
+  @Prop({ type: String, enum: ['ANNUAL', 'FIVE_YEAR'], default: 'FIVE_YEAR' })
+  subscriptionPlan!: 'ANNUAL' | 'FIVE_YEAR';
+
   @Prop({ type: Number, default: 999 })
   subscriptionAmount!: number;
 

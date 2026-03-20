@@ -9,17 +9,39 @@ export default function SuccessHero() {
   const [payId, setPayId] = useState("—");
   const [childName, setChildName] = useState("—");
   const [regDate, setRegDate] = useState("—");
+  const [amount, setAmount] = useState(999);
   const [downloading, setDownloading] = useState(false);
 
   useEffect(() => {
     // Only access sessionStorage on the client side
     if (typeof window !== 'undefined') {
-      setRegId(sessionStorage.getItem("wt18_reg_id") ?? "—");
+      const registrationId = sessionStorage.getItem("wt18_reg_id") ?? "—";
+      setRegId(registrationId);
       setPayId(sessionStorage.getItem("wt18_pay_id") ?? "—");
       setChildName(sessionStorage.getItem("wt18_child_name") ?? "—");
       setRegDate(sessionStorage.getItem("wt18_reg_date") ?? new Date().toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short" }));
+      
+      // Fetch actual amount from registration
+      if (registrationId && registrationId !== "—") {
+        fetchRegistrationAmount(registrationId);
+      }
     }
   }, []);
+
+  const fetchRegistrationAmount = async (registrationId: string) => {
+    try {
+      const response = await fetch(`${API_BASE}/registration/${registrationId}`);
+      if (response.ok) {
+        const data = await response.json();
+        if (data.data?.subscriptionAmount) {
+          setAmount(data.data.subscriptionAmount);
+        }
+      }
+    } catch (error) {
+      console.error("Failed to fetch registration amount:", error);
+      // Keep default 999 if fetch fails
+    }
+  };
 
   const handleDownloadInvoice = async () => {
     if (typeof window === 'undefined') return;
@@ -96,7 +118,7 @@ export default function SuccessHero() {
               </div>
               <div>
                 <p className="text-xs font-semibold uppercase tracking-wider text-slate-400">Amount Paid</p>
-                <p className="text-lg font-bold text-primary">₹999.00</p>
+                <p className="text-lg font-bold text-primary">₹{amount.toFixed(2)}</p>
               </div>
               <div>
                 <p className="text-xs font-semibold uppercase tracking-wider text-slate-400">Date & Time</p>

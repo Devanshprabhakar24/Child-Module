@@ -7,14 +7,28 @@ interface Step4Props {
   onConfirm: () => Promise<void>;
   onPrev: () => void;
   childName: string;
+  selectedPlan: 'ANNUAL' | 'FIVE_YEAR';
 }
 
-export default function Step4Form({ onConfirm, onPrev, childName }: Step4Props) {
+const PLAN_PRICES = {
+  ANNUAL: 249,
+  FIVE_YEAR: 999,
+};
+
+const PLAN_NAMES = {
+  ANNUAL: 'Annual Plan (1 Year)',
+  FIVE_YEAR: '5-Year Plan',
+};
+
+export default function Step4Form({ onConfirm, onPrev, childName, selectedPlan }: Step4Props) {
   const [healthConsent, setHealthConsent] = useState(true);
   const [termsConsent, setTermsConsent] = useState(false);
   const [voiceReminders, setVoiceReminders] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const amount = PLAN_PRICES[selectedPlan];
+  const planName = PLAN_NAMES[selectedPlan];
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -47,8 +61,14 @@ export default function Step4Form({ onConfirm, onPrev, childName }: Step4Props) 
             <p className="font-medium text-slate-900">{childName || "—"}</p>
           </div>
           <div className="text-right">
-            <p className="text-xs text-slate-500">Registration Fee</p>
-            <p className="text-lg font-bold text-slate-900">₹999.00</p>
+            <p className="text-xs text-slate-500">Selected Plan</p>
+            <p className="text-sm font-medium text-slate-900">{planName}</p>
+          </div>
+        </div>
+        <div className="mt-4 border-t border-slate-200 pt-4">
+          <div className="flex items-center justify-between">
+            <p className="text-sm font-semibold text-slate-700">Total Amount</p>
+            <p className="text-2xl font-bold text-primary">₹{amount}</p>
           </div>
         </div>
       </div>
@@ -138,7 +158,7 @@ export default function Step4Form({ onConfirm, onPrev, childName }: Step4Props) 
             className="flex w-[45%] items-center justify-center gap-2 rounded-full bg-primary py-3 text-lg font-medium text-white shadow-lg shadow-primary/20 transition-all hover:brightness-110 disabled:bg-slate-300 disabled:cursor-not-allowed disabled:shadow-none"
             disabled={submitting || !termsConsent || !healthConsent}
           >
-            {submitting ? "Processing..." : "Confirm & Pay ₹999"}
+            {submitting ? "Processing..." : `Confirm & Pay ₹${amount}`}
             <ArrowRight className="h-5 w-5" />
           </button>
         </div>
