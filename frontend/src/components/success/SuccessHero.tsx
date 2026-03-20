@@ -141,7 +141,22 @@ export default function SuccessHero() {
                 <span className="material-symbols-outlined text-lg">download</span>
                 {downloading ? "Downloading..." : "Download Invoice"}
               </button>
-              <button className="flex items-center gap-2 rounded-lg bg-slate-100 px-4 py-2 text-sm font-medium text-slate-700 transition-all hover:bg-slate-200">
+              <button 
+                onClick={() => {
+                  if (navigator.share) {
+                    navigator.share({
+                      title: 'WombTo18 Registration Complete',
+                      text: `Successfully registered with WombTo18! Registration ID: ${regId}`,
+                      url: window.location.href
+                    }).catch(err => console.log('Share cancelled'));
+                  } else {
+                    // Fallback: Copy to clipboard
+                    navigator.clipboard.writeText(`Registration ID: ${regId}\nAmount Paid: ₹${amount.toFixed(2)}`);
+                    alert('Registration details copied to clipboard!');
+                  }
+                }}
+                className="flex items-center gap-2 rounded-lg bg-slate-100 px-4 py-2 text-sm font-medium text-slate-700 transition-all hover:bg-slate-200"
+              >
                 <span className="material-symbols-outlined text-lg">share</span>
                 Share
               </button>

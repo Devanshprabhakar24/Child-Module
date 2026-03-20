@@ -375,7 +375,14 @@ export default function Step2Form({ onNext, onPrev, onComplete, motherName, stat
                   <Clock className="h-4 w-4" /><span>00:45</span>
                 </div>
                 <div className="flex gap-4 items-center">
-                  <button type="button" className="text-sm font-medium text-slate-500 hover:text-slate-800 transition-colors">Resend</button>
+                  <button 
+                    type="button" 
+                    onClick={handleSendEmailOtp}
+                    disabled={sendEmailLoading}
+                    className="text-sm font-medium text-slate-500 hover:text-slate-800 transition-colors disabled:opacity-50"
+                  >
+                    {sendEmailLoading ? "Sending..." : "Resend"}
+                  </button>
                   <button 
                     type="button" 
                     onClick={handleVerifyEmailOtp}
@@ -489,7 +496,14 @@ export default function Step2Form({ onNext, onPrev, onComplete, motherName, stat
                   <Clock className="h-4 w-4" /><span>00:45</span>
                 </div>
                 <div className="flex gap-4 items-center">
-                  <button type="button" className="text-sm font-medium text-slate-500 hover:text-slate-800 transition-colors">Resend</button>
+                  <button 
+                    type="button" 
+                    onClick={handleSendMobileOtp}
+                    disabled={sendMobileLoading}
+                    className="text-sm font-medium text-slate-500 hover:text-slate-800 transition-colors disabled:opacity-50"
+                  >
+                    {sendMobileLoading ? "Sending..." : "Resend"}
+                  </button>
                   <button 
                     type="button" 
                     onClick={handleVerifyMobileOtp}
