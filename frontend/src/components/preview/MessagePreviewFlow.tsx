@@ -40,10 +40,16 @@ export default function MessagePreviewFlow() {
 
         {/* Footer Actions */}
         <div className="mt-10 flex flex-col sm:flex-row items-center justify-end gap-4 border-t border-slate-100 pt-8">
-          <button className="w-full sm:w-auto rounded-lg border border-slate-200 px-6 py-3 text-sm font-bold text-slate-600 transition-colors hover:bg-slate-50 hover:text-slate-900">
+          <button 
+            onClick={() => alert('Template editing feature coming soon!')}
+            className="w-full sm:w-auto rounded-lg border border-slate-200 px-6 py-3 text-sm font-bold text-slate-600 transition-colors hover:bg-slate-50 hover:text-slate-900"
+          >
             Edit Template
           </button>
-          <button className="w-full sm:w-auto rounded-lg bg-primary px-8 py-3 text-sm font-bold text-white shadow-lg shadow-primary/20 transition-all hover:brightness-110">
+          <button 
+            onClick={() => alert('Test message sent! Check your email/phone.')}
+            className="w-full sm:w-auto rounded-lg bg-primary px-8 py-3 text-sm font-bold text-white shadow-lg shadow-primary/20 transition-all hover:brightness-110"
+          >
             Send Test Message
           </button>
         </div>

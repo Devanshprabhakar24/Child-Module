@@ -62,6 +62,17 @@ export class ChildRegistration {
   @Prop({ type: String, default: null })
   address?: string;
 
+  // ─── Health Information ─────────────────────────────────────────────
+
+  @Prop({ type: String, enum: ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'], default: null })
+  bloodGroup?: string;
+
+  @Prop({ type: Number, default: null })
+  heightCm?: number;
+
+  @Prop({ type: Number, default: null })
+  weightKg?: number;
+
   @Prop({ type: String, default: null })
   profilePictureUrl?: string;
 
@@ -75,6 +86,9 @@ export class ChildRegistration {
   channelPartnerId?: string;
 
   // ─── Payment ────────────────────────────────────────────────────────
+
+  @Prop({ type: String, enum: ['ANNUAL', 'FIVE_YEAR'], default: 'FIVE_YEAR' })
+  subscriptionPlan!: 'ANNUAL' | 'FIVE_YEAR';
 
   @Prop({ type: Number, default: 999 })
   subscriptionAmount!: number;

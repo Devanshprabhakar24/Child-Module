@@ -18,11 +18,14 @@ import {
   calculateAgeInYears,
   IndianState,
   SUBSCRIPTION_TOTAL_PRICE,
+  SUBSCRIPTION_PLANS,
+  DEFAULT_PLAN,
   CURRENCY,
   RazorpayWebhookEvent,
   UpdateChildDto,
   ReminderChannel,
 } from '@wombto18/shared';
+import type { SubscriptionPlanId } from '@wombto18/shared/constants/pricing.constants';
 import { BadRequestException } from '@nestjs/common';
 import { NotificationsService } from '../notifications/notifications.service';
 import { DashboardService } from '../dashboard/dashboard.service';
@@ -69,6 +72,14 @@ export class RegistrationService {
   }
 
   // ─── Registration ID Generation ───────────────────────────────────────
+
+  /**
+   * Check if email is already registered
+   */
+  async isEmailRegistered(email: string): Promise<boolean> {
+    const count = await this.childModel.countDocuments({ email: email.toLowerCase() });
+    return count > 0;
+  }
 
   /**
    * Generates a unique Registration ID in format: CHD-{STATE}-{DOB_YYYYMMDD}-{6_DIGIT_NUMBER}
@@ -181,7 +192,8 @@ export class RegistrationService {
       address: dto.address,
       registrationType: dto.registrationType ?? RegistrationType.DIRECT,
       channelPartnerId: dto.channelPartnerId,
-      subscriptionAmount: SUBSCRIPTION_TOTAL_PRICE,
+      subscriptionPlan: dto.subscriptionPlan ?? DEFAULT_PLAN,
+      subscriptionAmount: SUBSCRIPTION_PLANS[dto.subscriptionPlan ?? DEFAULT_PLAN].price,
       couponCode: dto.couponCode,
       paymentStatus: 'PENDING',
       razorpayOrderId: orderId,
@@ -197,7 +209,7 @@ export class RegistrationService {
         registrationId,
         ageGroup,
         state: dto.state,
-        subscriptionAmount: SUBSCRIPTION_TOTAL_PRICE,
+        subscriptionAmount: SUBSCRIPTION_PLANS[dto.subscriptionPlan ?? DEFAULT_PLAN].price,
       });
       this.logger.log(`Registration confirmation email sent for ${registrationId}`);
     } catch (error) {
@@ -238,20 +250,25 @@ export class RegistrationService {
     razorpay_payment_id: string;
     razorpay_signature: string;
   }): Promise<ChildRegistrationDocument> {
-    const secret = this.configService.getOrThrow<string>('RAZORPAY_KEY_SECRET');
-    const body = data.razorpay_order_id + '|' + data.razorpay_payment_id;
-    const expectedSignature = crypto
-      .createHmac('sha256', secret)
-      .update(body)
-      .digest('hex');
+    // In test mode, skip signature verification
+    if (!this.paymentTestMode) {
+      const secret = this.configService.getOrThrow<string>('RAZORPAY_KEY_SECRET');
+      const body = data.razorpay_order_id + '|' + data.razorpay_payment_id;
+      const expectedSignature = crypto
+        .createHmac('sha256', secret)
+        .update(body)
+        .digest('hex');
 
-    const isValid = crypto.timingSafeEqual(
-      Buffer.from(expectedSignature, 'hex'),
-      Buffer.from(data.razorpay_signature, 'hex'),
-    );
+      const isValid = crypto.timingSafeEqual(
+        Buffer.from(expectedSignature, 'hex'),
+        Buffer.from(data.razorpay_signature, 'hex'),
+      );
 
-    if (!isValid) {
-      throw new BadRequestException('Payment verification failed. Invalid signature.');
+      if (!isValid) {
+        throw new BadRequestException('Payment verification failed. Invalid signature.');
+      }
+    } else {
+      this.logger.log('[TEST MODE] Skipping payment signature verification');
     }
 
     const registration = await this.childModel.findOne({
@@ -487,11 +504,30 @@ export class RegistrationService {
     if (dto.childName !== undefined) {
       registration.childName = dto.childName;
     }
+    if (dto.motherName !== undefined) {
+      registration.motherName = dto.motherName;
+    }
+    if (dto.fatherName !== undefined) {
+      registration.fatherName = dto.fatherName;
+    }
+    if (dto.address !== undefined) {
+      registration.address = dto.address;
+    }
+    if (dto.bloodGroup !== undefined) {
+      registration.bloodGroup = dto.bloodGroup as any;
+    }
+    if (dto.heightCm !== undefined) {
+      registration.heightCm = dto.heightCm;
+    }
+    if (dto.weightKg !== undefined) {
+      registration.weightKg = dto.weightKg;
+    }
     if (dto.profilePictureUrl !== undefined) {
       registration.profilePictureUrl = dto.profilePictureUrl;
     }
 
     await registration.save();
+    this.logger.log(`✅ Child profile updated: ${registrationId}`);
     return registration;
   }
 
@@ -572,30 +608,48 @@ export class RegistrationService {
         this.logger.error(`❌ ${errorMsg}`);
       }
 
-      // 2. DEVELOPMENT MILESTONES - Seed age-appropriate development tracking
+      // 2. DEVELOPMENT MILESTONES - Seed ALL age groups (0-18 years)
       try {
-        this.logger.log(`🧠 Seeding development milestones for ${registration.registrationId}...`);
+        this.logger.log(`🧠 Seeding development milestones for ALL age groups for ${registration.registrationId}...`);
         
-        // Get child's current age group
-        const dashboardAgeGroup = this.dashboardService.getChildAgeGroup(registration.dateOfBirth);
-        const cmsAgeGroup = this.convertToAgeGroupString(dashboardAgeGroup);
+        // Define all age groups
+        const allAgeGroups: AgeGroupEnum[] = [
+          AgeGroupEnum.INFANT,
+          AgeGroupEnum.TODDLER,
+          AgeGroupEnum.PRESCHOOL,
+          AgeGroupEnum.SCHOOL,
+          AgeGroupEnum.TEEN
+        ];
         
-        this.logger.log(`Child age group: ${cmsAgeGroup}`);
+        let totalMilestonesSeeded = 0;
         
-        // Get milestone templates for current age group from CMS
-        const templates = await this.cmsService.getMilestoneTemplatesByAgeGroup(cmsAgeGroup);
-        
-        if (templates && templates.length > 0) {
-          const developmentMilestones = await this.dashboardService.seedDevelopmentMilestones(
-            registration.registrationId,
-            dashboardAgeGroup,
-            templates
-          );
-          activationResults.developmentMilestones = developmentMilestones.length;
-          this.logger.log(`✅ Seeded ${developmentMilestones.length} development milestones`);
-        } else {
-          this.logger.warn(`⚠️ No milestone templates found for age group: ${cmsAgeGroup}`);
+        // Seed milestones for each age group
+        for (const ageGroup of allAgeGroups) {
+          try {
+            const cmsAgeGroup = this.convertToAgeGroupString(ageGroup);
+            this.logger.log(`  📋 Seeding ${cmsAgeGroup} milestones...`);
+            
+            // Get milestone templates for this age group from CMS
+            const templates = await this.cmsService.getMilestoneTemplatesByAgeGroup(cmsAgeGroup);
+            
+            if (templates && templates.length > 0) {
+              const developmentMilestones = await this.dashboardService.seedDevelopmentMilestones(
+                registration.registrationId,
+                ageGroup,
+                templates
+              );
+              totalMilestonesSeeded += developmentMilestones.length;
+              this.logger.log(`  ✅ Seeded ${developmentMilestones.length} milestones for ${cmsAgeGroup}`);
+            } else {
+              this.logger.warn(`  ⚠️ No milestone templates found for age group: ${cmsAgeGroup}`);
+            }
+          } catch (ageGroupError) {
+            this.logger.error(`  ❌ Failed to seed ${ageGroup}: ${ageGroupError instanceof Error ? ageGroupError.message : ageGroupError}`);
+          }
         }
+        
+        activationResults.developmentMilestones = totalMilestonesSeeded;
+        this.logger.log(`✅ Seeded ${totalMilestonesSeeded} total development milestones across all age groups`);
       } catch (devError) {
         const errorMsg = `Failed to seed development milestones: ${devError instanceof Error ? devError.message : devError}`;
         activationResults.errors.push(errorMsg);

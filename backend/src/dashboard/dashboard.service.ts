@@ -51,6 +51,9 @@ export class DashboardService {
   /**
    * Auto-seeds the standard vaccination milestones for a newly registered child
    * based on the Indian NIS/IAP schedule.
+   * 
+   * LOGIC: Vaccines due BEFORE registration date are marked as COMPLETED (assumed already given)
+   *        Vaccines due AFTER registration date remain UPCOMING (user must update manually)
    */
   async seedVaccinationMilestones(registrationId: string, dob: Date): Promise<MilestoneDocument[]> {
     const existing = await this.milestoneModel.countDocuments({
@@ -66,18 +69,38 @@ export class DashboardService {
       }).exec();
     }
 
-    const milestones = VACCINATION_SCHEDULE.map((vaccine) => ({
-      registrationId,
-      title: vaccine.title,
-      description: vaccine.description,
-      category: MilestoneCategory.VACCINATION,
-      status: MilestoneStatus.UPCOMING,
-      dueDate: calculateDueDate(dob, vaccine.ageInMonths),
-      vaccineName: vaccine.vaccineName,
-    }));
+    // Get registration date (today) to determine which vaccines should be auto-completed
+    const registrationDate = new Date();
+    registrationDate.setHours(0, 0, 0, 0); // Set to start of day for comparison
+
+    const milestones = VACCINATION_SCHEDULE.map((vaccine) => {
+      const dueDate = calculateDueDate(dob, vaccine.ageInMonths);
+      dueDate.setHours(0, 0, 0, 0); // Set to start of day for comparison
+      
+      // If vaccine was due BEFORE registration date, mark as completed (assumed already given)
+      // If vaccine is due ON or AFTER registration date, keep as upcoming (user must update)
+      const isOverdue = dueDate < registrationDate;
+      
+      return {
+        registrationId,
+        title: vaccine.title,
+        description: vaccine.description,
+        category: MilestoneCategory.VACCINATION,
+        status: isOverdue ? MilestoneStatus.COMPLETED : MilestoneStatus.UPCOMING,
+        dueDate: dueDate,
+        vaccineName: vaccine.vaccineName,
+        completed: isOverdue, // Mark as completed if overdue
+        completedDate: isOverdue ? dueDate : undefined, // Use due date as completed date for past vaccines
+        notes: isOverdue ? 'Auto-completed: Vaccine was due before registration date' : undefined,
+      };
+    });
 
     const created = await this.milestoneModel.insertMany(milestones);
-    this.logger.log(`Seeded ${created.length} vaccination milestones for ${registrationId}`);
+    
+    const completedCount = milestones.filter(m => m.status === MilestoneStatus.COMPLETED).length;
+    const upcomingCount = milestones.filter(m => m.status === MilestoneStatus.UPCOMING).length;
+    
+    this.logger.log(`Seeded ${created.length} vaccination milestones for ${registrationId}: ${completedCount} auto-completed (past due), ${upcomingCount} upcoming`);
 
     return created as MilestoneDocument[];
   }
@@ -258,6 +281,9 @@ export class DashboardService {
       phone: string;
       phone2?: string;
       address?: string;
+      bloodGroup?: string;
+      heightCm?: number;
+      weightKg?: number;
       state: string;
       greenCohort: boolean;
       linkedSchoolId?: string;
@@ -294,6 +320,9 @@ export class DashboardService {
         phone: child.phone,
         phone2: child.phone2,
         address: child.address,
+        bloodGroup: child.bloodGroup,
+        heightCm: child.heightCm,
+        weightKg: child.weightKg,
         state: child.state,
         greenCohort: child.greenCohort,
         linkedSchoolId: child.linkedSchoolId,

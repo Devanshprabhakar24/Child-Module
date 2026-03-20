@@ -1,11 +1,58 @@
-/** Flat subscription pricing for all age groups — ₹999 incl. GST */
-export const SUBSCRIPTION_TOTAL_PRICE = 999;
-export const SUBSCRIPTION_BASE_PRICE = 846.61; // ₹846.61 before GST
+/** Subscription Plans */
+export const SUBSCRIPTION_PLANS = {
+  ANNUAL: {
+    id: 'ANNUAL',
+    name: 'Annual Plan',
+    duration: '1 Year',
+    price: 249,
+    basePrice: 211.02, // Before 18% GST
+    gstAmount: 37.98,
+    features: [
+      'Complete vaccination tracking',
+      'Development milestone monitoring',
+      'Health records management',
+      'Email & SMS reminders',
+      'Go Green tree planting',
+      '1 year access to all features',
+    ],
+    popular: false,
+  },
+  FIVE_YEAR: {
+    id: 'FIVE_YEAR',
+    name: '5-Year Plan',
+    duration: '5 Years',
+    price: 999,
+    basePrice: 846.61, // Before 18% GST
+    gstAmount: 152.39,
+    savings: 246, // Save ₹246 compared to 5 annual plans (5 × 249 = 1245)
+    savingsPercent: 20,
+    features: [
+      'Complete vaccination tracking',
+      'Development milestone monitoring',
+      'Health records management',
+      'Email & SMS reminders',
+      'Go Green tree planting',
+      '5 years access to all features',
+      'Priority support',
+      'Save ₹246 (20% off)',
+    ],
+    popular: true,
+  },
+} as const;
+
+export type SubscriptionPlanId = keyof typeof SUBSCRIPTION_PLANS;
+
+/** Default plan (5-Year is recommended) */
+export const DEFAULT_PLAN: SubscriptionPlanId = 'FIVE_YEAR';
+
+/** Legacy constant for backward compatibility */
+export const SUBSCRIPTION_TOTAL_PRICE = SUBSCRIPTION_PLANS.FIVE_YEAR.price;
+export const SUBSCRIPTION_BASE_PRICE = SUBSCRIPTION_PLANS.FIVE_YEAR.basePrice;
 export const GST_RATE = 0.18; // 18% GST
-export const GST_AMOUNT = 152.39; // ₹152.39
+export const GST_AMOUNT = SUBSCRIPTION_PLANS.FIVE_YEAR.gstAmount;
 export const CURRENCY = 'INR';
 
-/** Pricing breakdown by age group (identical pricing for all groups) */
+/** Pricing breakdown by age group (for backward compatibility) */
 export const PRICING_BREAKDOWN = {
   '0-5': { label: '0–5 Years', totalPrice: 999, basePrice: 846.61, gstAmount: 152.39 },
   '6-12': { label: '6–12 Years', totalPrice: 999, basePrice: 846.61, gstAmount: 152.39 },

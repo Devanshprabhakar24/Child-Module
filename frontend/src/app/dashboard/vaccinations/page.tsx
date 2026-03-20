@@ -1,10 +1,14 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import VaccinationHeader from "@/components/dashboard/vaccinations/VaccinationHeader";
 import VaccinationSidePanel from "@/components/dashboard/vaccinations/VaccinationSidePanel";
+import MarkVaccineDoneModal from "@/components/dashboard/vaccinations/MarkVaccineDoneModal";
+import ViewRecordModal from "@/components/dashboard/vaccinations/ViewRecordModal";
 import { useChildData } from "@/hooks/useChildData";
-import { Syringe, AlertTriangle, Loader2 } from "lucide-react";
+import { Syringe, AlertTriangle, Loader2, Check, X, Eye } from "lucide-react";
+
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
 const STATUS_LABELS: Record<string, { label: string; color: string; bg: string }> = {
   COMPLETED: { label: "Completed", color: "text-green-700", bg: "bg-green-100" },
@@ -25,8 +29,143 @@ function groupByPeriod(milestones: any[]) {
 }
 
 export default function VaccinationTrackerPage() {
-  const { loading, error, vaccination, profile, token, registrationId } = useChildData();
+  const { loading, error, vaccination, profile, token, registrationId, refetch } = useChildData();
   const [filter, setFilter] = useState("All");
+  const [selectedMilestone, setSelectedMilestone] = useState<any>(null);
+  const [showMarkDoneModal, setShowMarkDoneModal] = useState(false);
+  const [showViewRecordModal, setShowViewRecordModal] = useState(false);
+  const [healthRecords, setHealthRecords] = useState<Record<string, any>>({});
+  const [undoing, setUndoing] = useState<string | null>(null);
+
+  // Fetch health records for completed vaccines
+  useEffect(() => {
+    if (!token || !registrationId || !vaccination?.milestones) return;
+    
+    const fetchHealthRecords = async () => {
+      try {
+        console.log('🔍 Fetching health records for:', registrationId);
+        const res = await fetch(
+          `${API_BASE}/health-records/${registrationId}`,
+          {
+            headers: { Authorization: `Bearer ${token}` },
+          }
+        );
+        if (res.ok) {
+          const data = await res.json();
+          const records = data.data || [];
+          console.log('📋 Health records fetched:', records);
+          
+          // Map records by matching recordDate with milestone completedDate
+          const recordMap: Record<string, any> = {};
+          
+          vaccination.milestones.forEach((milestone: any) => {
+            if (milestone.status === 'COMPLETED' && milestone.completedDate) {
+              const milestoneDate = new Date(milestone.completedDate).toISOString().split('T')[0];
+              
+              // Find record with matching date and vaccination category
+              const matchingRecord = records.find((record: any) => {
+                const recordDate = new Date(record.recordDate).toISOString().split('T')[0];
+                const isVaccination = record.category === 'Vaccination Cards';
+                const dateMatches = recordDate === milestoneDate;
+                
+                return isVaccination && dateMatches;
+              });
+              
+              if (matchingRecord) {
+                // Ensure fileUrl has full API base URL
+                const fullRecord = {
+                  ...matchingRecord,
+                  fileUrl: matchingRecord.fileUrl?.startsWith('http') 
+                    ? matchingRecord.fileUrl 
+                    : `${API_BASE}${matchingRecord.fileUrl}`
+                };
+                recordMap[milestone._id] = fullRecord;
+                console.log(`✅ Matched record for milestone ${milestone._id}:`, fullRecord);
+              }
+            }
+          });
+          
+          console.log('🗺️ Final record map:', recordMap);
+          setHealthRecords(recordMap);
+        } else {
+          console.error('❌ Failed to fetch health records:', res.status);
+        }
+      } catch (err) {
+        console.error("Failed to fetch health records:", err);
+      }
+    };
+
+    fetchHealthRecords();
+  }, [token, registrationId, vaccination]);
+
+  const handleMarkDone = (milestone: any) => {
+    setSelectedMilestone(milestone);
+    setShowMarkDoneModal(true);
+  };
+
+  const handleViewRecord = (milestone: any) => {
+    const record = healthRecords[milestone._id];
+    console.log('👁️ View record for milestone:', milestone._id);
+    console.log('📋 Found record:', record);
+    console.log('🗺️ All health records:', healthRecords);
+    
+    // Show modal with either the health record or just the milestone details
+    setSelectedMilestone({ 
+      ...milestone, 
+      record: record || {
+        title: milestone.vaccineName || milestone.title,
+        recordDate: milestone.completedDate,
+        recordType: "VACCINATION",
+        description: milestone.description,
+        notes: milestone.notes,
+      }
+    });
+    setShowViewRecordModal(true);
+  };
+
+  const handleUndo = async (milestone: any) => {
+    if (!token) return;
+    
+    if (!confirm("Are you sure you want to undo this vaccination? This will reset the status.")) {
+      return;
+    }
+    
+    setUndoing(milestone._id);
+    try {
+      const res = await fetch(
+        `${API_BASE}/dashboard/milestones/${milestone._id}`,
+        {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            status: "DUE",
+            completedDate: null,
+            notes: null,
+          }),
+        }
+      );
+
+      if (!res.ok) {
+        const errorData = await res.json();
+        throw new Error(errorData.message || "Failed to undo vaccine");
+      }
+
+      alert("✅ Vaccine status reset!");
+      refetch();
+    } catch (error: any) {
+      console.error("Error:", error);
+      alert(`Failed to undo: ${error.message}`);
+    } finally {
+      setUndoing(null);
+    }
+  };
+
+  const handleSuccess = () => {
+    refetch();
+  };
 
   const milestones = vaccination?.milestones || [];
   const filtered = filter === "All"
@@ -37,9 +176,22 @@ export default function VaccinationTrackerPage() {
   const total = vaccination?.total ?? 0;
   const pct = total > 0 ? Math.round((completed / total) * 100) : 0;
 
+  // Calculate statistics
+  const stats = {
+    completed: milestones.filter((m) => m.status === "COMPLETED").length,
+    due: milestones.filter((m) => m.status === "DUE").length,
+    upcoming: milestones.filter((m) => m.status === "UPCOMING").length,
+    missed: milestones.filter((m) => m.status === "MISSED").length,
+  };
+
   return (
     <div className="mx-auto max-w-8xl">
-      <VaccinationHeader />
+      <VaccinationHeader 
+        completed={stats.completed}
+        due={stats.due}
+        upcoming={stats.upcoming}
+        missed={stats.missed}
+      />
 
       {/* Progress Bar */}
       <section className="mb-8 rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
@@ -98,6 +250,8 @@ export default function VaccinationTrackerPage() {
                   ? `Given on: ${new Date(m.completedDate).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })}`
                   : `Due: ${new Date(m.dueDate).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })}`;
 
+                const hasRecord = healthRecords[m._id];
+
                 return (
                   <div
                     key={m._id}
@@ -132,17 +286,50 @@ export default function VaccinationTrackerPage() {
                       </div>
                     </div>
                     <div className="flex items-center gap-2">
-                      <span className={`rounded-lg px-4 py-2 text-xs font-medium ${
-                        m.status === "COMPLETED" 
-                          ? "bg-green-50 text-green-700" 
-                          : m.status === "DUE"
-                          ? "bg-amber-50 text-amber-700"
-                          : m.status === "MISSED"
-                          ? "bg-red-50 text-red-700"
-                          : "bg-slate-50 text-slate-700"
-                      }`}>
-                        {m.status === "COMPLETED" ? "✓ Done" : s.label}
-                      </span>
+                      {m.status === "COMPLETED" ? (
+                        <>
+                          <button
+                            onClick={() => handleViewRecord(m)}
+                            className="flex items-center gap-1.5 rounded-lg border border-primary bg-white px-3 py-2 text-xs font-medium text-primary transition-colors hover:bg-primary/5"
+                          >
+                            <Eye className="h-3.5 w-3.5" />
+                            View Details
+                          </button>
+                          <button
+                            onClick={() => handleUndo(m)}
+                            disabled={undoing === m._id}
+                            className="flex items-center gap-1.5 rounded-lg border border-red-300 bg-white px-3 py-2 text-xs font-medium text-red-600 transition-colors hover:bg-red-50 disabled:opacity-60"
+                          >
+                            {undoing === m._id ? (
+                              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                            ) : (
+                              <X className="h-3.5 w-3.5" />
+                            )}
+                            Undo
+                          </button>
+                        </>
+                      ) : (
+                        <div className="relative group">
+                          <button
+                            onClick={() => handleMarkDone(m)}
+                            disabled={m.status === "UPCOMING"}
+                            className={`flex items-center gap-1.5 rounded-lg px-4 py-2 text-xs font-medium transition-colors ${
+                              m.status === "UPCOMING"
+                                ? "cursor-not-allowed bg-slate-300 text-slate-500 opacity-60"
+                                : "bg-primary text-white hover:bg-primary/90"
+                            }`}
+                          >
+                            <Check className="h-3.5 w-3.5" />
+                            Mark as Done
+                          </button>
+                          {m.status === "UPCOMING" && (
+                            <div className="absolute bottom-full left-1/2 mb-2 hidden -translate-x-1/2 whitespace-nowrap rounded-lg bg-slate-800 px-3 py-1.5 text-xs text-white shadow-lg group-hover:block">
+                              This vaccine is not due yet
+                              <div className="absolute left-1/2 top-full h-0 w-0 -translate-x-1/2 border-4 border-transparent border-t-slate-800"></div>
+                            </div>
+                          )}
+                        </div>
+                      )}
                     </div>
                   </div>
                 );
@@ -153,6 +340,32 @@ export default function VaccinationTrackerPage() {
 
         <VaccinationSidePanel />
       </div>
+
+      {/* Modals */}
+      {showMarkDoneModal && selectedMilestone && token && registrationId && (
+        <MarkVaccineDoneModal
+          isOpen={showMarkDoneModal}
+          onClose={() => {
+            setShowMarkDoneModal(false);
+            setSelectedMilestone(null);
+          }}
+          milestone={selectedMilestone}
+          registrationId={registrationId}
+          token={token}
+          onSuccess={handleSuccess}
+        />
+      )}
+
+      {showViewRecordModal && selectedMilestone?.record && (
+        <ViewRecordModal
+          isOpen={showViewRecordModal}
+          onClose={() => {
+            setShowViewRecordModal(false);
+            setSelectedMilestone(null);
+          }}
+          record={selectedMilestone.record}
+        />
+      )}
     </div>
   );
 }

@@ -56,7 +56,8 @@ export class NotificationsService {
   // ─── High-Level Event Dispatchers ─────────────────────────────────────
 
   /**
-   * Sends payment confirmation via SMS, WhatsApp, and Email.
+   * Sends payment confirmation via EMAIL ONLY with invoice PDF
+   * Single consolidated message to avoid spam
    */
   async sendPaymentConfirmation(payload: {
     phone: string;
@@ -67,25 +68,20 @@ export class NotificationsService {
     amount: number;
     invoiceUrl?: string;
     invoiceBuffer?: Buffer;
+    subscriptionPlan?: 'ANNUAL' | 'FIVE_YEAR';
   }): Promise<void> {
-    const message = `Dear ${payload.parentName}, payment of ₹${payload.amount} received for ${payload.childName}'s registration (${payload.registrationId}). Thank you for choosing WombTo18!`;
-
-    await Promise.all([
-      this.sendSms(payload.phone, message),
-      this.sendWhatsApp(
-        payload.phone,
-        message + (payload.invoiceBuffer ? ' 📄 Invoice PDF attached.' : ''),
-        payload.invoiceBuffer,
-      ),
-      this.emailService.sendPaymentConfirmationEmail(
-        payload.email,
-        payload.parentName,
-        payload.childName,
-        payload.registrationId,
-        payload.amount,
-        payload.invoiceBuffer,
-      ),
-    ]);
+    // Send ONLY email with invoice PDF - single message
+    await this.emailService.sendPaymentConfirmationEmail(
+      payload.email,
+      payload.parentName,
+      payload.childName,
+      payload.registrationId,
+      payload.amount,
+      payload.invoiceBuffer,
+      payload.subscriptionPlan,
+    );
+    
+    this.logger.log(`✅ Payment confirmation email sent to ${payload.email}`);
   }
 
   /**
@@ -114,8 +110,8 @@ export class NotificationsService {
   }
 
   /**
-   * Sends Go Green Participation Certificate via WhatsApp and Email.
-   * Generates the certificate PDF with child and mother details.
+   * Sends Go Green Participation Certificate via EMAIL ONLY
+   * Single consolidated message with certificate PDF to avoid spam
    */
   async sendGoGreenCertificate(payload: {
     phone: string;
@@ -127,8 +123,6 @@ export class NotificationsService {
     dateOfBirth?: string;
     treeId?: string;
   }): Promise<void> {
-    const message = `🌱 Congratulations ${payload.parentName}! ${payload.childName} is now part of the WombTo18 Green Cohort. A tree has been planted in their name as part of our environmental initiative. Your Go Green Participation Certificate is attached.`;
-
     try {
       // Generate the certificate PDF
       const certificateBuffer = await this.certificateService.generateGoGreenCertificate({
@@ -145,35 +139,32 @@ export class NotificationsService {
         treeId: payload.treeId,
       });
 
-      await Promise.all([
-        this.sendWhatsApp(payload.phone, message, certificateBuffer),
-        this.emailService.sendGoGreenCertificateEmail(
-          payload.email,
-          payload.parentName,
-          payload.childName,
-          payload.registrationId,
-          certificateBuffer,
-        ),
-      ]);
+      // Send ONLY email with certificate PDF - single message
+      await this.emailService.sendGoGreenCertificateEmail(
+        payload.email,
+        payload.parentName,
+        payload.childName,
+        payload.registrationId,
+        certificateBuffer,
+      );
 
-      this.logger.log(`Go Green certificate sent to ${payload.parentName} for ${payload.childName} (${payload.registrationId})`);
+      this.logger.log(`✅ Go Green certificate email sent to ${payload.email} for ${payload.childName} (${payload.registrationId})`);
     } catch (error) {
-      this.logger.error(`Failed to generate/send Go Green certificate for ${payload.registrationId}:`, error);
+      this.logger.error(`❌ Failed to generate/send Go Green certificate for ${payload.registrationId}:`, error);
       
-      // Fallback: send message without certificate
-      await Promise.all([
-        this.sendWhatsApp(payload.phone, message),
-        this.sendEmail(
-          payload.email,
-          '🌱 WombTo18 - Go Green Participation Certificate',
-          message + ' Your certificate will be available in your dashboard shortly.',
-        ),
-      ]);
+      // Fallback: send email without certificate
+      const message = `🌱 Congratulations ${payload.parentName}! ${payload.childName} is now part of the WombTo18 Green Cohort. A tree has been planted in their name. Your certificate will be available in your dashboard shortly.`;
+      await this.sendEmail(
+        payload.email,
+        '🌱 WombTo18 - Go Green Participation Certificate',
+        message,
+      );
     }
   }
 
   /**
-   * Sends vaccination reminder via SMS, WhatsApp, Email, and optionally IVR.
+   * Sends vaccination reminder via EMAIL ONLY
+   * Single consolidated message to avoid spam
    */
   async sendVaccinationReminder(payload: {
     phone: string;
@@ -194,24 +185,17 @@ export class NotificationsService {
       prefix = 'Overdue Reminder';
     }
 
-    const message = `${prefix}: ${payload.childName}'s ${payload.vaccineName} vaccination is ${payload.offset === 0 ? 'due today' : payload.offset < 0 ? `due on ${payload.dueDate}` : `was due on ${payload.dueDate}`}. Please visit your doctor.`;
+    // Send ONLY email - single message to avoid spam
+    await this.emailService.sendVaccinationReminderEmail(
+      payload.email,
+      payload.parentName,
+      payload.childName,
+      payload.vaccineName,
+      payload.dueDate,
+      payload.offset,
+    );
 
-    await Promise.all([
-      this.sendSms(payload.phone, message),
-      this.sendWhatsApp(payload.phone, message),
-      this.emailService.sendVaccinationReminderEmail(
-        payload.email,
-        payload.parentName,
-        payload.childName,
-        payload.vaccineName,
-        payload.dueDate,
-        payload.offset,
-      ),
-    ]);
-
-    if (payload.enableIvr) {
-      await this.sendIvrCall(payload.phone, message);
-    }
+    this.logger.log(`✅ Vaccination reminder email sent to ${payload.email} for ${payload.vaccineName}`);
   }
 
   /**
@@ -284,6 +268,35 @@ export class NotificationsService {
       payload.state,
       payload.subscriptionAmount,
     );
+  }
+
+  /**
+   * Sends complete vaccination schedule email with PDF attachment
+   * Called after Go Green certificate to provide full vaccination roadmap
+   */
+  async sendVaccinationScheduleEmail(payload: {
+    email: string;
+    parentName: string;
+    childName: string;
+    dateOfBirth: string;
+    registrationId: string;
+    vaccineSchedule: Array<{
+      name: string;
+      ageGroup: string;
+      dueDate: string;
+      status: 'completed' | 'due' | 'upcoming';
+    }>;
+  }): Promise<void> {
+    await this.emailService.sendVaccinationScheduleEmail(
+      payload.email,
+      payload.parentName,
+      payload.childName,
+      payload.dateOfBirth,
+      payload.registrationId,
+      payload.vaccineSchedule,
+    );
+    
+    this.logger.log(`✅ Vaccination schedule email sent to ${payload.email} for ${payload.childName}`);
   }
 
   // ─── Channel Implementations (Placeholder → Replace with real providers) ─

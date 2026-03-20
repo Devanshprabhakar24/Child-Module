@@ -1,149 +1,202 @@
-import {
-  Body,
-  Controller,
-  Get,
-  Headers,
-  HttpCode,
-  HttpStatus,
-  Logger,
-  NotFoundException,
-  Param,
-  Post,
-  RawBodyRequest,
-  Req,
-  Res,
-  UnauthorizedException,
-  UseGuards,
-} from '@nestjs/common';
-import { Request, Response } from 'express';
+import { Controller, Post, Body, Get, Param, HttpCode, HttpStatus, Logger, Res, NotFoundException } from '@nestjs/common';
+import { Response } from 'express';
 import { PaymentsService } from './payments.service';
-import { RazorpayWebhookEvent } from '@wombto18/shared';
-import { AuthGuard } from '../auth/guards/auth.guard';
+import { InvoiceService } from './invoice.service';
 
+/**
+ * Payment Controller
+ * Handles Razorpay payment operations
+ */
 @Controller('payments')
 export class PaymentsController {
   private readonly logger = new Logger(PaymentsController.name);
 
-  constructor(private readonly paymentsService: PaymentsService) {}
+  constructor(
+    private readonly paymentsService: PaymentsService,
+    private readonly invoiceService: InvoiceService,
+  ) {}
 
-  @Get('test-mode-status')
-  async getTestModeStatus() {
+  /**
+   * Create Razorpay Order
+   * POST /payments/create-order
+   * 
+   * @param body - { amount: number, registrationId: string, childName: string, isUpgrade?: boolean }
+   * @returns { orderId, amount, currency, keyId }
+   */
+  @Post('create-order')
+  @HttpCode(HttpStatus.OK)
+  async createOrder(
+    @Body() body: { amount: number; registrationId: string; childName: string; isUpgrade?: boolean },
+  ) {
+    try {
+      this.logger.log(`Creating order for registration: ${body.registrationId}${body.isUpgrade ? ' [UPGRADE]' : ''}`);
+      
+      const order = await this.paymentsService.createOrder(
+        body.amount,
+        body.registrationId,
+        body.childName,
+        body.isUpgrade || false,
+      );
+
+      return {
+        success: true,
+        data: order,
+      };
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      this.logger.error(`Failed to create order: ${errorMessage}`);
+      return {
+        success: false,
+        message: errorMessage || 'Failed to create order',
+      };
+    }
+  }
+
+  /**
+   * Verify Razorpay Payment
+   * POST /payments/verify
+   * 
+   * @param body - { razorpay_order_id, razorpay_payment_id, razorpay_signature }
+   * @returns { success: boolean, registrationId?: string }
+   */
+  @Post('verify')
+  @HttpCode(HttpStatus.OK)
+  async verifyPayment(
+    @Body()
+    body: {
+      razorpay_order_id: string;
+      razorpay_payment_id: string;
+      razorpay_signature: string;
+    },
+  ) {
+    try {
+      this.logger.log(`Verifying payment for order: ${body.razorpay_order_id}`);
+
+      const result = await this.paymentsService.verifyPayment(
+        body.razorpay_order_id,
+        body.razorpay_payment_id,
+        body.razorpay_signature,
+      );
+
+      return {
+        success: true,
+        data: result,
+      };
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      this.logger.error(`Payment verification failed: ${errorMessage}`);
+      return {
+        success: false,
+        message: errorMessage || 'Payment verification failed',
+      };
+    }
+  }
+
+  /**
+   * Get Razorpay Key ID for frontend
+   * GET /payments/config
+   */
+  @Post('config')
+  @HttpCode(HttpStatus.OK)
+  getConfig() {
     return {
       success: true,
-      testMode: this.paymentsService.isTestMode(),
-      demoMode: this.paymentsService.isDemoMode(),
+      data: {
+        keyId: this.paymentsService.getRazorpayKeyId(),
+      },
     };
   }
 
-  @Post('create-order')
-  async createOrder(@Body() body: { registrationId: string; childName: string }) {
-    try {
-      const { registrationId, childName } = body;
-      
-      if (!registrationId || !childName) {
-        return {
-          success: false,
-          message: 'Registration ID and child name are required',
-        };
-      }
-
-      const payment = await this.paymentsService.createOrder(registrationId, childName);
-      
-      return {
-        success: true,
-        data: {
-          razorpayOrderId: payment.razorpayOrderId,
-          amount: payment.amount,
-          currency: payment.currency,
-          registrationId: payment.registrationId,
-        },
-      };
-    } catch (error: any) {
-      console.error('Create order error:', error);
-      return {
-        success: false,
-        message: error.message || 'Failed to create payment order',
-      };
-    }
+  /**
+   * Get test mode status
+   * GET /payments/test-mode-status
+   */
+  @Post('test-mode-status')
+  @HttpCode(HttpStatus.OK)
+  getTestModeStatus() {
+    return {
+      success: true,
+      testMode: this.paymentsService.isTestMode(),
+      demoMode: false, // Set to true if you want to show Razorpay UI in test mode
+    };
   }
 
-  @Get('order/:orderId')
-  @UseGuards(AuthGuard)
-  async getPaymentByOrderId(@Param('orderId') orderId: string) {
-    const payment = await this.paymentsService.findByOrderId(orderId);
-    if (!payment) {
-      return { success: false, message: 'Payment not found' };
-    }
-    return { success: true, data: payment };
-  }
-
-  @Get(':registrationId/invoice')
+  /**
+   * Download Invoice PDF
+   * GET /payments/invoice/:registrationId
+   * 
+   * @param registrationId - Child registration ID
+   * @param res - Express response object
+   */
+  @Get('invoice/:registrationId')
   async downloadInvoice(
     @Param('registrationId') registrationId: string,
     @Res() res: Response,
   ) {
-    this.logger.log(`Invoice download request for: ${registrationId}`);
     try {
-      const pdfBuffer = await this.paymentsService.getInvoicePdf(registrationId);
-      if (!pdfBuffer) {
-        this.logger.warn(`No completed payment found for: ${registrationId}`);
-        throw new NotFoundException('No completed payment found for this registration');
+      this.logger.log(`Downloading invoice for registration: ${registrationId}`);
+
+      // Get registration data
+      const registration = await this.paymentsService.getRegistrationForInvoice(registrationId);
+
+      if (!registration) {
+        throw new NotFoundException(`Registration not found: ${registrationId}`);
       }
 
-      this.logger.log(`Serving invoice PDF (${pdfBuffer.length} bytes) for: ${registrationId}`);
-      res.set({
-        'Content-Type': 'application/pdf',
-        'Content-Disposition': `attachment; filename="WombTo18_Invoice_${registrationId}.pdf"`,
-        'Content-Length': pdfBuffer.length.toString(),
+      if (registration.paymentStatus !== 'COMPLETED') {
+        throw new NotFoundException(`Payment not completed for registration: ${registrationId}`);
+      }
+
+      // Generate invoice
+      const invoiceNumber = `INV-${registration.registrationId}`;
+      const invoiceDate = new Date().toLocaleDateString('en-IN', {
+        day: '2-digit',
+        month: 'short',
+        year: 'numeric',
       });
 
-      res.end(pdfBuffer);
-    } catch (err) {
-      if (err instanceof NotFoundException) throw err;
-      this.logger.error(`Invoice generation error: ${err instanceof Error ? err.message : String(err)}`);
-      throw err;
+      const invoicePDF = await this.invoiceService.generateInvoice({
+        invoiceNumber,
+        date: invoiceDate,
+        parentName: registration.motherName,
+        childName: registration.childName,
+        registrationId: registration.registrationId,
+        email: registration.email,
+        phone: registration.phone,
+        amount: registration.subscriptionAmount,
+        currency: 'INR',
+        razorpayOrderId: registration.razorpayOrderId || '',
+        razorpayPaymentId: registration.razorpayPaymentId,
+        subscriptionPlan: registration.subscriptionPlan,
+      });
+
+      // Set response headers
+      res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader(
+        'Content-Disposition',
+        `attachment; filename="WombTo18-Invoice-${registrationId}.pdf"`,
+      );
+      res.setHeader('Content-Length', invoicePDF.length);
+
+      // Send PDF
+      res.send(invoicePDF);
+
+      this.logger.log(`✅ Invoice downloaded for registration: ${registrationId}`);
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      this.logger.error(`Failed to download invoice: ${errorMessage}`);
+      
+      if (error instanceof NotFoundException) {
+        res.status(HttpStatus.NOT_FOUND).json({
+          success: false,
+          message: errorMessage,
+        });
+      } else {
+        res.status(HttpStatus.INTERNAL_SERVER_ERROR).json({
+          success: false,
+          message: 'Failed to generate invoice',
+        });
+      }
     }
-  }
-
-  @Get(':registrationId')
-  @UseGuards(AuthGuard)
-  async getPayments(@Param('registrationId') registrationId: string) {
-    const payments = await this.paymentsService.findByRegistrationId(registrationId);
-    return { success: true, data: payments };
-  }
-
-  @Post('webhook/razorpay')
-  @HttpCode(HttpStatus.OK)
-  async handleRazorpayWebhook(
-    @Req() req: RawBodyRequest<Request>,
-    @Headers('x-razorpay-signature') signature: string,
-  ) {
-    const rawBody = req.rawBody;
-
-    if (!rawBody || !signature) {
-      throw new UnauthorizedException('Missing webhook signature or body');
-    }
-
-    const isValid = this.paymentsService.verifyWebhookSignature(rawBody, signature);
-    if (!isValid) {
-      this.logger.warn('Invalid RazorPay webhook signature');
-      throw new UnauthorizedException('Invalid webhook signature');
-    }
-
-    const event = JSON.parse(rawBody.toString('utf-8')) as RazorpayWebhookEvent;
-
-    switch (event.event) {
-      case 'payment.captured':
-        await this.paymentsService.handlePaymentCaptured(event);
-        break;
-      case 'payment.failed':
-        await this.paymentsService.handlePaymentFailed(event);
-        break;
-      default:
-        this.logger.log(`Unhandled webhook event: ${event.event}`);
-    }
-
-    return { status: 'ok' };
   }
 }
-

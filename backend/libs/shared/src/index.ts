@@ -12,4 +12,7 @@ export * from './enums/indian-state.enum';
 export * from './enums/user-role.enum';
 export * from './enums/milestone.enum';
 export * from './enums/reminder.enum';
+export * from './enums/gender.enum';
+export * from './enums/registration-type.enum';
+export * from './enums/blood-group.enum';
 export * from './constants/pricing.constants';

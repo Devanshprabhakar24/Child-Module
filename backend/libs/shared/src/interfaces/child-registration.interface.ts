@@ -16,6 +16,9 @@ export interface IChildRegistration {
   phone: string;
   phone2?: string;
   address?: string;
+  bloodGroup?: string;
+  heightCm?: number;
+  weightKg?: number;
   profilePictureUrl?: string;
   registrationType: 'DIRECT' | 'HOSPITAL' | 'CHANNEL_PARTNER';
   channelPartnerId?: string;

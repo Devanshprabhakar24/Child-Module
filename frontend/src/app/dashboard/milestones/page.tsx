@@ -15,11 +15,11 @@ import {
 } from "lucide-react";
 
 const AGE_GROUPS = [
-  { key: '0-1 years', label: '0-1 Years', emoji: '👶' },
-  { key: '1-3 years', label: '1-3 Years', emoji: '🧒' },
-  { key: '3-5 years', label: '3-5 Years', emoji: '👦' },
-  { key: '5-12 years', label: '5-12 Years', emoji: '🧑' },
-  { key: '13-18 years', label: '13-18 Years', emoji: '👨' },
+  { key: '0-1 years', label: '0-1 Years', emoji: '👶', order: 1 },
+  { key: '1-3 years', label: '1-3 Years', emoji: '🧒', order: 2 },
+  { key: '3-5 years', label: '3-5 Years', emoji: '👦', order: 3 },
+  { key: '5-12 years', label: '5-12 Years', emoji: '🧑', order: 4 },
+  { key: '13-18 years', label: '13-18 Years', emoji: '👨', order: 5 },
 ];
 
 const MILESTONE_TYPES = {
@@ -83,8 +83,9 @@ interface Milestone {
 
 export default function MilestonesPage() {
   const { profile, loading, error } = useChildData();
-  const [selectedAgeGroup, setSelectedAgeGroup] = useState<string>('0-1 years'); // Default to first age group
+  const [selectedAgeGroup, setSelectedAgeGroup] = useState<string>(''); // Will be set to current age group
   const [milestones, setMilestones] = useState<Milestone[]>([]);
+  const [allMilestones, setAllMilestones] = useState<Milestone[]>([]); // Store all milestones for overall progress
   const [currentAgeGroup, setCurrentAgeGroup] = useState<string>('');
   const [availableAgeGroups, setAvailableAgeGroups] = useState<string[]>([]);
   const [loadingMilestones, setLoadingMilestones] = useState(false);
@@ -136,10 +137,9 @@ export default function MilestonesPage() {
             setChildAgeInMonths(ageMonths);
           }
           
-          // Set selected age group to current age group or default to first
-          if (!selectedAgeGroup) {
-            setSelectedAgeGroup(result.data.currentAgeGroup || '0-1 years');
-          }
+          // Set selected age group to current age group (only unlocked group)
+          const defaultGroup = result.data.currentAgeGroup || result.data.availableAgeGroups?.[0] || '0-1 years';
+          setSelectedAgeGroup(defaultGroup);
         }
       } catch (err) {
         console.error('Failed to fetch development milestones overview:', err);
@@ -179,6 +179,40 @@ export default function MilestonesPage() {
 
     fetchAgeGroupMilestones();
   }, [profile?.registrationId, selectedAgeGroup]);
+
+  // Fetch ALL milestones for overall progress calculation
+  useEffect(() => {
+    if (!profile?.registrationId) return;
+
+    const fetchAllMilestones = async () => {
+      try {
+        // Fetch milestones for all age groups
+        const allMilestonesPromises = AGE_GROUPS.map(async (group) => {
+          const response = await fetch(
+            `http://localhost:8000/dashboard/milestones/${profile.registrationId}?ageGroup=${encodeURIComponent(group.key)}`,
+            {
+              headers: {
+                Authorization: `Bearer ${localStorage.getItem("wt18_token")}`,
+              },
+            }
+          );
+          if (response.ok) {
+            const result = await response.json();
+            return result.data || [];
+          }
+          return [];
+        });
+
+        const allMilestonesArrays = await Promise.all(allMilestonesPromises);
+        const flattenedMilestones = allMilestonesArrays.flat();
+        setAllMilestones(flattenedMilestones);
+      } catch (err) {
+        console.error('Failed to fetch all milestones:', err);
+      }
+    };
+
+    fetchAllMilestones();
+  }, [profile?.registrationId, currentAgeGroup]); // Refetch when current age group changes
 
   // Seed milestones for an age group
   const seedAgeGroupMilestones = async (ageGroup: string) => {
@@ -246,6 +280,25 @@ export default function MilestonesPage() {
         if (refreshResponse.ok) {
           const refreshResult = await refreshResponse.json();
           setMilestones(refreshResult.data || []);
+          
+          // Also refresh allMilestones for overall progress
+          const allMilestonesPromises = AGE_GROUPS.map(async (group) => {
+            const response = await fetch(
+              `http://localhost:8000/dashboard/milestones/${profile.registrationId}?ageGroup=${encodeURIComponent(group.key)}`,
+              {
+                headers: {
+                  Authorization: `Bearer ${localStorage.getItem("wt18_token")}`,
+                },
+              }
+            );
+            if (response.ok) {
+              const result = await response.json();
+              return result.data || [];
+            }
+            return [];
+          });
+          const allMilestonesArrays = await Promise.all(allMilestonesPromises);
+          setAllMilestones(allMilestonesArrays.flat());
         }
       } else {
         const errorText = await response.text();
@@ -290,8 +343,20 @@ export default function MilestonesPage() {
 
       if (response.ok) {
         const result = await response.json();
-        // Update local state
+        // Update local state for current age group
         setMilestones(prev =>
+          prev.map(m =>
+            m._id === milestoneId
+              ? { 
+                  ...m, 
+                  status: newStatus as 'NOT_STARTED' | 'IN_PROGRESS' | 'ACHIEVED' | 'DELAYED',
+                  achievedDate: newStatus === 'ACHIEVED' ? new Date().toISOString() : m.achievedDate
+                }
+              : m
+          )
+        );
+        // Also update allMilestones for overall progress
+        setAllMilestones(prev =>
           prev.map(m =>
             m._id === milestoneId
               ? { 
@@ -351,8 +416,14 @@ export default function MilestonesPage() {
       );
 
       if (response.ok) {
-        // Update local state
+        // Update local state for current age group
         setMilestones(prev =>
+          prev.map(m =>
+            m._id === milestoneId ? { ...m, notes } : m
+          )
+        );
+        // Also update allMilestones
+        setAllMilestones(prev =>
           prev.map(m =>
             m._id === milestoneId ? { ...m, notes } : m
           )
@@ -376,6 +447,72 @@ export default function MilestonesPage() {
     acc[m.type].push(m);
     return acc;
   }, {} as Record<string, Milestone[]>);
+
+  // Get current age group order
+  const currentAgeGroupOrder = AGE_GROUPS.find(g => g.key === currentAgeGroup)?.order || 1;
+  
+  // Calculate if an age group is completed (all previous age groups)
+  const isAgeGroupCompleted = (ageGroupKey: string): boolean => {
+    const groupOrder = AGE_GROUPS.find(g => g.key === ageGroupKey)?.order || 0;
+    return groupOrder < currentAgeGroupOrder;
+  };
+
+  // Calculate if an age group is locked (future age groups)
+  const isAgeGroupLocked = (ageGroupKey: string): boolean => {
+    const groupOrder = AGE_GROUPS.find(g => g.key === ageGroupKey)?.order || 0;
+    return groupOrder > currentAgeGroupOrder;
+  };
+
+  // Calculate overall progress including completed age groups
+  const calculateOverallProgress = () => {
+    let totalCompleted = 0;
+    let totalMilestones = 0;
+
+    console.log('🔍 Calculating overall progress...');
+    console.log('Current age group:', currentAgeGroup);
+    console.log('All milestones count:', allMilestones.length);
+
+    // Count ACTUAL completions from previous + current age groups
+    // Total includes ALL age groups (0-18 years)
+    AGE_GROUPS.forEach((group) => {
+      const groupMilestones = allMilestones.filter(m => m.ageGroup === group.key);
+      const groupCompleted = groupMilestones.filter(m => m.status === 'ACHIEVED').length;
+      
+      const isCompleted = isAgeGroupCompleted(group.key);
+      const isCurrent = group.key === currentAgeGroup;
+      const isLocked = isAgeGroupLocked(group.key);
+      
+      console.log(`📊 ${group.label}:`, {
+        total: groupMilestones.length,
+        completed: groupCompleted,
+        isCompleted,
+        isCurrent,
+        isLocked
+      });
+      
+      // Only process if this group has milestones loaded
+      if (groupMilestones.length > 0) {
+        // Add to total for ALL age groups (including future)
+        totalMilestones += groupMilestones.length;
+        
+        // Only count completions from previous + current age groups
+        if (isCompleted || isCurrent) {
+          totalCompleted += groupCompleted;
+        }
+        // Future age groups contribute to total but not to completed count
+      }
+    });
+
+    console.log('📈 Overall:', { totalCompleted, totalMilestones });
+
+    return {
+      completed: totalCompleted,
+      total: totalMilestones,
+      percentage: totalMilestones > 0 ? Math.round((totalCompleted / totalMilestones) * 100) : 0
+    };
+  };
+
+  const overallProgress = calculateOverallProgress();
 
   // Calculate progress for selected age group
   const totalInGroup = filteredMilestones.length;
@@ -415,11 +552,13 @@ export default function MilestonesPage() {
         <h1 className="text-2xl font-medium tracking-tight text-slate-900">Development Milestones</h1>
       </div>
 
-      {/* Progress Bar */}
-      {selectedAgeGroup && (
+      {/* Current Age Group Progress Bar */}
+      {selectedAgeGroup && selectedAgeGroup === currentAgeGroup && filteredMilestones.length > 0 && (
         <div className="mb-6 rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
           <div className="mb-2 flex items-center justify-between">
-            <span className="text-sm font-medium text-slate-700">Progress</span>
+            <span className="text-sm font-medium text-slate-700">
+              {AGE_GROUPS.find(g => g.key === selectedAgeGroup)?.label} Progress
+            </span>
             <span className="text-2xl font-bold text-primary">{progressPct}%</span>
           </div>
           <div className="h-2 w-full overflow-hidden rounded-full bg-slate-100">
@@ -435,47 +574,91 @@ export default function MilestonesPage() {
         </div>
       )}
 
-      {/* Info Banner */}
-      <div className="mb-6 rounded-xl border border-blue-200 bg-blue-50 p-4">
-        <div className="flex gap-3">
-          <Info className="h-5 w-5 shrink-0 text-blue-500" />
-          <div>
-            <p className="text-sm font-medium text-blue-900">🔓 All Age Groups Unlocked (Testing Mode)</p>
-            <p className="mt-1 text-xs text-blue-700">
-              All age groups are temporarily unlocked for testing purposes. 
-              Use YES/NO buttons to track achievements and test the milestone functionality.
-            </p>
+      {/* Completed Age Group Notice */}
+      {selectedAgeGroup && isAgeGroupCompleted(selectedAgeGroup) && (
+        <div className="mb-6 rounded-xl border border-green-200 bg-green-50 p-4">
+          <div className="flex gap-3">
+            <Check className="h-5 w-5 shrink-0 text-green-600" />
+            <div>
+              <p className="text-sm font-medium text-green-900">✅ Age Group Completed & Locked</p>
+              <p className="mt-1 text-xs text-green-700">
+                Your child has passed this developmental stage. This age group is now locked and all milestones are marked as completed.
+              </p>
+            </div>
           </div>
         </div>
-      </div>
+      )}
+
+      {/* Info Banner - Only show when testing mode is disabled */}
+      {false && (
+        <div className="mb-6 rounded-xl border border-blue-200 bg-blue-50 p-4">
+          <div className="flex gap-3">
+            <Info className="h-5 w-5 shrink-0 text-blue-500" />
+            <div>
+              <p className="text-sm font-medium text-blue-900">🔓 All Age Groups Unlocked (Testing Mode)</p>
+              <p className="mt-1 text-xs text-blue-700">
+                All age groups are temporarily unlocked for testing purposes. 
+                Use YES/NO buttons to track achievements and test the milestone functionality.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Age Group Tabs */}
-      <div className="mb-6 flex flex-wrap gap-2">
-        {AGE_GROUPS.map((group) => {
-          // TEMPORARY: All age groups are available for testing
-          const isAvailable = true; // availableAgeGroups.includes(group.key) || true;
-          const isCurrent = group.key === currentAgeGroup;
-          const isSelected = group.key === selectedAgeGroup;
+      <div className="mb-6">
+        <div className="mb-3 flex items-center gap-2">
+          <p className="text-sm text-slate-600">
+            Select an age group to view milestones. 
+            <span className="ml-1 text-xs text-slate-500">
+              (✅ = Completed & Locked, 🔒 = Not Yet Available)
+            </span>
+          </p>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          {AGE_GROUPS.map((group) => {
+            const isCurrent = group.key === currentAgeGroup;
+            const isSelected = group.key === selectedAgeGroup;
+            const isCompleted = isAgeGroupCompleted(group.key);
+            const isLocked = isAgeGroupLocked(group.key);
+            const isDisabled = isCompleted || isLocked; // Lock both completed and future groups
 
-          return (
-            <button
-              key={group.key}
-              onClick={() => setSelectedAgeGroup(group.key)}
-              className={`flex items-center gap-2 rounded-full px-4 py-2 text-sm font-medium transition-all ${
-                isSelected
-                  ? "bg-primary text-white shadow-md"
-                  : "border border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
-              }`}
-            >
-              <span>{group.emoji}</span>
-              <span>{group.label}</span>
-              {isCurrent && <TrendingUp className="h-3 w-3" />}
-            </button>
-          );
-        })}
+            return (
+              <button
+                key={group.key}
+                onClick={() => !isDisabled && setSelectedAgeGroup(group.key)}
+                disabled={isDisabled}
+                title={
+                  isCompleted
+                    ? "This age group is completed and locked"
+                    : isLocked 
+                    ? "This age group will unlock as your child grows" 
+                    : isCurrent 
+                    ? "Current age group - Click to view milestones" 
+                    : ""
+                }
+                className={`flex items-center gap-2 rounded-full px-4 py-2 text-sm font-medium transition-all ${
+                  isCompleted
+                    ? "cursor-not-allowed border border-green-300 bg-green-100 text-green-600 opacity-70"
+                    : isLocked
+                    ? "cursor-not-allowed border border-slate-200 bg-slate-100 text-slate-400 opacity-60"
+                    : isSelected
+                    ? "bg-primary text-white shadow-md"
+                    : "border border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
+                }`}
+              >
+                <span>{group.emoji}</span>
+                <span>{group.label}</span>
+                {isCompleted && <span className="text-xs">✅</span>}
+                {isCurrent && !isCompleted && <TrendingUp className="h-3 w-3" />}
+                {isLocked && <span className="text-xs">🔒</span>}
+              </button>
+            );
+          })}
+        </div>
       </div>
-      {/* Quick Summary */}
-      {selectedAgeGroup && filteredMilestones.length > 0 && (
+      {/* Quick Summary - Only for current age group */}
+      {selectedAgeGroup && selectedAgeGroup === currentAgeGroup && filteredMilestones.length > 0 && (
         <div className="mb-6 grid grid-cols-4 gap-4">
           <div className="rounded-lg border border-green-200 bg-green-50 p-4 text-center">
             <div className="text-2xl font-bold text-green-700">{completedInGroup}</div>
@@ -492,6 +675,20 @@ export default function MilestonesPage() {
           <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-center">
             <div className="text-2xl font-bold text-red-700">{delayedInGroup}</div>
             <div className="text-xs text-red-600">Delayed</div>
+          </div>
+        </div>
+      )}
+
+      {/* Completed Age Group Summary */}
+      {selectedAgeGroup && isAgeGroupCompleted(selectedAgeGroup) && filteredMilestones.length > 0 && (
+        <div className="mb-6 grid grid-cols-1 gap-4">
+          <div className="rounded-lg border border-green-200 bg-gradient-to-br from-green-50 to-green-100 p-6 text-center">
+            <div className="mb-2 text-4xl">🎉</div>
+            <div className="text-3xl font-bold text-green-700">{filteredMilestones.length}</div>
+            <div className="text-sm font-medium text-green-600">Milestones Completed</div>
+            <div className="mt-2 text-xs text-green-600">
+              Your child has successfully passed this developmental stage!
+            </div>
           </div>
         </div>
       )}
@@ -520,8 +717,8 @@ export default function MilestonesPage() {
         </div>
       )}
 
-      {/* Seed Button */}
-      {selectedAgeGroup && filteredMilestones.length === 0 && !loadingMilestones && (
+      {/* Seed Button - Only show if no milestones and not locked */}
+      {selectedAgeGroup && filteredMilestones.length === 0 && !loadingMilestones && !isAgeGroupCompleted(selectedAgeGroup) && !isAgeGroupLocked(selectedAgeGroup) && (
         <div className="mb-6 rounded-xl border border-slate-200 bg-white p-8 text-center">
           <div className="mb-4">
             <div className="mx-auto mb-3 flex h-16 w-16 items-center justify-center rounded-full bg-slate-100">
@@ -529,10 +726,10 @@ export default function MilestonesPage() {
             </div>
             <h3 className="text-lg font-medium text-slate-900 mb-2">No Milestones Found</h3>
             <p className="text-sm text-slate-600">
-              No development milestones have been loaded for the <strong>{selectedAgeGroup}</strong> age group yet.
+              Milestones should have been automatically loaded when you registered.
             </p>
             <p className="mt-2 text-xs text-slate-500">
-              Click the button below to load the standard developmental milestones for this age group.
+              If you're seeing this message, click the button below to manually load milestones.
             </p>
           </div>
           <button
@@ -570,14 +767,17 @@ export default function MilestonesPage() {
             const typeCompleted = typeMilestones.filter(m => 
               m.status === 'ACHIEVED'
             ).length;
+            const isGroupCompleted = isAgeGroupCompleted(selectedAgeGroup);
 
             return (
               <div key={type} className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
                 <div className="mb-4 flex items-center gap-2">
                   <span className="text-2xl">{config.icon}</span>
                   <h3 className="text-lg font-medium text-slate-900">{config.label} Development</h3>
-                  <span className={`ml-auto rounded-full px-3 py-1 text-xs font-medium ${config.color}`}>
-                    {typeCompleted} / {typeMilestones.length}
+                  <span className={`ml-auto rounded-full px-3 py-1 text-xs font-medium ${
+                    isGroupCompleted ? 'bg-green-100 text-green-700' : config.color
+                  }`}>
+                    {isGroupCompleted ? `${typeMilestones.length} / ${typeMilestones.length}` : `${typeCompleted} / ${typeMilestones.length}`}
                   </span>
                 </div>
 
@@ -589,16 +789,24 @@ export default function MilestonesPage() {
                       const Icon = statusConfig.icon;
                       const isDelayed = isMilestoneDelayed(milestone);
                       const finalStatusConfig = isDelayed ? STATUS_CONFIG.DELAYED : statusConfig;
+                      
+                      // For completed age groups, show all as completed
+                      const displayStatus = isGroupCompleted ? STATUS_CONFIG.COMPLETED : finalStatusConfig;
+                      const DisplayIcon = isGroupCompleted ? Check : Icon;
 
                       return (
                         <div
                           key={milestone._id}
-                          className={`flex items-start gap-4 rounded-lg border p-4 transition-all hover:border-slate-300 ${
-                            isDelayed ? 'border-red-200 bg-red-50' : 'border-slate-200'
+                          className={`flex items-start gap-4 rounded-lg border p-4 transition-all ${
+                            isGroupCompleted 
+                              ? 'border-green-200 bg-green-50/50' 
+                              : isDelayed 
+                              ? 'border-red-200 bg-red-50' 
+                              : 'border-slate-200 hover:border-slate-300'
                           }`}
                         >
-                          <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full ${finalStatusConfig.bg}`}>
-                            <Icon className={`h-5 w-5 ${finalStatusConfig.color}`} />
+                          <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full ${displayStatus.bg}`}>
+                            <DisplayIcon className={`h-5 w-5 ${displayStatus.color}`} />
                           </div>
                           <div className="flex-1">
                             <div className="flex items-start justify-between">
@@ -606,89 +814,106 @@ export default function MilestonesPage() {
                                 <h4 className="font-medium text-slate-900">{milestone.title}</h4>
                                 <p className="mt-1 text-sm text-slate-600">{milestone.description}</p>
                                 
-                                {/* Progress Bar */}
-                                <div className="mt-3 mb-2">
-                                  <div className="flex items-center justify-between mb-1">
-                                    <span className="text-xs font-medium text-slate-500">Progress</span>
-                                    <span className="text-xs font-medium text-slate-700">{getStatusProgress(milestone.status)}%</span>
+                                {/* Progress Bar - Only show for current age group */}
+                                {!isGroupCompleted && (
+                                  <div className="mt-3 mb-2">
+                                    <div className="flex items-center justify-between mb-1">
+                                      <span className="text-xs font-medium text-slate-500">Progress</span>
+                                      <span className="text-xs font-medium text-slate-700">{getStatusProgress(milestone.status)}%</span>
+                                    </div>
+                                    <div className="w-full bg-slate-200 rounded-full h-2 cursor-pointer" 
+                                         onClick={() => updateMilestoneStatus(milestone._id, getNextStatus(milestone.status))}>
+                                      <div 
+                                        className={`h-2 rounded-full transition-all duration-300 ${
+                                          milestone.status === 'ACHIEVED' ? 'bg-green-500' :
+                                          milestone.status === 'IN_PROGRESS' ? 'bg-blue-500' :
+                                          milestone.status === 'DELAYED' ? 'bg-red-500' : 'bg-slate-300'
+                                        }`}
+                                        style={{ width: `${getStatusProgress(milestone.status)}%` }}
+                                      />
+                                    </div>
+                                    <div className="flex justify-between mt-1 text-xs text-slate-400">
+                                      <span>Not Started</span>
+                                      <span>In Progress</span>
+                                      <span>Achieved</span>
+                                    </div>
                                   </div>
-                                  <div className="w-full bg-slate-200 rounded-full h-2 cursor-pointer" 
-                                       onClick={() => updateMilestoneStatus(milestone._id, getNextStatus(milestone.status))}>
-                                    <div 
-                                      className={`h-2 rounded-full transition-all duration-300 ${
-                                        milestone.status === 'ACHIEVED' ? 'bg-green-500' :
-                                        milestone.status === 'IN_PROGRESS' ? 'bg-blue-500' :
-                                        milestone.status === 'DELAYED' ? 'bg-red-500' : 'bg-slate-300'
-                                      }`}
-                                      style={{ width: `${getStatusProgress(milestone.status)}%` }}
-                                    />
-                                  </div>
-                                  <div className="flex justify-between mt-1 text-xs text-slate-400">
-                                    <span>Not Started</span>
-                                    <span>In Progress</span>
-                                    <span>Achieved</span>
-                                  </div>
-                                </div>
+                                )}
 
-                                {milestone.achievedDate && (
+                                {isGroupCompleted && (
+                                  <p className="mt-2 text-xs text-green-600">
+                                    ✅ Completed as part of {AGE_GROUPS.find(g => g.key === selectedAgeGroup)?.label} developmental stage
+                                  </p>
+                                )}
+
+                                {!isGroupCompleted && milestone.achievedDate && (
                                   <p className="mt-1 text-xs text-green-600">
                                     ✅ Achieved on {new Date(milestone.achievedDate).toLocaleDateString('en-IN')}
                                   </p>
                                 )}
-                                {milestone.notes && (
+                                {!isGroupCompleted && milestone.notes && (
                                   <p className="mt-1 text-xs text-slate-500 italic">
                                     📝 {milestone.notes}
                                   </p>
                                 )}
-                                {isDelayed && (
+                                {!isGroupCompleted && isDelayed && (
                                   <p className="mt-1 text-xs text-red-600">
                                     ⚠️ Expected by {milestone.expectedAgeMonths} months. Please consult pediatrician.
                                   </p>
                                 )}
                               </div>
-                              <span className={`ml-4 rounded-full px-2 py-1 text-xs font-medium ${finalStatusConfig.badgeColor}`}>
-                                {finalStatusConfig.label}
-                              </span>
+                              {!isGroupCompleted && (
+                                <span className={`ml-4 rounded-full px-2 py-1 text-xs font-medium ${finalStatusConfig.badgeColor}`}>
+                                  {finalStatusConfig.label}
+                                </span>
+                              )}
+                              {isGroupCompleted && (
+                                <span className="ml-4 rounded-full bg-green-100 px-2 py-1 text-xs font-medium text-green-700">
+                                  Completed
+                                </span>
+                              )}
                             </div>
                           </div>
-                          <div className="flex flex-col gap-2">
-                            {/* Status Button */}
-                            <button
-                              onClick={() => updateMilestoneStatus(milestone._id, getNextStatus(milestone.status))}
-                              disabled={updatingMilestone === milestone._id}
-                              className={`rounded-lg px-3 py-2 text-xs font-medium transition-all disabled:opacity-50 ${
-                                milestone.status === 'ACHIEVED'
-                                  ? 'bg-green-100 text-green-700 hover:bg-green-200'
-                                  : milestone.status === 'IN_PROGRESS'
-                                  ? 'bg-blue-100 text-blue-700 hover:bg-blue-200'
-                                  : milestone.status === 'DELAYED'
-                                  ? 'bg-red-100 text-red-700 hover:bg-red-200'
-                                  : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
-                              }`}
-                            >
-                              {updatingMilestone === milestone._id ? (
-                                <Loader2 className="inline h-3 w-3 animate-spin" />
-                              ) : (
-                                <>
-                                  {milestone.status === 'NOT_STARTED' && '▶️ Start'}
-                                  {milestone.status === 'IN_PROGRESS' && '✅ Complete'}
-                                  {milestone.status === 'ACHIEVED' && '🔄 Reset'}
-                                  {milestone.status === 'DELAYED' && '▶️ Resume'}
-                                </>
-                              )}
-                            </button>
-                            {/* Notes Button */}
-                            <button
-                              onClick={() => {
-                                setShowNotesModal(milestone._id);
-                                setNoteText(milestone.notes || '');
-                              }}
-                              className="rounded-lg bg-slate-50 px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-100"
-                            >
-                              <MessageSquare className="inline h-3 w-3 mr-1" />
-                              Notes
-                            </button>
-                          </div>
+                          {!isGroupCompleted && (
+                            <div className="flex flex-col gap-2">
+                              {/* Status Button */}
+                              <button
+                                onClick={() => updateMilestoneStatus(milestone._id, getNextStatus(milestone.status))}
+                                disabled={updatingMilestone === milestone._id}
+                                className={`rounded-lg px-3 py-2 text-xs font-medium transition-all disabled:opacity-50 ${
+                                  milestone.status === 'ACHIEVED'
+                                    ? 'bg-green-100 text-green-700 hover:bg-green-200'
+                                    : milestone.status === 'IN_PROGRESS'
+                                    ? 'bg-blue-100 text-blue-700 hover:bg-blue-200'
+                                    : milestone.status === 'DELAYED'
+                                    ? 'bg-red-100 text-red-700 hover:bg-red-200'
+                                    : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                                }`}
+                              >
+                                {updatingMilestone === milestone._id ? (
+                                  <Loader2 className="inline h-3 w-3 animate-spin" />
+                                ) : (
+                                  <>
+                                    {milestone.status === 'NOT_STARTED' && '▶️ Start'}
+                                    {milestone.status === 'IN_PROGRESS' && '✅ Complete'}
+                                    {milestone.status === 'ACHIEVED' && '🔄 Reset'}
+                                    {milestone.status === 'DELAYED' && '▶️ Resume'}
+                                  </>
+                                )}
+                              </button>
+                              {/* Notes Button */}
+                              <button
+                                onClick={() => {
+                                  setShowNotesModal(milestone._id);
+                                  setNoteText(milestone.notes || '');
+                                }}
+                                className="rounded-lg bg-slate-50 px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-100"
+                              >
+                                <MessageSquare className="inline h-3 w-3 mr-1" />
+                                Notes
+                              </button>
+                            </div>
+                          )}
                         </div>
                       );
                     })}

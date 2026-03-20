@@ -34,10 +34,18 @@ export default function RecordsGrid({ refreshTrigger, searchTerm = "", selectedC
   const [loading, setLoading] = useState(true);
   const [showDocumentViewer, setShowDocumentViewer] = useState(false);
   const [currentDocument, setCurrentDocument] = useState<HealthRecord | null>(null);
+  const [mounted, setMounted] = useState(false);
+
+  // Prevent hydration errors by ensuring client-side only rendering
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   useEffect(() => {
-    fetchHealthRecords();
-  }, [refreshTrigger]);
+    if (mounted) {
+      fetchHealthRecords();
+    }
+  }, [refreshTrigger, mounted]);
 
   // Client-side filtering
   const filtered = records.filter((r) => {
@@ -140,7 +148,7 @@ export default function RecordsGrid({ refreshTrigger, searchTerm = "", selectedC
     }
   };
 
-  if (loading) {
+  if (!mounted || loading) {
     return (
       <div className="rounded-xl border border-slate-200 bg-white p-8 text-center shadow-sm">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>

@@ -95,6 +95,7 @@ export class EmailService {
     registrationId: string,
     amount: number,
     pdfBuffer?: Buffer,
+    subscriptionPlan?: 'ANNUAL' | 'FIVE_YEAR',
   ): Promise<void> {
     if (!this.transporter) {
       this.logger.warn(`Cannot send payment confirmation email to ${to}: transporter not configured`);
@@ -107,7 +108,7 @@ export class EmailService {
         to,
         subject: 'WombTo18 - Payment Confirmation',
         text: `Dear ${parentName}, payment of ₹${amount} received for ${childName}'s registration (${registrationId}). Thank you for choosing WombTo18!`,
-        html: this.getPaymentConfirmationTemplate(parentName, childName, registrationId, amount),
+        html: this.getPaymentConfirmationTemplate(parentName, childName, registrationId, amount, subscriptionPlan),
       };
 
       if (pdfBuffer) {
@@ -397,8 +398,16 @@ export class EmailService {
     `;
   }
 
-  private getPaymentConfirmationTemplate(parentName: string, childName: string, registrationId: string, amount: number): string {
+  private getPaymentConfirmationTemplate(
+    parentName: string, 
+    childName: string, 
+    registrationId: string, 
+    amount: number,
+    subscriptionPlan?: 'ANNUAL' | 'FIVE_YEAR',
+  ): string {
     const dashboardLink = `${this.configService.get<string>('APP_BASE_URL') || 'https://wombto18.com'}/dashboard`;
+    const planName = subscriptionPlan === 'ANNUAL' ? 'Annual Plan (1 Year)' : '5-Year Plan';
+    const planDuration = subscriptionPlan === 'ANNUAL' ? '1 Year' : '5 Years';
     
     return `
       <!DOCTYPE html>
@@ -430,12 +439,14 @@ export class EmailService {
             
             <div class="amount-box">
               <div class="amount">₹${amount}</div>
-              <p style="margin: 5px 0 0 0; color: #6b7280;">Annual Subscription</p>
+              <p style="margin: 5px 0 0 0; color: #6b7280;">${planName}</p>
+              <p style="margin: 5px 0 0 0; color: #9ca3af; font-size: 14px;">Valid for ${planDuration}</p>
             </div>
 
             <div class="info-box">
               <strong>Registration ID:</strong> ${registrationId}<br>
-              <strong>Child Name:</strong> ${childName}
+              <strong>Child Name:</strong> ${childName}<br>
+              <strong>Plan:</strong> ${planName}
             </div>
 
             <p><strong>Your invoice is attached to this email.</strong></p>
@@ -443,7 +454,7 @@ export class EmailService {
             <p>All services have been activated:</p>
             <ul>
               <li>✓ Vaccination tracker with 27 milestones</li>
-              <li>✓ Automated reminders (SMS & WhatsApp)</li>
+              <li>✓ Automated reminders (Email)</li>
               <li>✓ Go Green tree planting initiative</li>
               <li>✓ Development milestone tracking</li>
               <li>✓ Dashboard access</li>
@@ -640,69 +651,533 @@ export class EmailService {
     state: string,
     subscriptionAmount: number,
   ): string {
-    const paymentLink = `${this.configService.get<string>('APP_BASE_URL') || 'https://wombto18.com'}/payment/${registrationId}`;
+    const dashboardLink = `${this.configService.get<string>('APP_BASE_URL') || 'https://wombto18.com'}/dashboard`;
 
     return `
       <!DOCTYPE html>
       <html>
       <head>
         <style>
-          body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+          body { font-family: Arial, sans-serif; line-height: 1.8; color: #333; }
           .container { max-width: 600px; margin: 0 auto; padding: 20px; }
           .header { background: linear-gradient(135deg, #10b981 0%, #059669 100%); color: white; padding: 30px; text-align: center; border-radius: 8px 8px 0 0; }
           .content { background: #f9fafb; padding: 30px; border-radius: 0 0 8px 8px; }
           .success-icon { font-size: 48px; text-align: center; margin: 20px 0; }
-          .button { display: inline-block; background: #10b981; color: white; padding: 12px 30px; text-decoration: none; border-radius: 6px; margin: 20px 0; }
-          .info-box { background: white; border-left: 4px solid #10b981; padding: 15px; margin: 20px 0; }
+          .button { display: inline-block; background: #10b981; color: white; padding: 14px 35px; text-decoration: none; border-radius: 8px; margin: 20px 0; font-weight: bold; font-size: 16px; }
+          .info-box { background: white; border-left: 4px solid #10b981; padding: 20px; margin: 20px 0; line-height: 2; }
           .amount-box { background: white; border: 2px solid #10b981; padding: 20px; text-align: center; margin: 20px 0; border-radius: 8px; }
-          .amount { font-size: 24px; font-weight: bold; color: #10b981; }
-          .footer { text-align: center; margin-top: 20px; color: #6b7280; font-size: 12px; }
+          .amount { font-size: 28px; font-weight: bold; color: #10b981; }
+          .features { background: white; padding: 20px; margin: 20px 0; border-radius: 8px; }
+          .features ul { list-style: none; padding: 0; }
+          .features li { padding: 8px 0; font-size: 15px; }
+          .footer { text-align: center; margin-top: 20px; color: #6b7280; font-size: 12px; padding: 20px; background: white; border-radius: 8px; }
+          .tagline { text-align: center; color: #059669; font-style: italic; margin-top: 20px; font-size: 14px; }
         </style>
       </head>
       <body>
         <div class="container">
           <div class="header">
-            <h1>Registration Successful! 🎉</h1>
+            <h1>🎉 Registration Successful!</h1>
           </div>
           <div class="content">
             <div class="success-icon">✅</div>
-            <h2>Congratulations, ${parentName}!</h2>
+            <h2>🎉 Congratulations, ${parentName}!</h2>
             <p>${childName} has been successfully registered with WombTo18.</p>
             
             <div class="info-box">
-              <strong>Registration Details:</strong><br>
-              Registration ID: ${registrationId}<br>
-              Child Name: ${childName}<br>
-              Age Group: ${ageGroup}<br>
-              State: ${state}
+              <strong>🆔 Registration ID:</strong> ${registrationId}<br>
+              <strong>👶 Child Name:</strong> ${childName}<br>
+              <strong>📊 Age Group:</strong> ${ageGroup}<br>
+              <strong>📍 State:</strong> ${state}<br>
+              <strong>💳 Subscription:</strong> ₹${subscriptionAmount} (Annual Plan)
             </div>
 
-            <div class="amount-box">
-              <div class="amount">₹${subscriptionAmount}</div>
-              <p style="margin: 5px 0 0 0; color: #6b7280;">Annual Subscription</p>
+            <div class="features">
+              <p><strong>You now have access to:</strong></p>
+              <ul>
+                <li>✅ Vaccination Tracker with smart reminders (SMS, WhatsApp & Email)</li>
+                <li>🌱 Go Green Program – Earn credits & contribute to tree plantation</li>
+                <li>📈 Development Milestone Tracking</li>
+                <li>📄 Digital Health Records & Reports</li>
+                <li>🔔 Automated Notifications & Alerts</li>
+              </ul>
             </div>
-
-            <p><strong>Next Step:</strong> Complete your payment to activate all services:</p>
-            <ul>
-              <li>📅 Vaccination tracker with automated reminders</li>
-              <li>🌱 Go Green tree planting initiative</li>
-              <li>📊 Development milestone tracking</li>
-              <li>📱 SMS & WhatsApp notifications</li>
-              <li>📧 Email updates and certificates</li>
-            </ul>
 
             <center>
-              <a href="${paymentLink}" class="button">Complete Payment</a>
+              <p><strong>🚀 Access your child dashboard here:</strong></p>
+              <a href="${dashboardLink}" class="button">Access Dashboard</a>
             </center>
 
-            <p>Once payment is completed, all services will be automatically activated and you'll receive your welcome package including the Go Green certificate.</p>
+            <div class="tagline">
+              <strong>Welcome to WombTo18 – Building a healthier and greener future for your child 🌿</strong>
+            </div>
           </div>
           <div class="footer">
             <p>© 2026 WombTo18. All rights reserved.</p>
+            <p>📧 support@wombto18.com | 🌐 www.wombto18.com</p>
           </div>
         </div>
       </body>
       </html>
     `;
+  }
+
+  /**
+   * Sends complete vaccination schedule email with PDF attachment
+   */
+  async sendVaccinationScheduleEmail(
+    to: string,
+    parentName: string,
+    childName: string,
+    dateOfBirth: string,
+    registrationId: string,
+    vaccineSchedule: Array<{
+      name: string;
+      ageGroup: string;
+      dueDate: string;
+      status: 'completed' | 'due' | 'upcoming';
+    }>,
+  ): Promise<void> {
+    if (!this.transporter) {
+      this.logger.error(`❌ Cannot send vaccination schedule email to ${to}: transporter not configured`);
+      return;
+    }
+
+    try {
+      this.logger.log(`📧 Sending vaccination schedule email to ${to}...`);
+
+      // Generate PDF
+      const pdfBuffer = await this.generateVaccinationSchedulePDF({
+        childName,
+        dateOfBirth,
+        registrationId,
+        parentName,
+      }, vaccineSchedule);
+
+      // Generate email HTML
+      const emailHTML = this.getVaccinationScheduleEmailTemplate(
+        parentName,
+        childName,
+        dateOfBirth,
+        registrationId,
+        vaccineSchedule,
+      );
+
+      // Send email with PDF attachment
+      await this.transporter.sendMail({
+        from: this.fromAddress,
+        to,
+        subject: `📅 ${childName}'s Complete Vaccination Schedule - WombTo18`,
+        text: `Complete Vaccination Schedule for ${childName}. Total ${vaccineSchedule.length} vaccines. Please check your email for the detailed schedule.`,
+        html: emailHTML,
+        attachments: [
+          {
+            filename: `${childName.replace(/\s+/g, '_')}_Vaccination_Schedule.pdf`,
+            content: pdfBuffer,
+            contentType: 'application/pdf',
+          },
+        ],
+      });
+
+      this.logger.log(`✅ Vaccination schedule email sent to ${to}`);
+    } catch (error) {
+      this.logger.error(
+        `❌ Failed to send vaccination schedule email to ${to}: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+      );
+    }
+  }
+
+  /**
+   * Generate vaccination schedule PDF using Puppeteer
+   */
+  private async generateVaccinationSchedulePDF(
+    childData: {
+      childName: string;
+      dateOfBirth: string;
+      registrationId: string;
+      parentName: string;
+    },
+    vaccineSchedule: Array<{
+      name: string;
+      ageGroup: string;
+      dueDate: string;
+      status: 'completed' | 'due' | 'upcoming';
+    }>,
+  ): Promise<Buffer> {
+    const puppeteer = await import('puppeteer');
+
+    const pdfHTML = `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { 
+          font-family: 'Arial', sans-serif; 
+          padding: 40px;
+          color: #1f2937;
+        }
+        .header {
+          text-align: center;
+          margin-bottom: 30px;
+          padding-bottom: 20px;
+          border-bottom: 3px solid #10b981;
+        }
+        .logo {
+          font-size: 32px;
+          font-weight: bold;
+          color: #10b981;
+          margin-bottom: 5px;
+        }
+        .subtitle {
+          font-size: 14px;
+          color: #6b7280;
+        }
+        .title {
+          font-size: 24px;
+          font-weight: bold;
+          color: #1f2937;
+          margin: 20px 0 10px 0;
+        }
+        .info-section {
+          background: #f3f4f6;
+          padding: 20px;
+          border-radius: 8px;
+          margin: 20px 0;
+          border-left: 4px solid #10b981;
+        }
+        .info-row {
+          display: flex;
+          margin: 8px 0;
+          font-size: 14px;
+        }
+        .info-label {
+          font-weight: bold;
+          width: 150px;
+          color: #374151;
+        }
+        .info-value {
+          color: #1f2937;
+        }
+        table {
+          width: 100%;
+          border-collapse: collapse;
+          margin: 20px 0;
+          box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+        thead {
+          background: #10b981;
+          color: white;
+        }
+        th {
+          padding: 12px 8px;
+          text-align: left;
+          font-weight: bold;
+          font-size: 13px;
+        }
+        td {
+          padding: 10px 8px;
+          border-bottom: 1px solid #e5e7eb;
+          font-size: 12px;
+        }
+        tr:nth-child(even) {
+          background: #f9fafb;
+        }
+        .status-badge {
+          padding: 4px 10px;
+          border-radius: 12px;
+          font-size: 11px;
+          font-weight: bold;
+          color: white;
+          display: inline-block;
+        }
+        .status-done { background: #10b981; }
+        .status-due { background: #f59e0b; }
+        .status-upcoming { background: #3b82f6; }
+        .footer {
+          margin-top: 30px;
+          padding-top: 20px;
+          border-top: 2px solid #e5e7eb;
+          text-align: center;
+          font-size: 11px;
+          color: #6b7280;
+        }
+        .notes {
+          background: #e0f2fe;
+          border-left: 4px solid #3b82f6;
+          padding: 15px;
+          margin: 20px 0;
+          border-radius: 4px;
+        }
+        .notes-title {
+          font-weight: bold;
+          margin-bottom: 10px;
+          color: #1e40af;
+        }
+        .notes ul {
+          margin-left: 20px;
+          font-size: 12px;
+          line-height: 1.6;
+        }
+        .notes li {
+          margin: 5px 0;
+        }
+      </style>
+    </head>
+    <body>
+      <div class="header">
+        <div class="logo">WombTo18</div>
+        <div class="subtitle">Your Child's Health Partner</div>
+      </div>
+
+      <div class="title">💉 Complete Vaccination Schedule</div>
+
+      <div class="info-section">
+        <div class="info-row">
+          <span class="info-label">👶 Child Name:</span>
+          <span class="info-value">${childData.childName}</span>
+        </div>
+        <div class="info-row">
+          <span class="info-label">🎂 Date of Birth:</span>
+          <span class="info-value">${childData.dateOfBirth}</span>
+        </div>
+        <div class="info-row">
+          <span class="info-label">🆔 Registration ID:</span>
+          <span class="info-value">${childData.registrationId}</span>
+        </div>
+        <div class="info-row">
+          <span class="info-label">👨‍👩‍👧 Parent Name:</span>
+          <span class="info-value">${childData.parentName}</span>
+        </div>
+        <div class="info-row">
+          <span class="info-label">💉 Total Vaccines:</span>
+          <span class="info-value">${vaccineSchedule.length}</span>
+        </div>
+        <div class="info-row">
+          <span class="info-label">📅 Generated On:</span>
+          <span class="info-value">${new Date().toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' })}</span>
+        </div>
+      </div>
+
+      <table>
+        <thead>
+          <tr>
+            <th style="width: 5%;">#</th>
+            <th style="width: 35%;">Vaccine Name</th>
+            <th style="width: 20%; text-align: center;">Age Group</th>
+            <th style="width: 20%; text-align: center;">Due Date</th>
+            <th style="width: 20%; text-align: center;">Status</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${vaccineSchedule.map((vaccine, index) => {
+        let statusClass = '';
+        let statusText = '';
+
+        if (vaccine.status === 'completed') {
+          statusClass = 'status-done';
+          statusText = '✅ Done';
+        } else if (vaccine.status === 'due') {
+          statusClass = 'status-due';
+          statusText = '⏰ Due';
+        } else {
+          statusClass = 'status-upcoming';
+          statusText = '📅 Upcoming';
+        }
+
+        return `
+              <tr>
+                <td>${index + 1}</td>
+                <td>${vaccine.name}</td>
+                <td style="text-align: center;">${vaccine.ageGroup}</td>
+                <td style="text-align: center;">${vaccine.dueDate}</td>
+                <td style="text-align: center;">
+                  <span class="status-badge ${statusClass}">${statusText}</span>
+                </td>
+              </tr>
+            `;
+      }).join('')}
+        </tbody>
+      </table>
+
+      <div class="notes">
+        <div class="notes-title">📌 Important Notes:</div>
+        <ul>
+          <li>Please consult your pediatrician before any vaccination</li>
+          <li>Maintain proper gap between doses as recommended</li>
+          <li>Keep vaccination records updated in your dashboard</li>
+          <li>You'll receive email reminders before each due date</li>
+          <li>Bring this schedule during doctor visits for reference</li>
+        </ul>
+      </div>
+
+      <div class="footer">
+        <p><strong>WombTo18</strong> - Building a healthier and greener future for your child 🌿</p>
+        <p style="margin-top: 5px;">📧 support@wombto18.com | 🌐 www.wombto18.com</p>
+        <p style="margin-top: 5px;">© 2026 WombTo18. All rights reserved.</p>
+      </div>
+    </body>
+    </html>
+    `;
+
+    // Generate PDF using Puppeteer
+    const browser = await puppeteer.launch({
+      headless: true,
+      args: ['--no-sandbox', '--disable-setuid-sandbox'],
+    });
+
+    const page = await browser.newPage();
+    await page.setContent(pdfHTML, { waitUntil: 'networkidle0' });
+
+    const pdfBuffer = await page.pdf({
+      format: 'A4',
+      printBackground: true,
+      margin: {
+        top: '20px',
+        right: '20px',
+        bottom: '20px',
+        left: '20px',
+      },
+    });
+
+    await browser.close();
+
+    return Buffer.from(pdfBuffer);
+  }
+
+  /**
+   * Get vaccination schedule email HTML template
+   */
+  private getVaccinationScheduleEmailTemplate(
+    parentName: string,
+    childName: string,
+    dateOfBirth: string,
+    registrationId: string,
+    vaccineSchedule: Array<{
+      name: string;
+      ageGroup: string;
+      dueDate: string;
+      status: 'completed' | 'due' | 'upcoming';
+    }>,
+  ): string {
+    const dashboardLink = `${this.configService.get<string>('APP_BASE_URL') || 'https://wombto18.com'}/dashboard`;
+
+    // Generate vaccine table HTML with Done/Due/Upcoming status
+    const vaccineTableRows = vaccineSchedule.map(vaccine => {
+      let statusBadge = '';
+      let statusColor = '';
+
+      if (vaccine.status === 'completed') {
+        statusBadge = '✅ Done';
+        statusColor = '#10b981';
+      } else if (vaccine.status === 'due') {
+        statusBadge = '⏰ Due';
+        statusColor = '#f59e0b';
+      } else {
+        statusBadge = '📅 Upcoming';
+        statusColor = '#3b82f6';
+      }
+
+      return `
+      <tr style="border-bottom: 1px solid #e5e7eb;">
+        <td style="padding: 12px 8px; text-align: left;">${vaccine.name}</td>
+        <td style="padding: 12px 8px; text-align: center;">${vaccine.ageGroup}</td>
+        <td style="padding: 12px 8px; text-align: center;">${vaccine.dueDate}</td>
+        <td style="padding: 12px 8px; text-align: center;">
+          <span style="background: ${statusColor}; color: white; padding: 4px 12px; border-radius: 12px; font-size: 12px; font-weight: bold;">
+            ${statusBadge}
+          </span>
+        </td>
+      </tr>
+    `;
+    }).join('');
+
+    return `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <style>
+        body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; margin: 0; padding: 0; }
+        .container { max-width: 800px; margin: 0 auto; padding: 20px; }
+        .header { background: linear-gradient(135deg, #10b981 0%, #059669 100%); color: white; padding: 30px; text-align: center; border-radius: 8px 8px 0 0; }
+        .content { background: #f9fafb; padding: 30px; border-radius: 0 0 8px 8px; }
+        .info-box { background: white; border-left: 4px solid #10b981; padding: 15px; margin: 20px 0; border-radius: 4px; }
+        .table-container { background: white; border-radius: 8px; overflow: hidden; margin: 20px 0; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+        table { width: 100%; border-collapse: collapse; }
+        th { background: #10b981; color: white; padding: 12px 8px; text-align: left; font-weight: bold; }
+        td { padding: 12px 8px; }
+        .button { display: inline-block; background: #10b981; color: white; padding: 12px 30px; text-decoration: none; border-radius: 6px; margin: 20px 0; font-weight: bold; }
+        .footer { text-align: center; margin-top: 20px; color: #6b7280; font-size: 12px; padding: 20px; }
+        @media only screen and (max-width: 600px) {
+          .container { padding: 10px; }
+          .content { padding: 15px; }
+          table { font-size: 12px; }
+          th, td { padding: 8px 4px; }
+        }
+      </style>
+    </head>
+    <body>
+      <div class="container">
+        <div class="header">
+          <h1>💉 Complete Vaccination Schedule</h1>
+          <p style="margin: 5px 0 0 0; font-size: 16px;">WombTo18 Health Platform</p>
+        </div>
+        <div class="content">
+          <h2>Hello ${parentName},</h2>
+          <p>Here is the complete vaccination schedule for <strong>${childName}</strong>.</p>
+          
+          <div class="info-box">
+            <strong>👶 Child Name:</strong> ${childName}<br>
+            <strong>🎂 Date of Birth:</strong> ${dateOfBirth}<br>
+            <strong>🆔 Registration ID:</strong> ${registrationId}<br>
+            <strong>💉 Total Vaccines:</strong> ${vaccineSchedule.length}
+          </div>
+
+          <div class="table-container">
+            <table>
+              <thead>
+                <tr>
+                  <th>Vaccine Name</th>
+                  <th style="text-align: center;">Age Group</th>
+                  <th style="text-align: center;">Due Date</th>
+                  <th style="text-align: center;">Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${vaccineTableRows}
+              </tbody>
+            </table>
+          </div>
+
+          <div style="background: #e0f2fe; border-left: 4px solid #3b82f6; padding: 15px; margin: 20px 0; border-radius: 4px;">
+            <strong>📌 Important Notes:</strong>
+            <ul style="margin: 10px 0; padding-left: 20px;">
+              <li>Please consult your pediatrician before any vaccination</li>
+              <li>Maintain proper gap between doses as recommended</li>
+              <li>Keep vaccination records updated in your dashboard</li>
+              <li>You'll receive email reminders before each due date</li>
+            </ul>
+          </div>
+
+          <center>
+            <a href="${dashboardLink}" class="button">Access Your Dashboard</a>
+          </center>
+
+          <p style="margin-top: 20px; font-size: 14px; color: #6b7280;">
+            You can track and update vaccination status anytime in your WombTo18 dashboard. 
+            We'll send you timely reminders for upcoming vaccinations.
+          </p>
+        </div>
+        <div class="footer">
+          <p><strong>WombTo18</strong> - Your Child's Health Partner</p>
+          <p>© 2026 WombTo18. All rights reserved.</p>
+          <p>📧 support@wombto18.com | 🌐 www.wombto18.com</p>
+        </div>
+      </div>
+    </body>
+    </html>
+  `;
   }
 }

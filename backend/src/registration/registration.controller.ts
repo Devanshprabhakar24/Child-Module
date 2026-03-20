@@ -36,6 +36,33 @@ export class RegistrationController {
 
   // ─── Child Registration ────────────────────────────────────────────────
 
+  /**
+   * Check if email is already registered
+   * GET /registration/check-email?email=test@example.com
+   */
+  @Get('check-email')
+  async checkEmail(@Req() req: Request) {
+    const email = req.query.email as string;
+    
+    if (!email) {
+      return {
+        success: false,
+        exists: false,
+        message: 'Email parameter is required',
+      };
+    }
+
+    const exists = await this.registrationService.isEmailRegistered(email);
+
+    return {
+      success: true,
+      exists,
+      message: exists 
+        ? 'This email address is already registered. Each email can only be used for one registration.'
+        : 'Email is available',
+    };
+  }
+
   @Post()
   async register(@Body() dto: RegisterChildDto) {
     const { registration, razorpayOrderId, testMode } =
@@ -152,16 +179,24 @@ export class RegistrationController {
     @Param('registrationId') registrationId: string,
     @Body() dto: UpdateChildDto,
   ) {
+    this.logger.log(`📝 Update request for ${registrationId}`);
+    this.logger.log(`📦 Update data: ${JSON.stringify(dto)}`);
+    
     const existing = await this.registrationService.findByRegistrationId(registrationId);
-    if (!existing) return { success: false, message: 'Registration not found' };
+    if (!existing) {
+      this.logger.warn(`❌ Registration not found: ${registrationId}`);
+      return { success: false, message: 'Registration not found' };
+    }
 
     const isOwnerByEmail = (existing as any).email?.toLowerCase?.() === req.user.email.toLowerCase();
     const isOwnerByParentUserId = (existing as any).parentUserId && (existing as any).parentUserId === req.user.sub;
     if (!isOwnerByEmail && !isOwnerByParentUserId) {
+      this.logger.warn(`❌ Unauthorized update attempt for ${registrationId}`);
       throw new ForbiddenException('Not allowed to update this child');
     }
 
     const updated = await this.registrationService.updateChild(registrationId, dto);
+    this.logger.log(`✅ Profile updated successfully: ${registrationId}`);
     return { success: true, data: updated };
   }
 

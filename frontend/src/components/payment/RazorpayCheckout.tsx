@@ -52,43 +52,72 @@ export default function RazorpayCheckout({
         throw new Error("Failed to load Razorpay SDK");
       }
 
-      // Create order on backend
-      const orderResponse = await fetch(`/api/payments/create-order`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ registrationId, childName }),
-      });
-
-      if (!orderResponse.ok) {
-        throw new Error("Failed to create payment order");
-      }
-
-      const orderData = await orderResponse.json();
+      // Get the order ID from registration (already created during registration)
+      const registrationResponse = await fetch(`http://localhost:8000/registration/${registrationId}`);
       
-      if (!orderData.success) {
-        throw new Error(orderData.message || "Failed to create order");
+      if (!registrationResponse.ok) {
+        throw new Error("Failed to fetch registration details");
       }
 
-      const { razorpayOrderId, amount: orderAmount } = orderData.data;
+      const registrationData = await registrationResponse.json();
+      
+      // Check if response is successful and has data
+      if (!registrationData.success || !registrationData.data) {
+        throw new Error("Registration not found or invalid response");
+      }
+      
+      const razorpayOrderId = registrationData.data.razorpayOrderId;
+
+      if (!razorpayOrderId) {
+        throw new Error("No Razorpay order ID found. Please complete registration first.");
+      }
+
+      console.log("🔑 Using Razorpay Order ID:", razorpayOrderId);
 
       // Razorpay checkout options
       const options = {
-        key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID,
-        amount: orderAmount * 100, // Amount in paise
+        key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID || "rzp_test_SQSUtij8FkBpFV",
+        amount: amount * 100, // Amount in paise
         currency: currency,
         name: "WombTo18",
         description: `Health Subscription for ${childName}`,
         order_id: razorpayOrderId,
-        handler: function (response: any) {
+        handler: async function (response: any) {
           // Payment successful
-          console.log("Payment successful:", response);
-          onSuccess(response.razorpay_payment_id);
+          console.log("✅ Payment successful:", response);
+          
+          // Verify payment on backend
+          try {
+            const verifyResponse = await fetch(`http://localhost:8000/registration/verify-payment`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                razorpay_order_id: response.razorpay_order_id,
+                razorpay_payment_id: response.razorpay_payment_id,
+                razorpay_signature: response.razorpay_signature,
+              }),
+            });
+
+            const verifyData = await verifyResponse.json();
+
+            if (verifyResponse.ok) {
+              console.log("✅ Payment verified successfully");
+              onSuccess(response.razorpay_payment_id);
+            } else {
+              console.error("❌ Payment verification failed:", verifyData);
+              throw new Error(verifyData.message || "Payment verification failed");
+            }
+          } catch (verifyError) {
+            console.error("Verification error:", verifyError);
+            setIsLoading(false);
+            onError(verifyError instanceof Error ? verifyError.message : "Payment verification failed");
+          }
         },
         prefill: {
           name: childName,
         },
         theme: {
-          color: "#3B82F6", // Primary color
+          color: "#10B981", // Primary green color
         },
         modal: {
           ondismiss: function () {
@@ -96,34 +125,26 @@ export default function RazorpayCheckout({
             onError("Payment cancelled by user");
           },
         },
+        notes: {
+          registrationId: registrationId,
+          childName: childName,
+        },
       };
 
       // Open Razorpay checkout
       const razorpay = new window.Razorpay(options);
       
-      // Check if this is demo mode from backend
-      const demoModeResponse = await fetch('/api/payments/demo-mode-check');
-      const demoModeData = await demoModeResponse.json().catch(() => ({ demoMode: false }));
-      
-      if (demoModeData.demoMode) {
-        // Demo mode: Show Razorpay UI but auto-succeed after a delay
-        razorpay.open();
-        
-        // Auto-succeed after 3 seconds to show the payment process
-        setTimeout(() => {
-          const mockPaymentId = `pay_demo_${Date.now()}`;
-          console.log("Demo mode: Auto-succeeding payment with ID:", mockPaymentId);
-          onSuccess(mockPaymentId);
-        }, 3000);
-      } else {
-        // Real mode: Normal Razorpay flow
-        razorpay.open();
-      }
+      razorpay.on('payment.failed', function (response: any) {
+        console.error("❌ Payment failed:", response.error);
+        setIsLoading(false);
+        onError(response.error.description || "Payment failed");
+      });
+
+      razorpay.open();
 
     } catch (error: any) {
       console.error("Payment error:", error);
       onError(error.message || "Payment failed");
-    } finally {
       setIsLoading(false);
     }
   };

@@ -15,6 +15,10 @@ export interface ChildProfile {
   fatherName?: string;
   phone: string;
   state: string;
+  address?: string;
+  bloodGroup?: string;
+  heightCm?: number;
+  weightKg?: number;
   greenCohort: boolean;
   profilePictureUrl?: string;
 }
@@ -48,6 +52,7 @@ interface UseChildDataResult {
   milestones: VaccineMilestone[];
   registrationId: string | null;
   token: string | null;
+  refetch: () => void;
 }
 
 export function useChildData(): UseChildDataResult {
@@ -58,6 +63,11 @@ export function useChildData(): UseChildDataResult {
   const [milestones, setMilestones] = useState<VaccineMilestone[]>([]);
   const [registrationId, setRegistrationId] = useState<string | null>(null);
   const [token, setToken] = useState<string | null>(null);
+  const [refreshTrigger, setRefreshTrigger] = useState(0);
+
+  const refetch = () => {
+    setRefreshTrigger(prev => prev + 1);
+  };
 
   useEffect(() => {
     const tok = typeof window !== "undefined" ? localStorage.getItem("wt18_token") : null;
@@ -137,7 +147,7 @@ export function useChildData(): UseChildDataResult {
 
     load();
     return () => controller.abort();
-  }, []);
+  }, [refreshTrigger]);
 
-  return { loading, error, profile, vaccination, milestones, registrationId, token };
+  return { loading, error, profile, vaccination, milestones, registrationId, token, refetch };
 }

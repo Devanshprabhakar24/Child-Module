@@ -39,10 +39,13 @@ export default function EmailContent() {
           <p>Your digital dashboard is now ready. You can access all health reports, vaccination schedules, and growth tracking tools from one central location.</p>
           
           <div className="flex justify-center py-6">
-            <button className="flex items-center gap-2 rounded-lg bg-primary px-8 py-3 font-bold text-white shadow-md shadow-primary/20 transition-all hover:brightness-110">
+            <a 
+              href="/dashboard"
+              className="flex items-center gap-2 rounded-lg bg-primary px-8 py-3 font-bold text-white shadow-md shadow-primary/20 transition-all hover:brightness-110"
+            >
               Access Dashboard
               <span className="material-symbols-outlined text-lg">arrow_forward</span>
-            </button>
+            </a>
           </div>
 
           {/* Attachments Section */}

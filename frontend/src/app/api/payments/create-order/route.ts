@@ -14,13 +14,30 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Call backend to create Razorpay order
+    // First, fetch the registration to get the subscription amount
+    const registrationResponse = await fetch(`${API_BASE}/registration/${registrationId}`);
+    
+    if (!registrationResponse.ok) {
+      return NextResponse.json(
+        { success: false, message: 'Failed to fetch registration details' },
+        { status: 404 }
+      );
+    }
+
+    const registrationData = await registrationResponse.json();
+    const subscriptionAmount = registrationData.data?.subscriptionAmount || 999;
+
+    // Call backend to create Razorpay order with the correct amount
     const response = await fetch(`${API_BASE}/payments/create-order`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({ registrationId, childName }),
+      body: JSON.stringify({ 
+        registrationId, 
+        childName,
+        amount: subscriptionAmount 
+      }),
     });
 
     if (!response.ok) {

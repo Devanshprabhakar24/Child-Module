@@ -1,11 +1,15 @@
 "use client";
 
+import { useRouter } from "next/navigation";
+
 interface PreviewHeaderProps {
   activeTab: string;
   setActiveTab: (tab: string) => void;
 }
 
 export default function PreviewHeader({ activeTab, setActiveTab }: PreviewHeaderProps) {
+  const router = useRouter();
+
   return (
     <div>
       {/* Top Header */}
@@ -16,7 +20,11 @@ export default function PreviewHeader({ activeTab, setActiveTab }: PreviewHeader
           </div>
           <h2 className="text-xl font-bold leading-tight tracking-tight text-slate-900">Message Preview</h2>
         </div>
-        <button className="flex h-10 w-10 items-center justify-center rounded-full bg-slate-50 text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-700">
+        <button 
+          onClick={() => router.back()}
+          className="flex h-10 w-10 items-center justify-center rounded-full bg-slate-50 text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-700"
+          title="Close"
+        >
           <span className="material-symbols-outlined">close</span>
         </button>
       </header>

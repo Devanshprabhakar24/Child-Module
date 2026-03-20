@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useRef } from "react";
-import { Mail, AtSign, Phone, Smartphone, MapPin, Clock, ArrowLeft, ArrowRight, CheckCircle2 } from "lucide-react";
+import { useState, useRef, useEffect, useCallback } from "react";
+import { Mail, AtSign, Phone, Smartphone, MapPin, Clock, ArrowLeft, ArrowRight, CheckCircle2, AlertCircle } from "lucide-react";
 import { getStateName } from "../../utils/stateMapping";
 import { handleNameInput } from "../../utils/textFormatting";
 
@@ -28,6 +28,8 @@ export default function Step2Form({ onNext, onPrev, onComplete, motherName, stat
   const [email, setEmail] = useState("");
   const [emailStatus, setEmailStatus] = useState<"initial" | "sent" | "verified">("initial");
   const [emailOtp, setEmailOtp] = useState(["", "", "", "", "", ""]);
+  const [emailCheckStatus, setEmailCheckStatus] = useState<"idle" | "checking" | "available" | "taken">("idle");
+  const [emailCheckMessage, setEmailCheckMessage] = useState<string>("");
 
   const [mobile, setMobile] = useState("");
   const [mobileStatus, setMobileStatus] = useState<"initial" | "sent" | "verified">("initial");
@@ -48,6 +50,50 @@ export default function Step2Form({ onNext, onPrev, onComplete, motherName, stat
   const [verifyEmailLoading, setVerifyEmailLoading] = useState(false);
   const [mobileLoading, setMobileLoading] = useState(false);
   const [verifyMobileLoading, setVerifyMobileLoading] = useState(false);
+
+  // Debounced email check
+  const checkEmailAvailability = useCallback(async (emailToCheck: string) => {
+    if (!emailToCheck.includes("@") || !emailToCheck.includes(".")) {
+      setEmailCheckStatus("idle");
+      setEmailCheckMessage("");
+      return;
+    }
+
+    setEmailCheckStatus("checking");
+    setEmailCheckMessage("Checking...");
+
+    try {
+      const res = await fetch(`${API_BASE}/registration/check-email?email=${encodeURIComponent(emailToCheck)}`);
+      const data = await res.json();
+
+      if (data.exists) {
+        setEmailCheckStatus("taken");
+        setEmailCheckMessage("This email address is already registered. Each email can only be used for one registration.");
+      } else {
+        setEmailCheckStatus("available");
+        setEmailCheckMessage("Email available");
+      }
+    } catch (error) {
+      setEmailCheckStatus("idle");
+      setEmailCheckMessage("");
+    }
+  }, []);
+
+  // Debounce email check
+  useEffect(() => {
+    if (emailStatus !== "initial") return; // Don't check if already verified
+
+    const timer = setTimeout(() => {
+      if (email) {
+        checkEmailAvailability(email);
+      } else {
+        setEmailCheckStatus("idle");
+        setEmailCheckMessage("");
+      }
+    }, 800); // Wait 800ms after user stops typing
+
+    return () => clearTimeout(timer);
+  }, [email, emailStatus, checkEmailAvailability]);
 
   // OTP Input Handler (Auto-focus next box)
   const handleOtpChange = (
@@ -236,7 +282,7 @@ export default function Step2Form({ onNext, onPrev, onComplete, motherName, stat
               <label className="mb-2 block text-sm font-medium text-slate-700">Email Address</label>
               <div className="relative">
                 <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
-                  <AtSign className={`h-5 w-5 ${emailStatus === "verified" ? "text-primary" : "text-slate-400"}`} />
+                  <AtSign className={`h-5 w-5 ${emailStatus === "verified" ? "text-primary" : emailCheckStatus === "taken" ? "text-red-500" : "text-slate-400"}`} />
                 </div>
                 <input 
                   type="email" 
@@ -247,13 +293,33 @@ export default function Step2Form({ onNext, onPrev, onComplete, motherName, stat
                   className={`block w-full rounded-full border bg-white py-3 pl-10 pr-3 outline-none transition-all ${
                     emailStatus === "verified" 
                       ? "border-primary/50 bg-primary/5 text-primary focus:ring-0 cursor-not-allowed font-medium" 
+                      : emailCheckStatus === "taken"
+                      ? "border-red-300 text-slate-900 focus:border-red-500 focus:ring-1 focus:ring-red-500"
                       : "border-slate-300 text-slate-900 focus:border-primary focus:ring-1 focus:ring-primary"
                   }`} 
                 />
                 {emailStatus === "verified" && (
                   <CheckCircle2 className="absolute right-3 top-1/2 -translate-y-1/2 h-5 w-5 text-primary" />
                 )}
+                {emailCheckStatus === "taken" && emailStatus === "initial" && (
+                  <AlertCircle className="absolute right-3 top-1/2 -translate-y-1/2 h-5 w-5 text-red-500" />
+                )}
               </div>
+              {/* Real-time validation message */}
+              {emailCheckMessage && emailStatus === "initial" && (
+                <p className={`mt-2 text-sm flex items-center gap-1 ${
+                  emailCheckStatus === "checking" ? "text-slate-500" :
+                  emailCheckStatus === "taken" ? "text-red-600" :
+                  emailCheckStatus === "available" ? "text-green-600" : ""
+                }`}>
+                  {emailCheckStatus === "checking" && (
+                    <span className="inline-block h-3 w-3 animate-spin rounded-full border-2 border-slate-400 border-t-transparent"></span>
+                  )}
+                  {emailCheckStatus === "taken" && <AlertCircle className="h-4 w-4" />}
+                  {emailCheckStatus === "available" && <CheckCircle2 className="h-4 w-4" />}
+                  {emailCheckMessage}
+                </p>
+              )}
             </div>
 
             {/* Verify Action Button */}
@@ -262,9 +328,9 @@ export default function Step2Form({ onNext, onPrev, onComplete, motherName, stat
                 <button 
                   type="button" 
                   onClick={handleSendEmailOtp}
-                  disabled={!email.includes("@") || emailLoading}
+                  disabled={!email.includes("@") || emailLoading || emailCheckStatus === "taken" || emailCheckStatus === "checking"}
                   className={`flex w-full items-center justify-center gap-2 rounded-full px-4 py-3 font-medium text-white transition-all ${
-                    email.includes("@") && !emailLoading
+                    email.includes("@") && !emailLoading && emailCheckStatus !== "taken" && emailCheckStatus !== "checking"
                       ? "bg-primary shadow-sm shadow-primary/20 hover:bg-opacity-90"
                       : "bg-slate-300 cursor-not-allowed"
                   }`}
@@ -309,7 +375,14 @@ export default function Step2Form({ onNext, onPrev, onComplete, motherName, stat
                   <Clock className="h-4 w-4" /><span>00:45</span>
                 </div>
                 <div className="flex gap-4 items-center">
-                  <button type="button" className="text-sm font-medium text-slate-500 hover:text-slate-800 transition-colors">Resend</button>
+                  <button 
+                    type="button" 
+                    onClick={handleSendEmailOtp}
+                    disabled={sendEmailLoading}
+                    className="text-sm font-medium text-slate-500 hover:text-slate-800 transition-colors disabled:opacity-50"
+                  >
+                    {sendEmailLoading ? "Sending..." : "Resend"}
+                  </button>
                   <button 
                     type="button" 
                     onClick={handleVerifyEmailOtp}
@@ -423,7 +496,14 @@ export default function Step2Form({ onNext, onPrev, onComplete, motherName, stat
                   <Clock className="h-4 w-4" /><span>00:45</span>
                 </div>
                 <div className="flex gap-4 items-center">
-                  <button type="button" className="text-sm font-medium text-slate-500 hover:text-slate-800 transition-colors">Resend</button>
+                  <button 
+                    type="button" 
+                    onClick={handleSendMobileOtp}
+                    disabled={sendMobileLoading}
+                    className="text-sm font-medium text-slate-500 hover:text-slate-800 transition-colors disabled:opacity-50"
+                  >
+                    {sendMobileLoading ? "Sending..." : "Resend"}
+                  </button>
                   <button 
                     type="button" 
                     onClick={handleVerifyMobileOtp}
