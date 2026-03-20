@@ -258,6 +258,9 @@ export class DashboardService {
       phone: string;
       phone2?: string;
       address?: string;
+      bloodGroup?: string;
+      heightCm?: number;
+      weightKg?: number;
       state: string;
       greenCohort: boolean;
       linkedSchoolId?: string;
@@ -294,6 +297,9 @@ export class DashboardService {
         phone: child.phone,
         phone2: child.phone2,
         address: child.address,
+        bloodGroup: child.bloodGroup,
+        heightCm: child.heightCm,
+        weightKg: child.weightKg,
         state: child.state,
         greenCohort: child.greenCohort,
         linkedSchoolId: child.linkedSchoolId,

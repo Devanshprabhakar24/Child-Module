@@ -3,23 +3,16 @@ import {
   IsEmail,
   IsEnum,
   IsNotEmpty,
+  IsNumber,
   IsOptional,
   IsString,
   Matches,
+  Min,
 } from 'class-validator';
 import { IndianState } from '../enums/indian-state.enum';
-
-export enum Gender {
-  MALE = 'MALE',
-  FEMALE = 'FEMALE',
-  OTHER = 'OTHER',
-}
-
-export enum RegistrationType {
-  DIRECT = 'DIRECT',
-  HOSPITAL = 'HOSPITAL',
-  CHANNEL_PARTNER = 'CHANNEL_PARTNER',
-}
+import { BloodGroup } from '../enums/blood-group.enum';
+import { Gender } from '../enums/gender.enum';
+import { RegistrationType } from '../enums/registration-type.enum';
 
 export class RegisterChildDto {
   @IsString()
@@ -72,6 +65,22 @@ export class RegisterChildDto {
   @IsOptional()
   @IsString()
   address?: string;
+
+  // ─── Health Information ────────────────────────────────────────────
+
+  @IsOptional()
+  @IsEnum(BloodGroup, { message: 'bloodGroup must be a valid blood group' })
+  bloodGroup?: BloodGroup;
+
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  heightCm?: number;
+
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  weightKg?: number;
 
   // ─── Registration Source ────────────────────────────────────────────
 

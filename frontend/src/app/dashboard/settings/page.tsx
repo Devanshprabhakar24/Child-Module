@@ -4,15 +4,20 @@ import { useState, useRef } from "react";
 import { useChildData } from "@/hooks/useChildData";
 import NotificationPreferences from "@/components/dashboard/settings/NotificationPreferences";
 import LinkedAccounts from "@/components/dashboard/settings/LinkedAccounts";
+import EditableProfileSettings from "@/components/dashboard/settings/EditableProfileSettings";
 import { User, Camera, CreditCard, Receipt, BadgeCheck, Loader2, Zap } from "lucide-react";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
 export default function SettingsPage() {
-  const { loading, profile, registrationId, token } = useChildData();
+  const { loading, profile, registrationId, token, refetch } = useChildData();
   const [downloadingInvoice, setDownloadingInvoice] = useState(false);
   const [activating, setActivating] = useState(false);
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
+
+  const handleProfileUpdate = () => {
+    refetch();
+  };
 
   async function handleDownloadInvoice() {
     if (!registrationId) return;
@@ -169,17 +174,14 @@ export default function SettingsPage() {
 
       {/* Profile Settings */}
       <section>
-        <h3 className="mb-4 flex items-center gap-3 text-lg font-medium text-slate-900">
-          <User className="h-6 w-6 text-primary" />
-          Profile Settings
-        </h3>
-        <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
-          {loading ? (
-            <div className="flex items-center gap-2 text-slate-400">
-              <Loader2 className="h-5 w-5 animate-spin" /> Loading profile...
-            </div>
-          ) : (
-            <div className="flex flex-col items-start gap-8 md:flex-row">
+        {loading ? (
+          <div className="flex items-center gap-2 text-slate-400">
+            <Loader2 className="h-5 w-5 animate-spin" /> Loading profile...
+          </div>
+        ) : profile && token ? (
+          <>
+            {/* Profile Picture Upload */}
+            <div className="mb-6 flex items-center gap-6">
               <div className="relative shrink-0">
                 <div className="flex h-28 w-28 items-center justify-center overflow-hidden rounded-2xl bg-primary/10">
                   {profile?.profilePictureUrl ? (
@@ -206,35 +208,32 @@ export default function SettingsPage() {
                   )}
                 </label>
               </div>
-              <div className="grid flex-1 grid-cols-1 gap-y-6 sm:grid-cols-2 md:gap-x-12 md:gap-y-8">
-                <div className="space-y-1">
-                  <label className="text-[11px] font-medium uppercase tracking-wider text-slate-400">Child&apos;s Name</label>
-                  <p className="font-medium text-slate-900">{profile?.childName || "—"}</p>
-                </div>
-                <div className="space-y-1">
-                  <label className="text-[11px] font-medium uppercase tracking-wider text-slate-400">Date of Birth</label>
-                  <p className="font-medium text-slate-900">{dob}</p>
-                </div>
-                <div className="space-y-1">
-                  <label className="text-[11px] font-medium uppercase tracking-wider text-slate-400">Mother&apos;s Name</label>
-                  <p className="font-medium text-slate-900">{profile?.motherName || "—"}</p>
-                </div>
-                <div className="space-y-1">
-                  <label className="text-[11px] font-medium uppercase tracking-wider text-slate-400">State</label>
-                  <p className="font-medium text-slate-900">{profile?.state || "—"}</p>
-                </div>
-                <div className="space-y-1">
-                  <label className="text-[11px] font-medium uppercase tracking-wider text-slate-400">Contact</label>
-                  <p className="font-medium text-slate-900">{profile?.phone || "—"}</p>
-                </div>
-                <div className="space-y-1">
-                  <label className="text-[11px] font-medium uppercase tracking-wider text-slate-400">Registration ID</label>
-                  <p className="font-mono text-sm font-medium text-slate-900">{registrationId || "—"}</p>
-                </div>
+              <div>
+                <h3 className="text-lg font-medium text-slate-900">{profile.childName}</h3>
+                <p className="text-sm text-slate-600">Update your profile picture</p>
               </div>
             </div>
-          )}
-        </div>
+
+            {/* Editable Profile Form */}
+            <EditableProfileSettings 
+              profile={{
+                childName: profile.childName,
+                motherName: profile.motherName,
+                fatherName: profile.fatherName,
+                address: profile.address,
+                bloodGroup: profile.bloodGroup,
+                heightCm: profile.heightCm,
+                weightKg: profile.weightKg,
+                dateOfBirth: profile.dateOfBirth,
+                state: profile.state,
+                phone: profile.phone,
+                registrationId: registrationId || '',
+              }}
+              token={token}
+              onUpdate={handleProfileUpdate}
+            />
+          </>
+        ) : null}
       </section>
 
       <NotificationPreferences />

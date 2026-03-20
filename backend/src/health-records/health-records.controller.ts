@@ -222,10 +222,8 @@ export class HealthRecordsController {
 
     return {
       success: true,
-      data: {
-        records,
-        stats,
-      },
+      data: records, // Return records directly, not nested
+      stats,
     };
   }
 
