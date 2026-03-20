@@ -12,6 +12,7 @@ import {
   Settings,
   X,
   Menu,
+  Activity,
 } from "lucide-react";
 
 interface SidebarProps {
@@ -31,6 +32,7 @@ export default function Sidebar({ isDesktopCollapsed, isMobileOpen, closeMobile,
   const navItems = [
     { name: "Overview", icon: LayoutDashboard, href: "/dashboard" },
     { name: "Vaccination Tracker", icon: Syringe, href: "/dashboard/vaccinations" },
+    { name: "Growth Chart", icon: Activity, href: "/dashboard/growth-chart" },
     { name: "Health Records", icon: FileText, href: "/dashboard/records" },
     { name: "Milestones", icon: Sparkles, href: "/dashboard/milestones" },
     { name: "School", icon: School, href: "/dashboard/school" },

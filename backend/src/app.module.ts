@@ -12,6 +12,7 @@ import { NotificationsModule } from './notifications/notifications.module';
 import { CmsModule } from './cms/cms.module';
 import { GoGreenModule } from './go-green/go-green.module';
 import { HealthRecordsModule } from './health-records/health-records.module';
+import { GrowthChartModule } from './growth-chart/growth-chart.module';
 
 @Module({
   imports: [
@@ -38,6 +39,7 @@ import { HealthRecordsModule } from './health-records/health-records.module';
     CmsModule,
     GoGreenModule,
     HealthRecordsModule,
+    GrowthChartModule,
   ],
 })
 export class AppModule {}

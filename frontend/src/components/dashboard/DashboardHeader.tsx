@@ -82,7 +82,7 @@ export default function DashboardHeader({ toggleMobile }: HeaderProps) {
 
   return (
     <>
-      <header className="sticky top-0 z-30 flex items-center justify-between border-b border-primary/10 bg-white/90 px-4 py-4 backdrop-blur-md sm:px-8">
+      <header className="sticky top-0 z-30 flex items-center justify-between border-b border-primary/10 bg-white/90 px-4 py-2.5 backdrop-blur-md sm:px-8">
         
         {/* LEFT SIDE */}
         <div className="flex items-center gap-4">
@@ -94,7 +94,7 @@ export default function DashboardHeader({ toggleMobile }: HeaderProps) {
           {/* Desktop Greeting */}
           <div className="hidden lg:block">
             <h2 className="text-xl font-bold text-slate-800 lg:text-2xl">Hello, {userName}! 👋</h2>
-            <p className="text-sm text-slate-500">Welcome back to your health portal.</p>
+            <p className="text-sm text-slate-500">Welcome back to your child health portal.</p>
           </div>
         </div>
         
