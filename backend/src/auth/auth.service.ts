@@ -83,6 +83,26 @@ export class AuthService {
   // ─── OTP Flow ─────────────────────────────────────────────────────────
 
   async sendOtp(dto: SendOtpDto): Promise<{ message: string; expiresInMinutes: number }> {
+    // Check if user exists in database OR if there's a child registration with this email
+    const user = await this.userModel.findOne({ email: dto.email }).exec();
+    const childReg = await this.childRegModel.findOne({ email: dto.email }).exec();
+    
+    if (!user && !childReg) {
+      this.logger.warn(`OTP request for non-existent email: ${dto.email}`);
+      throw new UnauthorizedException('Email not found. Please register first or check your email address.');
+    }
+
+    // If child registration exists but no user, create user automatically
+    if (!user && childReg) {
+      this.logger.log(`Auto-creating user for existing child registration: ${dto.email}`);
+      await this.registerUser({
+        email: dto.email,
+        phone: childReg.phone,
+        fullName: childReg.motherName || 'Parent',
+        role: UserRole.PARENT,
+      });
+    }
+
     // Use email test mode as primary - if email is in test mode, use test code for both
     // If email is in real mode, generate real code for both email and SMS
     const code = this.otpEmailTestMode ? this.otpTestCode : this.generateSecureOtp();

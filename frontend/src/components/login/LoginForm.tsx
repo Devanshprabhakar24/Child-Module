@@ -44,10 +44,23 @@ export default function LoginForm() {
         body: JSON.stringify({ email: activeEmail }),
       });
       const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(data.message || "Failed to send OTP");
+      if (!res.ok) {
+        // Show specific error message from backend
+        throw new Error(data.message || "Failed to send OTP");
+      }
       setOtpSent(true);
     } catch (err: any) {
-      setError(err.message || "Failed to send OTP. Please try again.");
+      const errorMessage = err.message || "Failed to send OTP. Please try again.";
+      setError(errorMessage);
+      
+      // If email not found, suggest registration
+      if (errorMessage.includes("not found") || errorMessage.includes("register")) {
+        setTimeout(() => {
+          if (confirm("Email not found. Would you like to register a new account?")) {
+            window.location.href = "/register";
+          }
+        }, 100);
+      }
     } finally {
       setLoadingSend(false);
     }
