@@ -343,10 +343,15 @@ export class DashboardService {
       registrationId: string;
       childName: string;
       childGender: string;
+      dateOfBirth: Date;
       ageGroup: string;
       ageInYears: number;
+      state?: string;
       motherName: string;
       profilePictureUrl?: string;
+      bloodGroup?: string;
+      heightCm?: number;
+      weightKg?: number;
       nextDueMilestone?: { title: string; dueDate: Date } | null;
     }>;
     totalChildren: number;
@@ -398,6 +403,9 @@ export class DashboardService {
           state: child.state,
           motherName: child.motherName,
           profilePictureUrl: child.profilePictureUrl,
+          bloodGroup: child.bloodGroup,
+          heightCm: child.heightCm,
+          weightKg: child.weightKg,
           nextDueMilestone: nextDue ? { title: nextDue.title, dueDate: nextDue.dueDate } : null,
         };
       }),

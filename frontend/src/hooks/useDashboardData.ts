@@ -12,6 +12,10 @@ export interface DashboardChild {
   ageInYears: number;
   state?: string;
   profilePictureUrl?: string;
+  bloodGroup?: string;
+  heightCm?: number;
+  weightKg?: number;
+  dateOfBirth?: string;
   nextDueMilestone?: {
     title: string;
     dueDate: string;
