@@ -1,16 +1,17 @@
 "use client";
 
 import { useState } from "react";
-import { Upload, Search } from "lucide-react";
+import { Upload, Search, RefreshCw } from "lucide-react";
 import UploadRecordModal from "./UploadRecordModal";
 
 interface RecordsHeaderProps {
   onUploadSuccess?: () => void;
+  onRefresh?: () => void;
   searchTerm: string;
   onSearchChange: (value: string) => void;
 }
 
-export default function RecordsHeader({ onUploadSuccess, searchTerm, onSearchChange }: RecordsHeaderProps) {
+export default function RecordsHeader({ onUploadSuccess, onRefresh, searchTerm, onSearchChange }: RecordsHeaderProps) {
   const [isModalOpen, setIsModalOpen] = useState(false);
 
   return (
@@ -18,13 +19,23 @@ export default function RecordsHeader({ onUploadSuccess, searchTerm, onSearchCha
       {/* Title & Upload */}
       <div className="flex flex-wrap items-center justify-between gap-4">
         <h2 className="text-3xl font-medium tracking-tight text-slate-900">Health Records</h2>
-        <button
-          onClick={() => setIsModalOpen(true)}
-          className="flex items-center gap-2 rounded-full bg-primary px-6 py-2.5 font-normal text-white shadow-sm transition-all hover:bg-primary/90"
-        >
-          <Upload className="h-5 w-5" />
-          Upload Record
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={onRefresh}
+            className="flex items-center gap-2 rounded-full border border-slate-200 bg-white px-4 py-2.5 font-normal text-slate-700 shadow-sm transition-all hover:bg-slate-50"
+            title="Refresh records"
+          >
+            <RefreshCw className="h-4 w-4" />
+            Refresh
+          </button>
+          <button
+            onClick={() => setIsModalOpen(true)}
+            className="flex items-center gap-2 rounded-full bg-primary px-6 py-2.5 font-normal text-white shadow-sm transition-all hover:bg-primary/90"
+          >
+            <Upload className="h-5 w-5" />
+            Upload Record
+          </button>
+        </div>
       </div>
 
       {/* Search */}

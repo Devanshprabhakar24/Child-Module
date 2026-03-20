@@ -164,12 +164,13 @@ export default function UploadRecordModal({ isOpen, onClose, onUploadSuccess }: 
       console.log('Upload response:', responseData);
 
       if (response.ok) {
-        alert('Health record uploaded successfully!');
+        alert('Health record uploaded successfully!\n\nThe record should now appear in the list. If not, please refresh the page.');
         onClose();
         if (onUploadSuccess) {
           onUploadSuccess();
         }
       } else {
+        console.error('Upload failed:', responseData);
         alert(
           `Failed to upload: ${responseData.message || 'Unknown error'}\n\n` +
           `Registration ID used: ${registrationId}\n\n` +
@@ -181,7 +182,7 @@ export default function UploadRecordModal({ isOpen, onClose, onUploadSuccess }: 
       }
     } catch (error) {
       console.error('Error uploading health record:', error);
-      alert('Failed to upload health record. Please try again.');
+      alert('Failed to upload health record. Please check the console for details.');
     } finally {
       setUploadLoading(false);
     }

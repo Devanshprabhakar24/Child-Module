@@ -47,8 +47,15 @@ export default function RecordsGrid({ refreshTrigger, searchTerm = "", selectedC
     }
   }, [refreshTrigger, mounted]);
 
+  // Also fetch when searchParams changes (registration ID might change)
+  useEffect(() => {
+    if (mounted && searchParams) {
+      fetchHealthRecords();
+    }
+  }, [searchParams, mounted]);
+
   // Client-side filtering
-  const filtered = records.filter((r) => {
+  const filtered = (records || []).filter((r) => {
     const matchesCategory = selectedCategory === "All Records" || r.category === selectedCategory;
     const matchesSearch = searchTerm.trim() === "" || r.documentName.toLowerCase().includes(searchTerm.toLowerCase());
     return matchesCategory && matchesSearch;
@@ -58,24 +65,43 @@ export default function RecordsGrid({ refreshTrigger, searchTerm = "", selectedC
     try {
       // Use utility function to get registration ID
       const registrationId = getRegistrationId(searchParams);
-      
+
+      console.log('[RecordsGrid] searchParams:', searchParams?.toString());
+      console.log('[RecordsGrid] registrationId from utility:', registrationId);
+      console.log('[RecordsGrid] localStorage registrationId:', typeof window !== 'undefined' ? localStorage.getItem('currentRegistrationId') : 'N/A');
+
       // If still no registration ID, show error and return
       if (!registrationId) {
-        console.error('No registration ID found. Please navigate to /dashboard first to load your profile.');
+        console.warn('[RecordsGrid] No registration ID found. Waiting for navigation...');
+        setRecords([]);
         setLoading(false);
         return;
       }
 
+      console.log('[RecordsGrid] Fetching health records for registrationId:', registrationId);
+
       const response = await fetch(`http://localhost:8000/health-records/${registrationId}`);
 
-      if (response.ok) {
-        const data = await response.json();
-        setRecords(data.data.records);
-      } else {
-        console.error('Failed to fetch health records');
+      console.log('[RecordsGrid] Response status:', response.status);
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        console.error('[RecordsGrid] Failed to fetch health records:', errorData);
+        setRecords([]);
+        setLoading(false);
+        return;
       }
+
+      const data = await response.json();
+      console.log('[RecordsGrid] Fetched data:', data);
+      
+      // Backend returns: { success: true, data: records, stats }
+      const fetchedRecords = data.data || [];
+      console.log('[RecordsGrid] Setting records:', fetchedRecords.length, 'records');
+      setRecords(fetchedRecords);
     } catch (error) {
-      console.error('Error fetching health records:', error);
+      console.error('[RecordsGrid] Error fetching health records:', error);
+      setRecords([]);
     } finally {
       setLoading(false);
     }
@@ -164,10 +190,10 @@ export default function RecordsGrid({ refreshTrigger, searchTerm = "", selectedC
           <FileText className="h-8 w-8 text-slate-400" />
         </div>
         <h3 className="mb-2 font-medium text-slate-900">
-          {records.length === 0 ? "No Health Records Yet" : "No records match your search"}
+          {(records || []).length === 0 ? "No Health Records Yet" : "No records match your search"}
         </h3>
         <p className="text-sm text-slate-500">
-          {records.length === 0
+          {(records || []).length === 0
             ? "Upload prescriptions, lab reports, dental exams, and other health documents here."
             : "Try a different search term or category."}
         </p>

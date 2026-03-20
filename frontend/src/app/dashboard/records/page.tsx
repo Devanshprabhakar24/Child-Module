@@ -10,10 +10,15 @@ export default function HealthRecordsPage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("All Records");
 
+  const handleRefresh = () => {
+    setRefreshTrigger((p) => p + 1);
+  };
+
   return (
     <div className="mx-auto max-w-8xl">
       <RecordsHeader
         onUploadSuccess={() => setRefreshTrigger((p) => p + 1)}
+        onRefresh={handleRefresh}
         searchTerm={searchTerm}
         onSearchChange={setSearchTerm}
       />
