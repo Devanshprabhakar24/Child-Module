@@ -23,9 +23,11 @@ interface HealthRecord {
 
 interface RecordsGridProps {
   refreshTrigger?: number;
+  searchTerm?: string;
+  selectedCategory?: string;
 }
 
-export default function RecordsGrid({ refreshTrigger }: RecordsGridProps) {
+export default function RecordsGrid({ refreshTrigger, searchTerm = "", selectedCategory = "All Records" }: RecordsGridProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [records, setRecords] = useState<HealthRecord[]>([]);
@@ -36,6 +38,13 @@ export default function RecordsGrid({ refreshTrigger }: RecordsGridProps) {
   useEffect(() => {
     fetchHealthRecords();
   }, [refreshTrigger]);
+
+  // Client-side filtering
+  const filtered = records.filter((r) => {
+    const matchesCategory = selectedCategory === "All Records" || r.category === selectedCategory;
+    const matchesSearch = searchTerm.trim() === "" || r.documentName.toLowerCase().includes(searchTerm.toLowerCase());
+    return matchesCategory && matchesSearch;
+  });
 
   const fetchHealthRecords = async () => {
     try {
@@ -140,15 +149,19 @@ export default function RecordsGrid({ refreshTrigger }: RecordsGridProps) {
     );
   }
 
-  if (records.length === 0) {
+  if (filtered.length === 0) {
     return (
       <div className="rounded-xl border border-slate-200 bg-white p-8 text-center shadow-sm">
         <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-slate-100">
           <FileText className="h-8 w-8 text-slate-400" />
         </div>
-        <h3 className="mb-2 font-medium text-slate-900">No Health Records Yet</h3>
-        <p className="mb-6 text-sm text-slate-500">
-          Upload prescriptions, lab reports, dental exams, and other health documents here.
+        <h3 className="mb-2 font-medium text-slate-900">
+          {records.length === 0 ? "No Health Records Yet" : "No records match your search"}
+        </h3>
+        <p className="text-sm text-slate-500">
+          {records.length === 0
+            ? "Upload prescriptions, lab reports, dental exams, and other health documents here."
+            : "Try a different search term or category."}
         </p>
       </div>
     );
@@ -157,7 +170,7 @@ export default function RecordsGrid({ refreshTrigger }: RecordsGridProps) {
   return (
     <>
       <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
-        {records.map((record) => (
+        {filtered.map((record) => (
           <div key={record._id} className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm transition-all hover:shadow-md">
             {/* Document Header */}
             <div className="flex items-start justify-between mb-4">
