@@ -309,13 +309,26 @@ export default function VaccinationTrackerPage() {
                           </button>
                         </>
                       ) : (
-                        <button
-                          onClick={() => handleMarkDone(m)}
-                          className="flex items-center gap-1.5 rounded-lg bg-primary px-4 py-2 text-xs font-medium text-white transition-colors hover:bg-primary/90"
-                        >
-                          <Check className="h-3.5 w-3.5" />
-                          Mark as Done
-                        </button>
+                        <div className="relative group">
+                          <button
+                            onClick={() => handleMarkDone(m)}
+                            disabled={m.status === "UPCOMING"}
+                            className={`flex items-center gap-1.5 rounded-lg px-4 py-2 text-xs font-medium transition-colors ${
+                              m.status === "UPCOMING"
+                                ? "cursor-not-allowed bg-slate-300 text-slate-500 opacity-60"
+                                : "bg-primary text-white hover:bg-primary/90"
+                            }`}
+                          >
+                            <Check className="h-3.5 w-3.5" />
+                            Mark as Done
+                          </button>
+                          {m.status === "UPCOMING" && (
+                            <div className="absolute bottom-full left-1/2 mb-2 hidden -translate-x-1/2 whitespace-nowrap rounded-lg bg-slate-800 px-3 py-1.5 text-xs text-white shadow-lg group-hover:block">
+                              This vaccine is not due yet
+                              <div className="absolute left-1/2 top-full h-0 w-0 -translate-x-1/2 border-4 border-transparent border-t-slate-800"></div>
+                            </div>
+                          )}
+                        </div>
                       )}
                     </div>
                   </div>
