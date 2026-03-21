@@ -5,6 +5,8 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { FileText, Upload, Eye, Download, Calendar, User } from "lucide-react";
 import { getRegistrationId } from "@/utils/registrationId";
 
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+
 interface HealthRecord {
   _id: string;
   documentName: string;
@@ -54,7 +56,7 @@ export default function RecordsGrid({ refreshTrigger, searchTerm = "", selectedC
     }
   }, [searchParams, mounted]);
 
-  // Client-side filtering
+  // Client-side filtering - ensure records is an array before filtering
   const filtered = (records || []).filter((r) => {
     const matchesCategory = selectedCategory === "All Records" || r.category === selectedCategory;
     const matchesSearch = searchTerm.trim() === "" || r.documentName.toLowerCase().includes(searchTerm.toLowerCase());
@@ -80,7 +82,7 @@ export default function RecordsGrid({ refreshTrigger, searchTerm = "", selectedC
 
       console.log('[RecordsGrid] Fetching health records for registrationId:', registrationId);
 
-      const response = await fetch(`http://localhost:8000/health-records/${registrationId}`);
+      const response = await fetch(`${API_BASE}/health-records/${registrationId}`);
 
       console.log('[RecordsGrid] Response status:', response.status);
 
@@ -267,7 +269,7 @@ export default function RecordsGrid({ refreshTrigger, searchTerm = "", selectedC
                 View
               </button>
               <a
-                href={`http://localhost:8000${record.fileUrl}`}
+                href={`${API_BASE}${record.fileUrl}`}
                 download={record.fileName}
                 className="flex items-center justify-center bg-slate-100 text-slate-700 px-3 py-2 rounded-lg hover:bg-slate-200 transition-colors"
                 title="Download"
@@ -316,7 +318,7 @@ export default function RecordsGrid({ refreshTrigger, searchTerm = "", selectedC
                   {/* PDF Viewer with local file support */}
                   <div className="mb-4">
                     <iframe
-                      src={`http://localhost:8000${currentDocument.fileUrl}`}
+                      src={`${API_BASE}${currentDocument.fileUrl}`}
                       className="w-full h-[600px] border-0 rounded-lg"
                       title={currentDocument.documentName}
                       onError={() => console.log('PDF iframe failed to load')}
@@ -330,7 +332,7 @@ export default function RecordsGrid({ refreshTrigger, searchTerm = "", selectedC
                     </p>
                     <div className="flex flex-wrap gap-3">
                       <a
-                        href={`http://localhost:8000${currentDocument.fileUrl}`}
+                        href={`${API_BASE}${currentDocument.fileUrl}`}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="bg-primary text-white px-4 py-2 rounded-lg hover:bg-primary/90 text-sm flex items-center gap-2 font-medium"
@@ -341,7 +343,7 @@ export default function RecordsGrid({ refreshTrigger, searchTerm = "", selectedC
                         Open in New Tab
                       </a>
                       <a
-                        href={`http://localhost:8000${currentDocument.fileUrl}`}
+                        href={`${API_BASE}${currentDocument.fileUrl}`}
                         download={currentDocument.fileName}
                         className="bg-green-500 text-white px-4 py-2 rounded-lg hover:bg-green-600 text-sm flex items-center gap-2 font-medium"
                       >
@@ -354,7 +356,7 @@ export default function RecordsGrid({ refreshTrigger, searchTerm = "", selectedC
               ) : (
                 <div className="text-center">
                   <img
-                    src={`http://localhost:8000${currentDocument.fileUrl}`}
+                    src={`${API_BASE}${currentDocument.fileUrl}`}
                     alt={currentDocument.documentName}
                     className="max-w-full max-h-[600px] mx-auto rounded-lg shadow-lg"
                     onError={(e) => {

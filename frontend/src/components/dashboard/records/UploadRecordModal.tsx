@@ -5,6 +5,8 @@ import { useSearchParams } from "next/navigation";
 import { CloudUpload, X, FileText, Image as ImageIcon, Trash2, ChevronDown } from "lucide-react";
 import { getRegistrationId } from "@/utils/registrationId";
 
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+
 interface UploadRecordModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -153,7 +155,7 @@ export default function UploadRecordModal({ isOpen, onClose, onUploadSuccess }: 
       if (uploadForm.notes) formData.append('notes', uploadForm.notes);
 
       // Use regular upload endpoint (no auth required for testing)
-      const uploadUrl = `http://localhost:8000/health-records/upload/${registrationId}`;
+      const uploadUrl = `${API_BASE}/health-records/upload/${registrationId}`;
       
       const response = await fetch(uploadUrl, {
         method: 'POST',
