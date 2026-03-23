@@ -20,6 +20,9 @@ import {
   BarChart3,
 } from "lucide-react";
 
+// Prevent prerendering for all admin pages
+export const dynamic = 'force-dynamic';
+
 const navItems = [
   { href: "/admin", icon: LayoutDashboard, label: "Dashboard" },
   { href: "/admin/vaccinations", icon: Syringe, label: "Vaccinations" },

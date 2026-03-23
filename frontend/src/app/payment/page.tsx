@@ -6,6 +6,9 @@ import RazorpayPayment from "@/components/payment/RazorpayPayment";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
+// Prevent prerendering
+export const dynamic = 'force-dynamic';
+
 export default function PaymentPage() {
   const searchParams = useSearchParams();
   const registrationId = searchParams.get("registrationId");
