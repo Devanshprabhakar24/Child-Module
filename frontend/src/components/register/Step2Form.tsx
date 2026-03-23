@@ -422,7 +422,7 @@ export default function Step2Form({ onNext, onPrev, onComplete, motherName, stat
       const res = await fetch(`${API_BASE}/auth/send-otp`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email }),
+        body: JSON.stringify({ email, phone: mobile ? `+91${mobile}` : undefined }),
       });
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));

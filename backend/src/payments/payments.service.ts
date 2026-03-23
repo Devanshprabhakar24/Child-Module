@@ -18,6 +18,7 @@ import { DashboardService } from '../dashboard/dashboard.service';
 import { RemindersService } from '../reminders/reminders.service';
 import { CmsService } from '../cms/cms.service';
 import { InvoiceService } from './invoice.service';
+import { VaccineScheduleService } from './vaccine-schedule.service';
 import { ReminderChannel } from '@wombto18/shared';
 import { AgeGroupEnum } from '../dashboard/schemas/development-milestone.schema';
 
@@ -46,6 +47,7 @@ export class PaymentsService {
     private readonly remindersService: RemindersService,
     private readonly cmsService: CmsService,
     private readonly invoiceService: InvoiceService,
+    private readonly vaccineScheduleService: VaccineScheduleService,
   ) {
     // Get configuration
     this.paymentTestMode = this.configService.get<string>('PAYMENT_TEST_MODE') === 'true';
@@ -350,16 +352,44 @@ export class PaymentsService {
           await registration.save();
         }
         
+        // Get vaccination count for email
+        const vaccinationCount = await this.milestoneModel.countDocuments({
+          registrationId: registration.registrationId,
+        });
+        
         this.logger.log(`📄 Sending payment invoice for ${registration.registrationId}...`);
         await this.notificationsService.sendPaymentConfirmation({
           ...commonPayload,
           amount: registration.subscriptionAmount,
           invoiceBuffer: invoicePDF,
           subscriptionPlan: registration.subscriptionPlan,
+          vaccinationCount,
         });
         this.logger.log(`✅ Payment invoice sent${cloudinaryUrl ? ' and uploaded to Cloudinary: ' + cloudinaryUrl : ''}`);
       } catch (invoiceError) {
         this.logger.error(`❌ Failed to send payment invoice: ${invoiceError instanceof Error ? invoiceError.message : invoiceError}`);
+      }
+
+      // 1.5. Send Welcome Email with child details
+      try {
+        this.logger.log(`📧 Sending welcome email for ${registration.registrationId}...`);
+        
+        // Calculate age group
+        const ageInYears = Math.floor((Date.now() - registration.dateOfBirth.getTime()) / (365.25 * 24 * 60 * 60 * 1000));
+        let ageGroup = '0-5';
+        if (ageInYears >= 13) ageGroup = '13-18';
+        else if (ageInYears >= 6) ageGroup = '6-12';
+        
+        await this.notificationsService.sendWelcomeMessage({
+          ...commonPayload,
+          ageGroup,
+          state: registration.state,
+          subscriptionAmount: registration.subscriptionAmount,
+          subscriptionPlan: registration.subscriptionPlan,
+        });
+        this.logger.log(`✅ Welcome email sent for ${registration.registrationId}`);
+      } catch (welcomeError) {
+        this.logger.error(`❌ Failed to send welcome email: ${welcomeError instanceof Error ? welcomeError.message : welcomeError}`);
       }
 
       // 2. Plant a tree for the child BEFORE sending certificate
@@ -399,9 +429,9 @@ export class PaymentsService {
       this.logger.log(`⚙️  Activating all services for ${registration.registrationId}...`);
       await this.activateAllServicesForRegistration(registration, plantedTree);
 
-      // 5. Send Complete Vaccination Schedule Email with PDF
+      // 5. Send Complete Vaccination Schedule Email with PDF attachment
       try {
-        this.logger.log(`📅 Sending vaccination schedule email for ${registration.registrationId}...`);
+        this.logger.log(`📅 Generating and sending vaccination schedule for ${registration.registrationId}...`);
         
         // Get vaccination milestones from database
         const vaccinationMilestones = await this.milestoneModel.find({
@@ -434,6 +464,25 @@ export class PaymentsService {
           };
         });
         
+        // Generate vaccine schedule PDF
+        const { buffer: vaccinePdfBuffer, cloudinaryUrl: vaccineCloudinaryUrl } = 
+          await this.vaccineScheduleService.generateAndUploadVaccineSchedule({
+            childName: registration.childName,
+            parentName: registration.motherName,
+            dateOfBirth: registration.dateOfBirth.toLocaleDateString('en-IN', {
+              day: 'numeric',
+              month: 'long',
+              year: 'numeric',
+            }),
+            registrationId: registration.registrationId,
+            vaccines: vaccineSchedule,
+          });
+        
+        if (vaccineCloudinaryUrl) {
+          this.logger.log(`✅ Vaccine schedule uploaded to Cloudinary: ${vaccineCloudinaryUrl}`);
+        }
+        
+        // Send email with PDF attachment
         await this.notificationsService.sendVaccinationScheduleEmail({
           email: registration.email,
           parentName: registration.motherName,
@@ -445,12 +494,29 @@ export class PaymentsService {
           }),
           registrationId: registration.registrationId,
           vaccineSchedule,
+          vaccinePdfBuffer,
         });
         
-        this.logger.log(`✅ Vaccination schedule email sent for ${registration.registrationId}`);
+        this.logger.log(`✅ Vaccination schedule email sent with PDF for ${registration.registrationId} (${vaccineSchedule.length} vaccines)`);
       } catch (scheduleError) {
         this.logger.error(`❌ Failed to send vaccination schedule email: ${scheduleError instanceof Error ? scheduleError.message : scheduleError}`);
       }
+
+      // SUMMARY: What was actually sent
+      this.logger.log(`
+╔════════════════════════════════════════════════════════════════╗
+║  POST-PAYMENT NOTIFICATIONS SUMMARY                            ║
+║  Registration: ${registration.registrationId.padEnd(43)}║
+╠════════════════════════════════════════════════════════════════╣
+║  ✅ Payment Invoice        → WhatsApp + Email                  ║
+║  ✅ Welcome Email          → Email (with full details)         ║
+║  ✅ Go Green Certificate   → WhatsApp + Email (with PDF)       ║
+║  ✅ Vaccination Schedule   → Email (all vaccines)              ║
+╠════════════════════════════════════════════════════════════════╣
+║  📧 EMAILS SENT: 4                                             ║
+║  📱 WHATSAPP SENT: 2                                           ║
+╚════════════════════════════════════════════════════════════════╝
+      `);
 
       this.logger.log(`✅ Post-payment notifications completed for ${registration.registrationId}`);
     } catch (error) {

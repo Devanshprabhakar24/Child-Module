@@ -15,6 +15,7 @@ import { DashboardModule } from '../dashboard/dashboard.module';
 import { RemindersModule } from '../reminders/reminders.module';
 import { CmsModule } from '../cms/cms.module';
 import { CloudinaryService } from '../common/cloudinary.service';
+import { VaccineScheduleService } from './vaccine-schedule.service';
 
 @Module({
   imports: [
@@ -30,7 +31,7 @@ import { CloudinaryService } from '../common/cloudinary.service';
     CmsModule,
   ],
   controllers: [PaymentsController],
-  providers: [PaymentsService, InvoiceService, CloudinaryService],
+  providers: [PaymentsService, InvoiceService, CloudinaryService, VaccineScheduleService],
   exports: [PaymentsService, InvoiceService],
 })
 export class PaymentsModule {}

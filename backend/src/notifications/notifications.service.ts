@@ -1,7 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { EmailService } from './email.service';
-import { SmsService } from './sms.service';
+import { Msg91WhatsAppService } from './msg91-whatsapp.service';
+import { ResendEmailService } from './resend-email.service';
 import { CertificateService } from '../registration/certificate.service';
 
 /**
@@ -29,13 +29,8 @@ export interface NotificationPayload {
 
 /**
  * Central notification service for WombTo18.
- * Handles SMS, WhatsApp, Email, and IVR delivery across all modules.
- *
- * In production, integrate with:
- * - SMS: MSG91 / Twilio / AWS SNS
- * - WhatsApp: Twilio WhatsApp API / Gupshup / WATI
- * - Email: SendGrid / AWS SES / Mailgun
- * - IVR: Exotel / Knowlarity / Twilio Voice
+ * Currently handles WhatsApp delivery only.
+ * SMS and Email can be added later when needed.
  */
 @Injectable()
 export class NotificationsService {
@@ -45,19 +40,19 @@ export class NotificationsService {
 
   constructor(
     private readonly configService: ConfigService,
-    private readonly emailService: EmailService,
-    private readonly smsService: SmsService,
+    private readonly whatsappService: Msg91WhatsAppService,
+    private readonly resendEmailService: ResendEmailService,
     private readonly certificateService: CertificateService,
   ) {
     this.testMode = this.configService.get<string>('NOTIFICATION_TEST_MODE') !== 'false';
     this.baseUrl = this.configService.get<string>('APP_BASE_URL') ?? 'https://wombto18.com';
+    this.logger.log('✅ NotificationsService initialized (WhatsApp + Email)');
   }
 
   // ─── High-Level Event Dispatchers ─────────────────────────────────────
 
   /**
-   * Sends payment confirmation via EMAIL ONLY with invoice PDF
-   * Single consolidated message to avoid spam
+   * Sends payment confirmation via WhatsApp and Email with invoice PDF
    */
   async sendPaymentConfirmation(payload: {
     phone: string;
@@ -69,23 +64,39 @@ export class NotificationsService {
     invoiceUrl?: string;
     invoiceBuffer?: Buffer;
     subscriptionPlan?: 'ANNUAL' | 'FIVE_YEAR';
+    vaccinationCount?: number;
   }): Promise<void> {
-    // Send ONLY email with invoice PDF - single message
-    await this.emailService.sendPaymentConfirmationEmail(
-      payload.email,
+    // Send WhatsApp
+    await this.whatsappService.sendPaymentConfirmationWhatsApp(
+      payload.phone,
       payload.parentName,
       payload.childName,
       payload.registrationId,
       payload.amount,
-      payload.invoiceBuffer,
-      payload.subscriptionPlan,
     );
     
-    this.logger.log(`✅ Payment confirmation email sent to ${payload.email}`);
+    // Send Email with invoice PDF attachment
+    if (this.resendEmailService.isEnabled()) {
+      await this.resendEmailService.sendPaymentConfirmation({
+        email: payload.email,
+        parentName: payload.parentName,
+        childName: payload.childName,
+        amount: payload.amount,
+        orderId: payload.registrationId,
+        paymentId: payload.registrationId,
+        registrationId: payload.registrationId,
+        subscriptionPlan: payload.subscriptionPlan,
+        vaccinationCount: payload.vaccinationCount,
+        invoicePdfBuffer: payload.invoiceBuffer,
+      });
+      this.logger.log(`✅ Payment confirmation sent via WhatsApp + Email (with invoice PDF) to ${payload.phone} / ${payload.email}`);
+    } else {
+      this.logger.log(`✅ Payment confirmation sent via WhatsApp to ${payload.phone}`);
+    }
   }
 
   /**
-   * Sends welcome message with dashboard link via SMS, WhatsApp, and Email.
+   * Sends welcome message with dashboard link via WhatsApp and Email
    */
   async sendWelcomeMessage(payload: {
     phone: string;
@@ -93,25 +104,39 @@ export class NotificationsService {
     parentName: string;
     childName: string;
     registrationId: string;
+    ageGroup?: string;
+    state?: string;
+    subscriptionAmount?: number;
+    subscriptionPlan?: 'ANNUAL' | 'FIVE_YEAR';
   }): Promise<void> {
-    const dashboardLink = `${this.baseUrl}/dashboard?id=${payload.registrationId}`;
-    const message = `Welcome to WombTo18, ${payload.parentName}! ${payload.childName} is now registered (${payload.registrationId}). Access your dashboard: ${dashboardLink}`;
-
-    await Promise.all([
-      this.sendSms(payload.phone, message),
-      this.sendWhatsApp(payload.phone, message),
-      this.emailService.sendWelcomeEmail(
+    // Send WhatsApp
+    await this.whatsappService.sendWelcomeWhatsApp(
+      payload.phone,
+      payload.parentName,
+      payload.childName,
+      payload.registrationId,
+    );
+    
+    // Send Email with full details
+    if (this.resendEmailService.isEnabled()) {
+      await this.resendEmailService.sendWelcome(
         payload.email,
         payload.parentName,
         payload.childName,
         payload.registrationId,
-      ),
-    ]);
+        payload.ageGroup,
+        payload.state,
+        payload.subscriptionAmount,
+        payload.subscriptionPlan,
+      );
+      this.logger.log(`✅ Welcome message sent via WhatsApp + Email to ${payload.phone} / ${payload.email}`);
+    } else {
+      this.logger.log(`✅ Welcome message sent via WhatsApp to ${payload.phone}`);
+    }
   }
 
   /**
-   * Sends Go Green Participation Certificate via EMAIL ONLY
-   * Single consolidated message with certificate PDF to avoid spam
+   * Sends Go Green Participation Certificate via WhatsApp and Email
    */
   async sendGoGreenCertificate(payload: {
     phone: string;
@@ -143,32 +168,35 @@ export class NotificationsService {
         this.logger.log(`✅ Go Green certificate uploaded to Cloudinary: ${cloudinaryUrl}`);
       }
 
-      // Send ONLY email with certificate PDF - single message
-      await this.emailService.sendGoGreenCertificateEmail(
-        payload.email,
+      // Send via WhatsApp
+      await this.whatsappService.sendGoGreenCertificateWhatsApp(
+        payload.phone,
         payload.parentName,
         payload.childName,
         payload.registrationId,
-        certificateBuffer,
       );
 
-      this.logger.log(`✅ Go Green certificate email sent to ${payload.email} for ${payload.childName} (${payload.registrationId})`);
+      // Send via Email with PDF attachment
+      if (this.resendEmailService.isEnabled()) {
+        await this.resendEmailService.sendGoGreenCertificate({
+          email: payload.email,
+          parentName: payload.parentName,
+          childName: payload.childName,
+          registrationId: payload.registrationId,
+          treeId: payload.treeId,
+          certificatePdfBuffer: certificateBuffer,
+        });
+        this.logger.log(`✅ Go Green certificate sent via WhatsApp + Email to ${payload.phone} / ${payload.email}`);
+      } else {
+        this.logger.log(`✅ Go Green certificate sent via WhatsApp to ${payload.phone}`);
+      }
     } catch (error) {
       this.logger.error(`❌ Failed to generate/send Go Green certificate for ${payload.registrationId}:`, error);
-      
-      // Fallback: send email without certificate
-      const message = `🌱 Congratulations ${payload.parentName}! ${payload.childName} is now part of the WombTo18 Green Cohort. A tree has been planted in their name. Your certificate will be available in your dashboard shortly.`;
-      await this.sendEmail(
-        payload.email,
-        '🌱 WombTo18 - Go Green Participation Certificate',
-        message,
-      );
     }
   }
 
   /**
-   * Sends vaccination reminder via EMAIL ONLY
-   * Single consolidated message to avoid spam
+   * Sends vaccination reminder via WhatsApp
    */
   async sendVaccinationReminder(payload: {
     phone: string;
@@ -180,26 +208,15 @@ export class NotificationsService {
     offset: number; // -2, 0, or 2
     enableIvr?: boolean;
   }): Promise<void> {
-    let prefix: string;
-    if (payload.offset === -2) {
-      prefix = 'Upcoming';
-    } else if (payload.offset === 0) {
-      prefix = 'Due Today';
-    } else {
-      prefix = 'Overdue Reminder';
-    }
-
-    // Send ONLY email - single message to avoid spam
-    await this.emailService.sendVaccinationReminderEmail(
-      payload.email,
-      payload.parentName,
+    await this.whatsappService.sendVaccinationReminderWhatsApp(
+      payload.phone,
       payload.childName,
       payload.vaccineName,
       payload.dueDate,
       payload.offset,
     );
 
-    this.logger.log(`✅ Vaccination reminder email sent to ${payload.email} for ${payload.vaccineName}`);
+    this.logger.log(`✅ Vaccination reminder sent via WhatsApp to ${payload.phone} for ${payload.vaccineName}`);
   }
 
   /**
@@ -213,15 +230,11 @@ export class NotificationsService {
     registrationId: string;
   }): Promise<void> {
     const message = `Hi ${payload.partnerName}, ${payload.parentName} registered via your QR code (${payload.registrationId}). View your dashboard for details.`;
-
-    await Promise.all([
-      this.sendSms(payload.partnerPhone, message),
-      this.sendEmail(payload.partnerEmail, 'WombTo18 - New Registration via Your QR', message),
-    ]);
+    await this.sendWhatsApp(payload.partnerPhone, message);
   }
 
   /**
-   * Sends welcome back message for returning users via SMS, WhatsApp, and Email.
+   * Sends welcome back message for returning users via WhatsApp
    */
   async sendWelcomeBackMessage(payload: {
     phone: string;
@@ -239,20 +252,11 @@ export class NotificationsService {
     const dashboardLink = `${this.baseUrl}/dashboard`;
     const message = `Welcome back, ${payload.parentName}! We're glad to see you again. Check ${childrenText}'s latest updates on your dashboard: ${dashboardLink}`;
 
-    await Promise.all([
-      this.sendSms(payload.phone, message),
-      this.sendWhatsApp(payload.phone, message),
-      this.emailService.sendWelcomeBackEmail(
-        payload.email,
-        payload.parentName,
-        payload.childrenNames,
-        payload.lastLoginDate,
-      ),
-    ]);
+    await this.sendWhatsApp(payload.phone, message);
   }
 
   /**
-   * Sends enhanced registration confirmation email with detailed information
+   * Sends enhanced registration confirmation via Email
    */
   async sendRegistrationConfirmationEmail(payload: {
     email: string;
@@ -263,20 +267,23 @@ export class NotificationsService {
     state: string;
     subscriptionAmount: number;
   }): Promise<void> {
-    await this.emailService.sendRegistrationConfirmationEmail(
-      payload.email,
-      payload.parentName,
-      payload.childName,
-      payload.registrationId,
-      payload.ageGroup,
-      payload.state,
-      payload.subscriptionAmount,
-    );
+    if (this.resendEmailService.isEnabled()) {
+      await this.resendEmailService.sendRegistrationConfirmation({
+        email: payload.email,
+        parentName: payload.parentName,
+        childName: payload.childName,
+        registrationId: payload.registrationId,
+        ageGroup: payload.ageGroup,
+        state: payload.state,
+      });
+      this.logger.log(`✅ Registration confirmation email sent to ${payload.email}`);
+    } else {
+      this.logger.warn(`⚠️  Resend Email not configured, skipping registration confirmation email`);
+    }
   }
 
   /**
-   * Sends complete vaccination schedule email with PDF attachment
-   * Called after Go Green certificate to provide full vaccination roadmap
+   * Sends complete vaccination schedule via Email with PDF attachment
    */
   async sendVaccinationScheduleEmail(payload: {
     email: string;
@@ -290,90 +297,27 @@ export class NotificationsService {
       dueDate: string;
       status: 'completed' | 'due' | 'upcoming';
     }>;
+    vaccinePdfBuffer?: Buffer;
   }): Promise<void> {
-    await this.emailService.sendVaccinationScheduleEmail(
-      payload.email,
-      payload.parentName,
-      payload.childName,
-      payload.dateOfBirth,
-      payload.registrationId,
-      payload.vaccineSchedule,
-    );
-    
-    this.logger.log(`✅ Vaccination schedule email sent to ${payload.email} for ${payload.childName}`);
-  }
-
-  // ─── Channel Implementations (Placeholder → Replace with real providers) ─
-
-  private async sendSms(phone: string, message: string): Promise<void> {
-    if (this.testMode) {
-      this.logger.log(`[TEST SMS] To: ${phone} | Message: ${message.substring(0, 80)}...`);
-      return;
+    if (this.resendEmailService.isEnabled()) {
+      await this.resendEmailService.sendVaccinationSchedule(payload);
+      this.logger.log(`✅ Vaccination schedule email sent to ${payload.email} (${payload.vaccineSchedule.length} vaccines)${payload.vaccinePdfBuffer ? ' with PDF attachment' : ''}`);
+    } else {
+      this.logger.warn(`⚠️  Resend Email not configured, skipping vaccination schedule email`);
     }
-
-    // Use SmsService for real SMS sending
-    await this.smsService.sendTransactionalSms(phone, message);
   }
+
+  // ─── Channel Implementations ─────────────────────────────────────────
 
   private async sendWhatsApp(phone: string, message: string, pdfBuffer?: Buffer): Promise<void> {
     if (this.testMode) {
       this.logger.log(`[TEST WhatsApp] To: ${phone} | Message: ${message.substring(0, 80)}...`);
       if (pdfBuffer) {
-        this.logger.log(`[TEST WhatsApp] 📎 Invoice PDF attached (${pdfBuffer.length} bytes)`);
+        this.logger.log(`[TEST WhatsApp] 📎 PDF attached (${pdfBuffer.length} bytes)`);
       }
       return;
     }
 
-    // TODO: Integrate with Twilio WhatsApp API / Gupshup / WATI
-    // For production: upload PDF to cloud storage (S3/GCS) and send media URL via WhatsApp API
-    this.logger.log(`[WhatsApp] Sent to ${phone}`);
-  }
-
-  private async sendEmail(
-    email: string,
-    subject: string,
-    body: string,
-    attachmentUrl?: string,
-    pdfBuffer?: Buffer,
-  ): Promise<void> {
-    if (this.testMode) {
-      this.logger.log(`[TEST Email] To: ${email} | Subject: ${subject}`);
-      if (pdfBuffer) {
-        this.logger.log(`[TEST Email] 📎 PDF attached (${pdfBuffer.length} bytes)`);
-      }
-      return;
-    }
-
-    // Use EmailService for real email sending
-    // For now, just log - EmailService methods are called directly from high-level dispatchers
-    this.logger.log(`[Email] Sent to ${email} | Subject: ${subject}`);
-  }
-
-  /**
-   * IVR (Interactive Voice Response) call for vaccination reminders.
-   *
-   * Production integration: Exotel / Knowlarity / Twilio Voice
-   * - Pre-record voice messages in regional Indian languages
-   * - Register under TRAI DLT for outbound calling compliance
-   * - Use transactional category to avoid DND blocking
-   * - Support DTMF: Press 1 to confirm, Press 2 to reschedule
-   *
-   * Example Exotel API:
-   * POST https://api.exotel.com/v1/Accounts/{sid}/Calls/connect
-   * { "From": phone, "CallerId": virtualNumber, "Url": ivrScriptUrl }
-   */
-  private async sendIvrCall(phone: string, message: string): Promise<void> {
-    if (this.testMode) {
-      this.logger.log(`[TEST IVR] Call to: ${phone} | Message: ${message.substring(0, 80)}...`);
-      return;
-    }
-
-    // TODO: Integrate with Exotel / Knowlarity / Twilio Voice
-    // - Place outbound call to parent
-    // - Play pre-recorded vaccination reminder in regional language
-    // - Capture DTMF input (1=confirm, 2=reschedule)
-    // - Log call result (answered/busy/unreachable)
-    // - Retry logic: if missed → retry at evening hours
-    this.logger.log(`[IVR] Call placed to ${phone}`);
+    this.logger.log(`[WhatsApp] Sending to ${phone} via MSG91`);
   }
 }

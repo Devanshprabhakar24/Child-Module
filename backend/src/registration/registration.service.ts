@@ -208,21 +208,12 @@ export class RegistrationService {
       greenCohort: true,
     });
 
-    // Send registration confirmation email
-    try {
-      await this.notificationsService.sendRegistrationConfirmationEmail({
-        email: dto.email,
-        parentName: dto.motherName,
-        childName: dto.childName,
-        registrationId,
-        ageGroup,
-        state: dto.state,
-        subscriptionAmount: SUBSCRIPTION_PLANS[dto.subscriptionPlan ?? DEFAULT_PLAN].price,
-      });
-      this.logger.log(`Registration confirmation email sent for ${registrationId}`);
-    } catch (error) {
-      this.logger.warn(`Failed to send registration confirmation email for ${registrationId}: ${error instanceof Error ? error.message : error}`);
-    }
+    // Registration confirmation email is sent AFTER payment, not here
+    // The post-payment flow will send:
+    // 1. Welcome email
+    // 2. Payment confirmation
+    // 3. Go Green certificate
+    // 4. Vaccination schedule
 
     this.logger.log(`Child registered: ${registrationId} | Order: ${orderId}`);
 
@@ -391,7 +382,7 @@ export class RegistrationService {
       return { verified: isValid };
     }
 
-    // TODO: Replace with actual OTP provider (e.g., Twilio, MSG91, AWS SNS)
+    // TODO: Replace with actual OTP provider (e.g., Fast2SMS, MSG91)
     throw new Error('OTP provider not configured. Set OTP_TEST_MODE=true for development.');
   }
 

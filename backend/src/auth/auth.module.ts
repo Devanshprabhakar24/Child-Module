@@ -11,7 +11,8 @@ import {
 } from '../registration/schemas/child-registration.schema';
 import { AuthGuard } from './guards/auth.guard';
 import { RolesGuard } from './guards/roles.guard';
-import { EmailService } from '../notifications/email.service';
+import { Fast2SmsService } from '../notifications/fast2sms.service';
+import { ResendEmailService } from '../notifications/resend-email.service';
 
 @Module({
   imports: [
@@ -23,7 +24,7 @@ import { EmailService } from '../notifications/email.service';
     ]),
   ],
   controllers: [AuthController],
-  providers: [AuthService, AuthGuard, RolesGuard, EmailService],
+  providers: [AuthService, AuthGuard, RolesGuard, Fast2SmsService, ResendEmailService],
   exports: [AuthService, AuthGuard, RolesGuard],
 })
 export class AuthModule {}

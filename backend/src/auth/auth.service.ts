@@ -20,8 +20,8 @@ import {
   VerifyPhoneOtpDto,
   UserRole,
 } from '@wombto18/shared';
-import { EmailService } from '../notifications/email.service';
-import { SmsService } from '../notifications/sms.service';
+import { Fast2SmsService } from '../notifications/fast2sms.service';
+import { ResendEmailService } from '../notifications/resend-email.service';
 import { NotificationsService } from '../notifications/notifications.service';
 
 const OTP_EXPIRY_MINUTES = 5;
@@ -30,7 +30,6 @@ const MAX_OTP_ATTEMPTS = 5;
 @Injectable()
 export class AuthService {
   private readonly logger = new Logger(AuthService.name);
-  private readonly otpEmailTestMode: boolean;
   private readonly otpSmsTestMode: boolean;
   private readonly otpTestCode: string;
   private readonly jwtSecret: string;
@@ -41,22 +40,21 @@ export class AuthService {
     @InjectModel(ChildRegistration.name)
     private readonly childRegModel: Model<ChildRegistrationDocument>,
     private readonly configService: ConfigService,
-    private readonly emailService: EmailService,
-    private readonly smsService: SmsService,
+    private readonly fast2smsService: Fast2SmsService,
+    private readonly resendEmailService: ResendEmailService,
     private readonly notificationsService: NotificationsService,
   ) {
-    this.otpEmailTestMode = this.configService.get<string>('OTP_EMAIL_TEST_MODE') === 'true';
     this.otpSmsTestMode = this.configService.get<string>('OTP_SMS_TEST_MODE') === 'true';
     this.otpTestCode = this.configService.get<string>('OTP_TEST_CODE') ?? '123456';
     this.jwtSecret = this.configService.get<string>('JWT_SECRET') ?? 'wombto18-dev-secret';
 
-    if (this.otpEmailTestMode || this.otpSmsTestMode) {
-      this.logger.warn('⚠ OTP Test Modes Enabled:');
-      if (this.otpEmailTestMode) {
-        this.logger.log(`📧 Email Test Mode: ON`);
-      }
-      if (this.otpSmsTestMode) {
-        this.logger.log(`📱 SMS Test Mode: ON`);
+    if (this.otpSmsTestMode) {
+      this.logger.warn('⚠️  OTP SMS Test Mode Enabled');
+      this.logger.log(`📱 Test OTP Code: ${this.otpTestCode}`);
+    } else {
+      this.logger.log('✅ Fast2SMS enabled for SMS OTP');
+      if (this.resendEmailService.isEnabled()) {
+        this.logger.log('✅ Resend Email enabled for Email OTP');
       }
     }
   }
@@ -84,28 +82,42 @@ export class AuthService {
 
   async sendOtp(dto: SendOtpDto): Promise<{ message: string; expiresInMinutes: number }> {
     // Check if user exists in database OR if there's a child registration with this email
-    const user = await this.userModel.findOne({ email: dto.email }).exec();
+    let user = await this.userModel.findOne({ email: dto.email }).exec();
     const childReg = await this.childRegModel.findOne({ email: dto.email }).exec();
     
-    if (!user && !childReg) {
-      this.logger.warn(`OTP request for non-existent email: ${dto.email}`);
-      throw new UnauthorizedException('Email not found. Please register first or check your email address.');
+    // Check if an OTP was sent recently (within last 60 seconds) to prevent spam
+    const recentOtp = await this.otpModel
+      .findOne({ 
+        email: dto.email, 
+        type: 'email',
+        createdAt: { $gte: new Date(Date.now() - 60 * 1000) } // Last 60 seconds
+      })
+      .sort({ createdAt: -1 })
+      .exec();
+    
+    if (recentOtp) {
+      const secondsAgo = Math.floor((Date.now() - new Date(recentOtp.get('createdAt')).getTime()) / 1000);
+      this.logger.warn(`OTP request too soon for ${dto.email}. Last OTP sent ${secondsAgo}s ago`);
+      return { 
+        message: 'OTP was sent recently. Please wait before requesting again.', 
+        expiresInMinutes: OTP_EXPIRY_MINUTES 
+      };
     }
-
-    // If child registration exists but no user, create user automatically
-    if (!user && childReg) {
-      this.logger.log(`Auto-creating user for existing child registration: ${dto.email}`);
-      await this.registerUser({
+    
+    // If no user exists, create one automatically (for registration flow)
+    if (!user) {
+      this.logger.log(`Auto-creating user for OTP request: ${dto.email}`);
+      const newUser = await this.registerUser({
         email: dto.email,
-        phone: childReg.phone,
-        fullName: childReg.motherName || 'Parent',
+        phone: dto.phone || (childReg?.phone) || '+910000000000',
+        fullName: childReg?.motherName || 'User',
         role: UserRole.PARENT,
       });
+      user = await this.userModel.findOne({ email: dto.email }).exec();
     }
 
-    // Use email test mode as primary - if email is in test mode, use test code for both
-    // If email is in real mode, generate real code for both email and SMS
-    const code = this.otpEmailTestMode ? this.otpTestCode : this.generateSecureOtp();
+    // Generate OTP code
+    const code = this.otpSmsTestMode ? this.otpTestCode : this.generateSecureOtp();
     const expiresAt = new Date(Date.now() + OTP_EXPIRY_MINUTES * 60 * 1000);
 
     // Invalidate previous unused OTPs for this email
@@ -121,57 +133,79 @@ export class AuthService {
       type: 'email',
     });
 
-    const sendPromises: Promise<any>[] = [];
-    let logMessage = '';
+    let logMessage = `📧 OTP for ${dto.email}: ${code}`;
 
-    // Handle Email OTP
-    if (this.otpEmailTestMode) {
-      logMessage += `📧 [EMAIL TEST] ${dto.email}: ${code}`;
-    } else {
-      // Send real email
-      sendPromises.push(this.emailService.sendOtpEmail(dto.email, code));
-      logMessage += `📧 Real email sent to ${dto.email} (Use this OTP: ${code})`;
+    // Send Email OTP
+    if (!this.otpSmsTestMode && this.resendEmailService.isEnabled()) {
+      const emailSent = await this.resendEmailService.sendOTP(dto.email, code);
+      if (emailSent) {
+        logMessage += ` | 📧 Email sent via Resend`;
+      } else {
+        logMessage += ` | 📧 [FAILED] Email via Resend`;
+      }
     }
 
-    // Handle SMS OTP if phone is provided - use SAME code as email
+    // Send SMS OTP if phone is provided
     if (dto.phone) {
-      const userPhone = dto.phone;
       if (this.otpSmsTestMode) {
-        logMessage += ` | 📱 [SMS TEST] ${userPhone}: ${code} (same as email)`;
+        logMessage += ` | 📱 [TEST MODE] ${dto.phone}: ${code}`;
       } else {
-        // Send real SMS with same code
-        sendPromises.push(this.smsService.sendOtpSms(userPhone, code));
-        logMessage += ` | 📱 Real SMS sent to ${userPhone} (same OTP)`;
+        const smsSent = await this.fast2smsService.sendOTP(dto.phone, code);
+        if (smsSent) {
+          logMessage += ` | 📱 SMS sent to ${dto.phone} via Fast2SMS`;
+        } else {
+          logMessage += ` | 📱 [FAILED] SMS to ${dto.phone} via Fast2SMS`;
+        }
       }
     } else {
       // Check if user exists and has phone number
-      const user = await this.userModel.findOne({ email: dto.email }).exec();
-      if (user?.phone) {
-        const userPhone = user.phone;
+      const existingUser = await this.userModel.findOne({ email: dto.email }).exec();
+      if (existingUser?.phone) {
         if (this.otpSmsTestMode) {
-          logMessage += ` | 📱 [SMS TEST] ${userPhone}: ${code} (same as email)`;
+          logMessage += ` | 📱 [TEST MODE] ${existingUser.phone}: ${code}`;
         } else {
-          // Send real SMS with same code
-          sendPromises.push(this.smsService.sendOtpSms(userPhone, code));
-          logMessage += ` | 📱 Real SMS sent to ${userPhone} (same OTP)`;
+          const smsSent = await this.fast2smsService.sendOTP(existingUser.phone, code);
+          if (smsSent) {
+            logMessage += ` | 📱 SMS sent to ${existingUser.phone} via Fast2SMS`;
+          } else {
+            logMessage += ` | 📱 [FAILED] SMS to ${existingUser.phone} via Fast2SMS`;
+          }
         }
       }
     }
 
-    // Execute all real sending operations
-    if (sendPromises.length > 0) {
-      await Promise.all(sendPromises);
-    }
-
     this.logger.log(logMessage);
 
-    return { message: 'OTP sent successfully', expiresInMinutes: OTP_EXPIRY_MINUTES };
+    return { 
+      message: this.otpSmsTestMode ? 'OTP sent (test mode)' : 'OTP sent successfully via Email & SMS', 
+      expiresInMinutes: OTP_EXPIRY_MINUTES 
+    };
   }
 
   async sendPhoneOtp(dto: SendPhoneOtpDto): Promise<{ message: string; expiresInMinutes: number }> {
     // Normalize phone number to include +91 prefix
     const normalizedPhone = dto.phone.startsWith('+91') ? dto.phone : `+91${dto.phone.replace(/^\+?91?/, '')}`;
     
+    // Check if an OTP was sent recently (within last 60 seconds) to prevent spam
+    const recentOtp = await this.otpModel
+      .findOne({ 
+        phone: normalizedPhone, 
+        type: 'phone',
+        createdAt: { $gte: new Date(Date.now() - 60 * 1000) } // Last 60 seconds
+      })
+      .sort({ createdAt: -1 })
+      .exec();
+    
+    if (recentOtp) {
+      const secondsAgo = Math.floor((Date.now() - new Date(recentOtp.get('createdAt')).getTime()) / 1000);
+      this.logger.warn(`Phone OTP request too soon for ${normalizedPhone}. Last OTP sent ${secondsAgo}s ago`);
+      return { 
+        message: 'OTP was sent recently. Please wait before requesting again.', 
+        expiresInMinutes: OTP_EXPIRY_MINUTES 
+      };
+    }
+    
+    // Generate OTP code
     const code = this.otpSmsTestMode ? this.otpTestCode : this.generateSecureOtp();
     const expiresAt = new Date(Date.now() + OTP_EXPIRY_MINUTES * 60 * 1000);
 
@@ -191,16 +225,22 @@ export class AuthService {
     let logMessage = '';
 
     if (this.otpSmsTestMode) {
-      logMessage = `📱 [SMS TEST] ${normalizedPhone}: ${code}`;
+      logMessage = `📱 [TEST MODE] ${normalizedPhone}: ${code}`;
     } else {
-      // Send real SMS
-      await this.smsService.sendOtpSms(normalizedPhone, code);
-      logMessage = `📱 Real SMS sent to ${normalizedPhone} (Use this OTP: ${code})`;
+      const smsSent = await this.fast2smsService.sendOTP(normalizedPhone, code);
+      if (smsSent) {
+        logMessage = `📱 SMS sent to ${normalizedPhone} via Fast2SMS`;
+      } else {
+        logMessage = `📱 [FAILED] SMS to ${normalizedPhone} via Fast2SMS`;
+      }
     }
 
     this.logger.log(logMessage);
 
-    return { message: 'Phone OTP sent successfully', expiresInMinutes: OTP_EXPIRY_MINUTES };
+    return { 
+      message: this.otpSmsTestMode ? 'Phone OTP sent (test mode)' : 'Phone OTP sent successfully via SMS', 
+      expiresInMinutes: OTP_EXPIRY_MINUTES 
+    };
   }
 
   async verifyPhoneOtp(dto: VerifyPhoneOtpDto): Promise<{ verified: boolean; message: string }> {
