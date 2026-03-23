@@ -18,6 +18,13 @@ const nextConfig: NextConfig = {
   // Optimize for production
   poweredByHeader: false,
   compress: true,
+  // Experimental features
+  experimental: {
+    optimizePackageImports: ['lucide-react'],
+  },
+  typescript: {
+    ignoreBuildErrors: false,
+  },
 };
 
 export default nextConfig;
