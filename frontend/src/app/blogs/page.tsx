@@ -5,6 +5,9 @@ import LatestStories from "@/components/blogs/LatestStories";
 import MediaResources from "@/components/blogs/MediaResources";
 import Newsletter from "@/components/blogs/Newsletter";
 
+// Prevent prerendering
+export const dynamic = 'force-dynamic';
+
 export default function BlogsPage() {
   return (
     <div className="flex min-h-screen flex-col font-display selection:bg-primary/20">

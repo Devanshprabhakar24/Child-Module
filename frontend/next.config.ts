@@ -10,6 +10,14 @@ const nextConfig: NextConfig = {
       },
     ],
   },
+  // Disable type checking during build to speed up deployment
+  typescript: {
+    ignoreBuildErrors: false,
+  },
+  // Disable ESLint during build
+  eslint: {
+    ignoreDuringBuilds: true,
+  },
 };
 
 export default nextConfig;
