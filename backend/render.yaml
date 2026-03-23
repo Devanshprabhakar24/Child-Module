@@ -1,40 +1,37 @@
 services:
   - type: web
-    name: wombto18-backend
+    name: child-module-backend
     env: node
-    region: singapore
-    plan: starter
+    region: oregon
+    plan: free
     buildCommand: npm install && npm run build
     startCommand: npm run start:prod
-    healthCheckPath: /
     envVars:
       - key: NODE_ENV
         value: production
       - key: PORT
         value: 8000
-      - key: MONGODB_URI
-        sync: false
+      - key: APP_BASE_URL
+        value: https://child-module.vercel.app
       - key: JWT_SECRET
         sync: false
-      - key: JWT_EXPIRES_IN
-        value: 7d
+      - key: MONGODB_URI
+        sync: false
       - key: RAZORPAY_KEY_ID
         sync: false
       - key: RAZORPAY_KEY_SECRET
         sync: false
-      - key: PAYMENT_TEST_MODE
-        value: false
+      - key: RAZORPAY_WEBHOOK_SECRET
+        sync: false
       - key: SMTP_HOST
-        sync: false
+        value: smtp.gmail.com
       - key: SMTP_PORT
-        sync: false
+        value: 465
       - key: SMTP_USER
         sync: false
       - key: SMTP_PASS
         sync: false
       - key: SMTP_FROM
-        sync: false
-      - key: APP_BASE_URL
         sync: false
       - key: CLOUDINARY_CLOUD_NAME
         sync: false
@@ -48,7 +45,27 @@ services:
         sync: false
       - key: TWILIO_PHONE_NUMBER
         sync: false
-      - key: WHATSAPP_API_URL
+      - key: USE_TWILIO
+        value: true
+      - key: PAYMENT_TEST_MODE
+        value: false
+      - key: OTP_EMAIL_TEST_MODE
+        value: false
+      - key: OTP_SMS_TEST_MODE
+        value: false
+      - key: ADMIN_USERNAME
+        value: admin
+      - key: ADMIN_PASSWORD
         sync: false
-      - key: WHATSAPP_API_KEY
+      - key: ADMIN_EMAIL
         sync: false
+      - key: ADMIN_PHONE
+        sync: false
+      - key: ADMIN_FULL_NAME
+        value: System Administrator
+      - key: APP_NAME
+        value: WombTo18
+      - key: SUBSCRIPTION_PRICE
+        value: 999
+      - key: CURRENCY
+        value: INR
