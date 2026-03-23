@@ -998,7 +998,7 @@ export class DashboardService {
     registrationId: string,
     channels: { email: boolean; whatsapp: boolean; sms: boolean }
   ): Promise<void> {
-    const child = await this.childRegistrationModel.findOne({ registrationId }).exec();
+    const child = await this.childModel.findOne({ registrationId }).exec();
     if (!child) {
       throw new NotFoundException('Child not found');
     }
@@ -1012,7 +1012,7 @@ export class DashboardService {
    * Update vaccination card URL
    */
   async updateVaccinationCardUrl(registrationId: string, url: string): Promise<void> {
-    const child = await this.childRegistrationModel.findOne({ registrationId }).exec();
+    const child = await this.childModel.findOne({ registrationId }).exec();
     if (!child) {
       throw new NotFoundException('Child not found');
     }
