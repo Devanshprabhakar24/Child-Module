@@ -280,7 +280,19 @@ export class DashboardService {
       fatherName?: string;
       phone: string;
       phone2?: string;
-      address?: string;
+      address?: {
+        houseNo: string;
+        street: string;
+        landmark?: string;
+        city: string;
+        state: string;
+        pinCode: string;
+        addressType: 'HOME' | 'WORK' | 'OTHER';
+        coordinates?: {
+          lat: number;
+          lng: number;
+        };
+      };
       bloodGroup?: string;
       heightCm?: number;
       weightKg?: number;
@@ -977,5 +989,35 @@ export class DashboardService {
 
     await milestone.save();
     return milestone;
+  }
+
+  /**
+   * Update reminder settings for a child
+   */
+  async updateReminderSettings(
+    registrationId: string,
+    channels: { email: boolean; whatsapp: boolean; sms: boolean }
+  ): Promise<void> {
+    const child = await this.childRegistrationModel.findOne({ registrationId }).exec();
+    if (!child) {
+      throw new NotFoundException('Child not found');
+    }
+
+    // Store reminder preferences in the child record
+    child.reminderChannels = channels;
+    await child.save();
+  }
+
+  /**
+   * Update vaccination card URL
+   */
+  async updateVaccinationCardUrl(registrationId: string, url: string): Promise<void> {
+    const child = await this.childRegistrationModel.findOne({ registrationId }).exec();
+    if (!child) {
+      throw new NotFoundException('Child not found');
+    }
+
+    child.vaccinationCardUrl = url;
+    await child.save();
   }
 }

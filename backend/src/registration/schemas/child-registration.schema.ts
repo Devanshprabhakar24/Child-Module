@@ -59,8 +59,34 @@ export class ChildRegistration {
   @Prop({ type: String, default: null })
   phone2?: string;
 
-  @Prop({ type: String, default: null })
-  address?: string;
+  @Prop({
+    type: {
+      houseNo: String,
+      street: String,
+      landmark: String,
+      city: String,
+      state: String,
+      pinCode: String,
+      addressType: { type: String, enum: ['HOME', 'WORK', 'OTHER'], default: 'HOME' },
+      coordinates: {
+        lat: Number,
+        lng: Number,
+      },
+    },
+  })
+  address?: {
+    houseNo: string;
+    street: string;
+    landmark?: string;
+    city: string;
+    state: string;
+    pinCode: string;
+    addressType: 'HOME' | 'WORK' | 'OTHER';
+    coordinates?: {
+      lat: number;
+      lng: number;
+    };
+  };
 
   // ─── Health Information ─────────────────────────────────────────────
 
@@ -75,6 +101,15 @@ export class ChildRegistration {
 
   @Prop({ type: String, default: null })
   profilePictureUrl?: string;
+
+  @Prop({ type: String, default: null })
+  vaccinationCardUrl?: string;
+
+  @Prop({ type: String, default: null })
+  invoiceUrl?: string;
+
+  @Prop({ type: String, default: null })
+  goGreenCertificateUrl?: string;
 
   // ─── Registration Source ────────────────────────────────────────────
 
@@ -120,6 +155,26 @@ export class ChildRegistration {
   /** Parent user ID (for family dashboard linking) */
   @Prop({ type: String, default: null, index: true })
   parentUserId?: string;
+
+  // ─── Reminder Settings ──────────────────────────────────────────────
+
+  @Prop({
+    type: {
+      email: { type: Boolean, default: true },
+      whatsapp: { type: Boolean, default: true },
+      sms: { type: Boolean, default: false },
+    },
+    default: {
+      email: true,
+      whatsapp: true,
+      sms: false,
+    },
+  })
+  reminderChannels?: {
+    email: boolean;
+    whatsapp: boolean;
+    sms: boolean;
+  };
 
   // ─── Go Green Credits ───────────────────────────────────────────────
 

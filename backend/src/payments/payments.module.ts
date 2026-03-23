@@ -14,6 +14,7 @@ import { GoGreenModule } from '../go-green/go-green.module';
 import { DashboardModule } from '../dashboard/dashboard.module';
 import { RemindersModule } from '../reminders/reminders.module';
 import { CmsModule } from '../cms/cms.module';
+import { CloudinaryService } from '../common/cloudinary.service';
 
 @Module({
   imports: [
@@ -29,7 +30,7 @@ import { CmsModule } from '../cms/cms.module';
     CmsModule,
   ],
   controllers: [PaymentsController],
-  providers: [PaymentsService, InvoiceService],
+  providers: [PaymentsService, InvoiceService, CloudinaryService],
   exports: [PaymentsService, InvoiceService],
 })
 export class PaymentsModule {}

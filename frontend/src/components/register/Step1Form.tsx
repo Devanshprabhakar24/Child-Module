@@ -2,7 +2,7 @@
 
 import { useState, useMemo } from "react";
 import { Info, User, Search, ChevronDown, RotateCcw, ArrowRight } from "lucide-react";
-import { handleNameInput } from "../../utils/textFormatting";
+import { handleNameInput, handleNameBlur } from "../../utils/textFormatting";
 
 export interface ChildDetails {
   motherName: string;
@@ -106,6 +106,7 @@ export default function Step1Form({ onNext, onComplete }: Step1Props) {
             type="text" 
             value={motherName}
             onChange={(e) => handleNameInput(e.target.value, setMotherName)}
+            onBlur={(e) => handleNameBlur(e.target.value, setMotherName)}
           />
         </div>
 
@@ -122,6 +123,7 @@ export default function Step1Form({ onNext, onComplete }: Step1Props) {
             type="text" 
             value={childName}
             onChange={(e) => handleNameInput(e.target.value, setChildName)}
+            onBlur={(e) => handleNameBlur(e.target.value, setChildName)}
           />
         </div>
       </div>

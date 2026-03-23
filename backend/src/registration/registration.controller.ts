@@ -63,6 +63,41 @@ export class RegistrationController {
     };
   }
 
+  /**
+   * Check mobile number availability (max 2 registrations per number)
+   * GET /registration/check-mobile?phone=9876543210
+   */
+  @Get('check-mobile')
+  async checkMobile(@Req() req: Request) {
+    const phone = req.query.phone as string;
+    
+    if (!phone) {
+      return {
+        success: false,
+        count: 0,
+        available: false,
+        message: 'Phone parameter is required',
+      };
+    }
+
+    // Normalize phone number
+    const normalizedPhone = phone.startsWith('+91') ? phone : `+91${phone}`;
+    const registrations = await this.registrationService.findByPhone(normalizedPhone);
+    const count = registrations.length;
+    const available = count < 2;
+
+    return {
+      success: true,
+      count,
+      available,
+      message: available 
+        ? count === 0 
+          ? 'Mobile number is available'
+          : `Mobile number is available (${count}/2 registrations used)`
+        : 'This mobile number has reached the maximum limit of 2 registrations',
+    };
+  }
+
   @Post()
   async register(@Body() dto: RegisterChildDto) {
     const { registration, razorpayOrderId, testMode } =

@@ -45,7 +45,7 @@ export default function RegistrationFlow() {
       motherName: childDetails.motherName,
       email: contactDetails.email,
       phone: `+91${phoneDigits}`,
-      address: contactDetails.address,
+      addressStructured: contactDetails.address,
       registrationType: "DIRECT",
       subscriptionPlan: selectedPlan,
     };

@@ -312,7 +312,7 @@ export class PaymentsService {
       try {
         this.logger.log(`📄 Generating invoice for ${registration.registrationId}...`);
         
-        // Generate invoice PDF
+        // Generate invoice PDF and upload to Cloudinary
         const invoiceNumber = `INV-${registration.registrationId}`;
         const invoiceDate = new Date().toLocaleDateString('en-IN', {
           day: '2-digit',
@@ -320,7 +320,7 @@ export class PaymentsService {
           year: 'numeric',
         });
         
-        const invoicePDF = await this.invoiceService.generateInvoice({
+        const { buffer: invoicePDF, cloudinaryUrl } = await this.invoiceService.generateAndUploadInvoice({
           invoiceNumber,
           date: invoiceDate,
           parentName: registration.motherName,
@@ -334,6 +334,12 @@ export class PaymentsService {
           razorpayPaymentId: registration.razorpayPaymentId,
           subscriptionPlan: registration.subscriptionPlan,
         });
+
+        // Store invoice URL in database if Cloudinary is configured
+        if (cloudinaryUrl) {
+          registration.invoiceUrl = cloudinaryUrl;
+          await registration.save();
+        }
         
         this.logger.log(`📄 Sending payment invoice for ${registration.registrationId}...`);
         await this.notificationsService.sendPaymentConfirmation({
@@ -342,7 +348,7 @@ export class PaymentsService {
           invoiceBuffer: invoicePDF,
           subscriptionPlan: registration.subscriptionPlan,
         });
-        this.logger.log(`✅ Payment invoice sent for ${registration.registrationId}`);
+        this.logger.log(`✅ Payment invoice sent${cloudinaryUrl ? ' and uploaded to Cloudinary: ' + cloudinaryUrl : ''}`);
       } catch (invoiceError) {
         this.logger.error(`❌ Failed to send payment invoice: ${invoiceError instanceof Error ? invoiceError.message : invoiceError}`);
       }

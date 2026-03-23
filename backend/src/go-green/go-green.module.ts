@@ -10,6 +10,7 @@ import { TierConfig, TierConfigSchema } from './schemas/tier-config.schema';
 import { PlantedTree, PlantedTreeSchema } from './schemas/planted-tree.schema';
 import { ChildRegistration, ChildRegistrationSchema } from '../registration/schemas/child-registration.schema';
 import { AuthModule } from '../auth/auth.module';
+import { CloudinaryService } from '../common/cloudinary.service';
 
 @Module({
   imports: [
@@ -23,7 +24,7 @@ import { AuthModule } from '../auth/auth.module';
     AuthModule,
   ],
   controllers: [GoGreenController],
-  providers: [GoGreenService, TreeCertificateService, CreditAwardListener],
+  providers: [GoGreenService, TreeCertificateService, CreditAwardListener, CloudinaryService],
   exports: [GoGreenService, MongooseModule],
 })
 export class GoGreenModule {}

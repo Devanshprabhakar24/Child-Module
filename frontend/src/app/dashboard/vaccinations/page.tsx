@@ -15,15 +15,24 @@ const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
 // Age period definitions matching vaccination-schedule.ts ageInMonths values
 const AGE_PERIODS = [
-  { label: "At Birth", months: 0, icon: Baby },
-  { label: "6 Weeks", months: 1.5, icon: Shield },
-  { label: "10 Weeks", months: 2.5, icon: Shield },
-  { label: "14 Weeks", months: 3.5, icon: Shield },
-  { label: "9 Months", months: 9, icon: Star },
-  { label: "16–24 Months", months: 16, icon: Zap },
-  { label: "5 Years", months: 60, icon: Calendar },
-  { label: "10 Years", months: 120, icon: Calendar },
-  { label: "16 Years", months: 192, icon: Calendar },
+  { label: "At Birth", months: 0, icon: Baby, color: "bg-pink-50 border-pink-200 text-pink-700" },
+  { label: "6 Weeks", months: 1.5, icon: Shield, color: "bg-blue-50 border-blue-200 text-blue-700" },
+  { label: "10 Weeks", months: 2.5, icon: Shield, color: "bg-blue-50 border-blue-200 text-blue-700" },
+  { label: "14 Weeks", months: 3.5, icon: Shield, color: "bg-blue-50 border-blue-200 text-blue-700" },
+  { label: "6 Months", months: 6, icon: Star, color: "bg-purple-50 border-purple-200 text-purple-700" },
+  { label: "7 Months", months: 7, icon: Star, color: "bg-purple-50 border-purple-200 text-purple-700" },
+  { label: "9 Months", months: 9, icon: Star, color: "bg-indigo-50 border-indigo-200 text-indigo-700" },
+  { label: "12 Months (1 Year)", months: 12, icon: Calendar, color: "bg-green-50 border-green-200 text-green-700" },
+  { label: "13 Months", months: 13, icon: Calendar, color: "bg-green-50 border-green-200 text-green-700" },
+  { label: "15 Months", months: 15, icon: Zap, color: "bg-yellow-50 border-yellow-200 text-yellow-700" },
+  { label: "18 Months", months: 18, icon: Zap, color: "bg-orange-50 border-orange-200 text-orange-700" },
+  { label: "24 Months (2 Years)", months: 24, icon: Calendar, color: "bg-teal-50 border-teal-200 text-teal-700" },
+  { label: "Annual Vaccines (2-5 Years)", months: 31, icon: Calendar, color: "bg-cyan-50 border-cyan-200 text-cyan-700" },
+  { label: "4-5 Years", months: 60, icon: Calendar, color: "bg-emerald-50 border-emerald-200 text-emerald-700" },
+  { label: "9 Years", months: 108, icon: Calendar, color: "bg-violet-50 border-violet-200 text-violet-700" },
+  { label: "10 Years", months: 120, icon: Calendar, color: "bg-fuchsia-50 border-fuchsia-200 text-fuchsia-700" },
+  { label: "14 Years", months: 168, icon: Calendar, color: "bg-rose-50 border-rose-200 text-rose-700" },
+  { label: "16-18 Years", months: 192, icon: Calendar, color: "bg-slate-50 border-slate-200 text-slate-700" },
 ];
 
 // Map a milestone's dueDate + child DOB → closest period months value
@@ -31,6 +40,14 @@ function getPeriodMonths(dueDate: string, dob: string): number {
   const due = new Date(dueDate).getTime();
   const birth = new Date(dob).getTime();
   const diffMonths = (due - birth) / (1000 * 60 * 60 * 24 * 30.44);
+
+  // Special handling for annual flu vaccines (group them together)
+  if (diffMonths >= 19 && diffMonths <= 67) {
+    return 31; // Group all annual vaccines 2-5 years together
+  }
+  if (diffMonths >= 79 && diffMonths <= 211) {
+    return 192; // Group annual vaccines 6-18 years together
+  }
 
   // Find closest period
   let closest = AGE_PERIODS[0];
@@ -69,6 +86,7 @@ const STATUS_CONFIG: Record<string, { label: string; textColor: string; bg: stri
 export default function VaccinationTrackerPage() {
   const { loading, error, vaccination, profile, token, registrationId, refetch } = useChildData();
   const [filter, setFilter] = useState("All");
+  const [showOptional, setShowOptional] = useState(true);
   const [selectedMilestone, setSelectedMilestone] = useState<any>(null);
   const [showMarkDoneModal, setShowMarkDoneModal] = useState(false);
   const [showViewRecordModal, setShowViewRecordModal] = useState(false);
@@ -180,6 +198,22 @@ export default function VaccinationTrackerPage() {
         missed={stats.missed}
       />
 
+      {/* Info Banner */}
+      <div className="mb-6 rounded-xl border border-blue-200 bg-blue-50 p-4">
+        <div className="flex items-start gap-3">
+          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-blue-100">
+            <Shield className="h-4 w-4 text-blue-600" />
+          </div>
+          <div className="flex-1">
+            <h3 className="text-sm font-semibold text-blue-900">Comprehensive Vaccination Schedule</h3>
+            <p className="mt-1 text-xs text-blue-700">
+              This schedule includes 90+ vaccines from birth to 18 years, covering all mandatory and optional vaccines recommended by IAP (Indian Academy of Pediatrics). 
+              Optional vaccines are marked with a blue badge. Use the toggle above to show/hide optional vaccines.
+            </p>
+          </div>
+        </div>
+      </div>
+
       {/* Progress Bar */}
       <section className="mb-8 rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
         <div className="mb-3 flex items-end justify-between">
@@ -194,23 +228,56 @@ export default function VaccinationTrackerPage() {
         <div className="h-3 w-full overflow-hidden rounded-full bg-slate-100">
           <div className="h-full rounded-full bg-primary transition-all duration-1000" style={{ width: `${pct}%` }} />
         </div>
+        
+        {/* Vaccine Stats Grid */}
+        <div className="mt-6 grid grid-cols-2 gap-4 sm:grid-cols-4">
+          <div className="rounded-lg border border-green-200 bg-green-50 p-3">
+            <p className="text-xs font-medium text-green-600">Completed</p>
+            <p className="mt-1 text-2xl font-bold text-green-700">{stats.completed}</p>
+          </div>
+          <div className="rounded-lg border border-amber-200 bg-amber-50 p-3">
+            <p className="text-xs font-medium text-amber-600">Due Now</p>
+            <p className="mt-1 text-2xl font-bold text-amber-700">{stats.due}</p>
+          </div>
+          <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
+            <p className="text-xs font-medium text-slate-600">Upcoming</p>
+            <p className="mt-1 text-2xl font-bold text-slate-700">{stats.upcoming}</p>
+          </div>
+          <div className="rounded-lg border border-red-200 bg-red-50 p-3">
+            <p className="text-xs font-medium text-red-600">Missed</p>
+            <p className="mt-1 text-2xl font-bold text-red-700">{stats.missed}</p>
+          </div>
+        </div>
       </section>
 
       <div className="flex flex-col gap-8 lg:flex-row">
         <div className="flex-1 min-w-0">
           {/* Filters */}
-          <div className="mb-6 flex flex-wrap gap-2">
-            {["All", "Due", "Completed", "Overdue"].map((f) => (
-              <button
-                key={f}
-                onClick={() => setFilter(f)}
-                className={`rounded-full px-4 py-1.5 text-xs font-normal transition-all ${
-                  filter === f ? "bg-primary text-white" : "bg-slate-100 text-slate-600 hover:bg-slate-200"
-                }`}
-              >
-                {f}
-              </button>
-            ))}
+          <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex flex-wrap gap-2">
+              {["All", "Due", "Completed", "Overdue"].map((f) => (
+                <button
+                  key={f}
+                  onClick={() => setFilter(f)}
+                  className={`rounded-full px-4 py-1.5 text-xs font-normal transition-all ${
+                    filter === f ? "bg-primary text-white" : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                  }`}
+                >
+                  {f}
+                </button>
+              ))}
+            </div>
+            <div className="flex items-center gap-2">
+              <label className="flex items-center gap-2 cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  checked={showOptional}
+                  onChange={(e) => setShowOptional(e.target.checked)}
+                  className="h-4 w-4 rounded border-slate-300 text-primary focus:ring-2 focus:ring-primary/20"
+                />
+                <span className="text-sm text-slate-600">Show Optional Vaccines</span>
+              </label>
+            </div>
           </div>
 
           {loading && (
@@ -254,18 +321,20 @@ export default function VaccinationTrackerPage() {
                         title={collapsed.has(period.label) ? "Expand" : "Collapse"}
                       >
                         {collapsed.has(period.label) ? (
-                          <ChevronDown className="h-4 w-4 rotate-[-90deg] transition-transform" />
+                          <ChevronDown className="h-4 w-4 -rotate-90 transition-transform" />
                         ) : (
                           <PeriodIcon className="h-4 w-4" />
                         )}
                       </button>
 
-                      {/* Period label */}
+                      {/* Period label with color coding */}
                       <div
                         className="mb-3 flex cursor-pointer items-center gap-2 select-none"
                         onClick={() => togglePeriod(period.label)}
                       >
-                        <h3 className="text-sm font-semibold text-slate-800">{period.label}</h3>
+                        <div className={`rounded-lg border px-3 py-1 ${period.color}`}>
+                          <h3 className="text-sm font-semibold">{period.label}</h3>
+                        </div>
                         <span className="text-xs text-slate-400">
                           {period.milestones.filter((m: any) => m.status === "COMPLETED").length}/
                           {period.milestones.length} done
@@ -322,6 +391,11 @@ export default function VaccinationTrackerPage() {
                                     <span className={`rounded px-2 py-0.5 text-[10px] font-medium uppercase ${s.bg} ${s.textColor}`}>
                                       {s.label}
                                     </span>
+                                    {m.description?.includes("optional") && (
+                                      <span className="rounded bg-blue-100 px-2 py-0.5 text-[10px] font-medium text-blue-700">
+                                        Optional
+                                      </span>
+                                    )}
                                   </div>
                                   {m.description && (
                                     <p className="text-xs text-slate-500 line-clamp-1">{m.description}</p>

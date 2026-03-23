@@ -1,4 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
+import { CloudinaryService } from '../common/cloudinary.service';
 import * as PDFDocument from 'pdfkit';
 
 export interface InvoiceData {
@@ -21,6 +22,8 @@ export interface InvoiceData {
 @Injectable()
 export class InvoiceService {
   private readonly logger = new Logger(InvoiceService.name);
+
+  constructor(private readonly cloudinaryService: CloudinaryService) {}
 
   /**
    * Generates a professional PDF invoice and returns the buffer.
@@ -246,5 +249,34 @@ export class InvoiceService {
         reject(err);
       }
     });
+  }
+
+  /**
+   * Generate invoice and upload to Cloudinary
+   */
+  async generateAndUploadInvoice(data: InvoiceData): Promise<{ buffer: Buffer; cloudinaryUrl: string }> {
+    const buffer = await this.generateInvoice(data);
+    
+    // Try to upload to Cloudinary if configured
+    let cloudinaryUrl = '';
+    try {
+      if (this.cloudinaryService.isConfigured()) {
+        const cloudinaryResult = await this.cloudinaryService.uploadInvoicePDF(
+          buffer,
+          data.registrationId
+        );
+        cloudinaryUrl = cloudinaryResult.url;
+        this.logger.log(`Invoice uploaded to Cloudinary: ${cloudinaryUrl}`);
+      } else {
+        this.logger.warn('Cloudinary not configured, invoice will not be stored in cloud');
+      }
+    } catch (error) {
+      this.logger.error(`Failed to upload invoice to Cloudinary: ${error instanceof Error ? error.message : error}`);
+    }
+
+    return {
+      buffer,
+      cloudinaryUrl,
+    };
   }
 }

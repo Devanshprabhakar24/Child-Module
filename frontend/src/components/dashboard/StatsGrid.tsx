@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { Cake, Syringe, FileText, TrendingUp, Activity, Clock, CheckCircle, AlertCircle, Scale, ExternalLink, Droplets, CalendarClock } from "lucide-react";
 import type { DashboardChild, DashboardMilestone } from "@/hooks/useDashboardData";
+import { formatAge, calculateDetailedAge } from "@/utils/ageCalculator";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
@@ -44,11 +45,12 @@ export default function StatsGrid({ child, milestones = [] }: StatsGridProps) {
   const [totalRecordsCount, setTotalRecordsCount] = useState<number | null>(null);
   const [loadingRecords, setLoadingRecords] = useState(false);
 
-  const age = child?.ageInYears ?? null;
+  // Calculate detailed age
+  const detailedAge = child?.dateOfBirth ? calculateDetailedAge(child.dateOfBirth) : null;
+  const ageYears = detailedAge?.years ?? null;
+  const ageMonths = detailedAge?.months ?? null;
+  const ageDays = detailedAge?.days ?? null;
   const ageGroup = child?.ageGroup || "—";
-  const ageInMonths = age !== null ? Math.round(age * 12) : null;
-  const ageYears = ageInMonths !== null ? Math.floor(ageInMonths / 12) : null;
-  const ageMonths = ageInMonths !== null ? ageInMonths % 12 : null;
 
   // Vaccination stats
   const vaxMilestones = milestones.filter((m) => m.category === "VACCINATION");
@@ -188,10 +190,15 @@ export default function StatsGrid({ child, milestones = [] }: StatsGridProps) {
           </div>
           <div>
             <p className="text-xs text-slate-400">Current Age</p>
-            {ageYears !== null ? (
-              <p className="text-xl font-bold text-slate-900 leading-tight">
-                {ageYears}y {ageMonths !== null && ageMonths > 0 ? `${ageMonths}m` : ""}
-              </p>
+            {detailedAge ? (
+              <div>
+                <p className="text-xl font-bold text-slate-900 leading-tight">
+                  {ageYears}y {ageMonths}m {ageDays}d
+                </p>
+                <p className="text-[10px] text-slate-500 mt-0.5">
+                  {child?.dateOfBirth ? formatAge(child.dateOfBirth, { compact: false }) : ""}
+                </p>
+              </div>
             ) : (
               <p className="text-xl font-medium text-slate-900">—</p>
             )}

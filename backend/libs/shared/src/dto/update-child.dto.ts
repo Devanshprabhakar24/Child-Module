@@ -18,6 +18,22 @@ export class UpdateChildDto {
   @IsString()
   address?: string;
 
+  /** Structured address object (new format) */
+  @IsOptional()
+  addressStructured?: {
+    houseNo: string;
+    street: string;
+    landmark?: string;
+    city: string;
+    state: string;
+    pinCode: string;
+    addressType: 'HOME' | 'WORK' | 'OTHER';
+    coordinates?: {
+      lat: number;
+      lng: number;
+    };
+  };
+
   @IsOptional()
   @IsEnum(BloodGroup, { message: 'bloodGroup must be a valid blood group' })
   bloodGroup?: BloodGroup;

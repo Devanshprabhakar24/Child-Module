@@ -1,4 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
+import { CloudinaryService } from '../common/cloudinary.service';
 import * as PDFDocument from 'pdfkit';
 
 export interface CertificateData {
@@ -14,6 +15,8 @@ export interface CertificateData {
 @Injectable()
 export class CertificateService {
   private readonly logger = new Logger(CertificateService.name);
+
+  constructor(private readonly cloudinaryService: CloudinaryService) {}
 
   async generateGoGreenCertificate(data: CertificateData): Promise<Buffer> {
     return new Promise<Buffer>((resolve, reject) => {
@@ -287,5 +290,35 @@ export class CertificateService {
         reject(err);
       }
     });
+  }
+
+  /**
+   * Generate Go Green certificate and upload to Cloudinary
+   */
+  async generateAndUploadCertificate(data: CertificateData): Promise<{ buffer: Buffer; cloudinaryUrl: string }> {
+    const buffer = await this.generateGoGreenCertificate(data);
+    
+    // Try to upload to Cloudinary if configured
+    let cloudinaryUrl = '';
+    try {
+      if (this.cloudinaryService.isConfigured()) {
+        const cloudinaryResult = await this.cloudinaryService.uploadGoGreenCertificatePDF(
+          buffer,
+          data.registrationId,
+          data.treeId
+        );
+        cloudinaryUrl = cloudinaryResult.url;
+        this.logger.log(`Go Green certificate uploaded to Cloudinary: ${cloudinaryUrl}`);
+      } else {
+        this.logger.warn('Cloudinary not configured, certificate will not be stored in cloud');
+      }
+    } catch (error) {
+      this.logger.error(`Failed to upload certificate to Cloudinary: ${error instanceof Error ? error.message : error}`);
+    }
+
+    return {
+      buffer,
+      cloudinaryUrl,
+    };
   }
 }

@@ -1,3 +1,5 @@
+"use client";
+
 import RegistrationLayout from "@/components/register/RegistrationLayout";
 import RegistrationFlow from "@/components/register/RegistrationFlow";
 

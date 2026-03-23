@@ -13,6 +13,7 @@ import { DashboardModule } from '../dashboard/dashboard.module';
 import { RemindersModule } from '../reminders/reminders.module';
 import { CmsModule } from '../cms/cms.module';
 import { GoGreenModule } from '../go-green/go-green.module';
+import { CloudinaryService } from '../common/cloudinary.service';
 
 @Module({
   imports: [
@@ -27,7 +28,7 @@ import { GoGreenModule } from '../go-green/go-green.module';
     GoGreenModule,
   ],
   controllers: [RegistrationController],
-  providers: [RegistrationService, CertificateService],
+  providers: [RegistrationService, CertificateService, CloudinaryService],
   exports: [RegistrationService],
 })
 export class RegistrationModule {}

@@ -34,10 +34,28 @@ export const formatName = (name: string): string => {
 
 /**
  * Handles input change with automatic name formatting
+ * Only allows letters and spaces, preserves user's spacing
  * @param value - The input value
  * @param setter - The state setter function
  */
 export const handleNameInput = (value: string, setter: (value: string) => void): void => {
-  const formatted = formatName(value);
+  // Allow only letters and spaces, preserve user's spacing
+  const cleaned = value.replace(/[^a-zA-Z\s]/g, '');
+  setter(cleaned);
+};
+
+/**
+ * Formats name on blur - capitalizes each word properly
+ * @param value - The input value
+ * @param setter - The state setter function
+ */
+export const handleNameBlur = (value: string, setter: (value: string) => void): void => {
+  // Remove extra spaces and format
+  const formatted = value
+    .trim()
+    .replace(/\s+/g, ' ') // Replace multiple spaces with single space
+    .split(' ')
+    .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+    .join(' ');
   setter(formatted);
 };

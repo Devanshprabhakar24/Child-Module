@@ -124,8 +124,8 @@ export class NotificationsService {
     treeId?: string;
   }): Promise<void> {
     try {
-      // Generate the certificate PDF
-      const certificateBuffer = await this.certificateService.generateGoGreenCertificate({
+      // Generate the certificate PDF and upload to Cloudinary
+      const { buffer: certificateBuffer, cloudinaryUrl } = await this.certificateService.generateAndUploadCertificate({
         childName: payload.childName,
         motherName: payload.parentName,
         registrationId: payload.registrationId,
@@ -138,6 +138,10 @@ export class NotificationsService {
         }),
         treeId: payload.treeId,
       });
+
+      if (cloudinaryUrl) {
+        this.logger.log(`✅ Go Green certificate uploaded to Cloudinary: ${cloudinaryUrl}`);
+      }
 
       // Send ONLY email with certificate PDF - single message
       await this.emailService.sendGoGreenCertificateEmail(

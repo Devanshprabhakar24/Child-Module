@@ -189,7 +189,15 @@ export class RegistrationService {
       email: dto.email,
       phone: dto.phone,
       phone2: dto.phone2,
-      address: dto.address,
+      address: dto.addressStructured || (dto.address ? {
+        houseNo: '',
+        street: dto.address,
+        landmark: '',
+        city: '',
+        state: dto.state,
+        pinCode: '',
+        addressType: 'HOME' as const,
+      } : undefined),
       registrationType: dto.registrationType ?? RegistrationType.DIRECT,
       channelPartnerId: dto.channelPartnerId,
       subscriptionPlan: dto.subscriptionPlan ?? DEFAULT_PLAN,
@@ -511,7 +519,21 @@ export class RegistrationService {
       registration.fatherName = dto.fatherName;
     }
     if (dto.address !== undefined) {
-      registration.address = dto.address;
+      // Support legacy string address format
+      if (typeof dto.address === 'string') {
+        registration.address = {
+          houseNo: '',
+          street: dto.address,
+          landmark: '',
+          city: '',
+          state: registration.state,
+          pinCode: '',
+          addressType: 'HOME' as const,
+        };
+      }
+    }
+    if (dto.addressStructured !== undefined) {
+      registration.address = dto.addressStructured;
     }
     if (dto.bloodGroup !== undefined) {
       registration.bloodGroup = dto.bloodGroup as any;

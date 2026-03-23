@@ -9,7 +9,15 @@ interface ProfileData {
   childName: string;
   motherName: string;
   fatherName?: string;
-  address?: string;
+  address?: string | {
+    houseNo: string;
+    street: string;
+    landmark?: string;
+    city: string;
+    state: string;
+    pinCode: string;
+    addressType: 'HOME' | 'WORK' | 'OTHER';
+  };
   bloodGroup?: string;
   heightCm?: number;
   weightKg?: number;
@@ -30,11 +38,30 @@ const BLOOD_GROUPS = ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'];
 export default function EditableProfileSettings({ profile, token, onUpdate }: EditableProfileSettingsProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [saving, setSaving] = useState(false);
+  
+  // Format address object to string for display
+  const formatAddress = (addr: any): string => {
+    if (!addr) return '';
+    if (typeof addr === 'string') return addr;
+    
+    // If it's an object, format it nicely
+    const parts = [
+      addr.houseNo,
+      addr.street,
+      addr.landmark,
+      addr.city,
+      addr.state,
+      addr.pinCode
+    ].filter(Boolean);
+    
+    return parts.join(', ');
+  };
+  
   const [formData, setFormData] = useState({
     childName: profile.childName || '',
     motherName: profile.motherName || '',
     fatherName: profile.fatherName || '',
-    address: profile.address || '',
+    address: formatAddress(profile.address),
     bloodGroup: profile.bloodGroup || '',
     heightCm: profile.heightCm || '',
     weightKg: profile.weightKg || '',
@@ -49,7 +76,7 @@ export default function EditableProfileSettings({ profile, token, onUpdate }: Ed
       childName: profile.childName || '',
       motherName: profile.motherName || '',
       fatherName: profile.fatherName || '',
-      address: profile.address || '',
+      address: formatAddress(profile.address),
       bloodGroup: profile.bloodGroup || '',
       heightCm: profile.heightCm || '',
       weightKg: profile.weightKg || '',
@@ -300,7 +327,7 @@ export default function EditableProfileSettings({ profile, token, onUpdate }: Ed
               placeholder="Enter full address"
             />
           ) : (
-            <p className="font-medium text-slate-900">{profile.address || "—"}</p>
+            <p className="font-medium text-slate-900">{formatAddress(profile.address) || "—"}</p>
           )}
         </div>
       </div>

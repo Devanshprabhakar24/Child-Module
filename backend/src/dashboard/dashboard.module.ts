@@ -12,6 +12,7 @@ import { Payment, PaymentSchema } from '../payments/schemas/payment.schema';
 import { GoGreenTree, GoGreenTreeSchema } from '../go-green/schemas/go-green-tree.schema';
 import { AuthModule } from '../auth/auth.module';
 import { RemindersModule } from '../reminders/reminders.module';
+import { CloudinaryService } from '../common/cloudinary.service';
 
 @Module({
   imports: [
@@ -29,7 +30,7 @@ import { RemindersModule } from '../reminders/reminders.module';
     RemindersModule,
   ],
   controllers: [DashboardController],
-  providers: [DashboardService],
+  providers: [DashboardService, CloudinaryService],
   exports: [DashboardService],
 })
 export class DashboardModule {}

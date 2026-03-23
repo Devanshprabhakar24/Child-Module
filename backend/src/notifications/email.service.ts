@@ -1180,4 +1180,45 @@ export class EmailService {
     </html>
   `;
   }
+
+  /**
+   * Send email with attachments
+   */
+  async sendEmailWithAttachment(
+    to: string,
+    subject: string,
+    html: string,
+    attachments: Array<{
+      filename: string;
+      content: Buffer;
+      contentType: string;
+    }>
+  ): Promise<void> {
+    if (!this.transporter) {
+      this.logger.warn(`Cannot send email to ${to}: transporter not configured`);
+      return;
+    }
+
+    try {
+      await this.transporter.sendMail({
+        from: this.fromAddress,
+        to,
+        subject,
+        html,
+        attachments: attachments.map(att => ({
+          filename: att.filename,
+          content: att.content,
+          contentType: att.contentType,
+        })),
+      });
+      this.logger.log(`Email with attachment sent to ${to}`);
+    } catch (error) {
+      this.logger.error(
+        `Failed to send email with attachment to ${to}: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+      );
+      throw error;
+    }
+  }
 }

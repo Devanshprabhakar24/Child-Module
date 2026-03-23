@@ -1,18 +1,30 @@
 "use client";
 
 import { useState, useRef, useEffect, useCallback } from "react";
-import { Mail, AtSign, Phone, Smartphone, MapPin, Clock, ArrowLeft, ArrowRight, CheckCircle2, AlertCircle } from "lucide-react";
+import { Mail, AtSign, Phone, Smartphone, MapPin, Clock, ArrowLeft, ArrowRight, CheckCircle2, AlertCircle, ChevronDown, Navigation, Home, Briefcase, MapPinned } from "lucide-react";
 import { getStateName } from "../../utils/stateMapping";
 import { handleNameInput } from "../../utils/textFormatting";
+import { getCitiesByState } from "../../utils/indianCities";
+import { getCurrentLocation, reverseGeocode, fetchAddressFromPinCode } from "../../utils/addressUtils";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
 export interface ContactDetails {
   email: string;
   mobile: string;
-  address: string;
-  city: string;
-  pincode: string;
+  address: {
+    houseNo: string;
+    street: string;
+    landmark: string;
+    city: string;
+    state: string;
+    pinCode: string;
+    addressType: 'HOME' | 'WORK' | 'OTHER';
+    coordinates?: {
+      lat: number;
+      lng: number;
+    };
+  };
 }
 
 interface Step2Props {
@@ -34,11 +46,28 @@ export default function Step2Form({ onNext, onPrev, onComplete, motherName, stat
   const [mobile, setMobile] = useState("");
   const [mobileStatus, setMobileStatus] = useState<"initial" | "sent" | "verified">("initial");
   const [mobileOtp, setMobileOtp] = useState(["", "", "", "", "", ""]);
+  const [mobileCheckStatus, setMobileCheckStatus] = useState<"idle" | "checking" | "available" | "limited">("idle");
+  const [mobileCheckMessage, setMobileCheckMessage] = useState<string>("");
 
   // Additional Details State
-  const [address, setAddress] = useState("");
+  const [houseNo, setHouseNo] = useState("");
+  const [street, setStreet] = useState("");
+  const [landmark, setLandmark] = useState("");
   const [city, setCity] = useState("");
   const [pincode, setPincode] = useState("");
+  const [addressType, setAddressType] = useState<'HOME' | 'WORK' | 'OTHER'>('HOME');
+  const [saveAddress, setSaveAddress] = useState(true);
+  const [coordinates, setCoordinates] = useState<{ lat: number; lng: number } | undefined>();
+  const [citySearch, setCitySearch] = useState("");
+  const [availableCities, setAvailableCities] = useState<string[]>([]);
+  const [loadingCities, setLoadingCities] = useState(false);
+  const [loadingLocation, setLoadingLocation] = useState(false);
+  const [pincodeValidation, setPincodeValidation] = useState<{
+    status: "idle" | "checking" | "valid" | "invalid";
+    message: string;
+    detectedCity?: string;
+    detectedState?: string;
+  }>({ status: "idle", message: "" });
 
   // Refs for OTP auto-focusing
   const emailOtpRefs = useRef<(HTMLInputElement | null)[]>([]);
@@ -79,6 +108,34 @@ export default function Step2Form({ onNext, onPrev, onComplete, motherName, stat
     }
   }, []);
 
+  // Debounced mobile check
+  const checkMobileAvailability = useCallback(async (mobileToCheck: string) => {
+    if (mobileToCheck.length !== 10) {
+      setMobileCheckStatus("idle");
+      setMobileCheckMessage("");
+      return;
+    }
+
+    setMobileCheckStatus("checking");
+    setMobileCheckMessage("Checking...");
+
+    try {
+      const res = await fetch(`${API_BASE}/registration/check-mobile?phone=${encodeURIComponent(mobileToCheck)}`);
+      const data = await res.json();
+
+      if (data.available) {
+        setMobileCheckStatus("available");
+        setMobileCheckMessage(data.message);
+      } else {
+        setMobileCheckStatus("limited");
+        setMobileCheckMessage(data.message);
+      }
+    } catch (error) {
+      setMobileCheckStatus("idle");
+      setMobileCheckMessage("");
+    }
+  }, []);
+
   // Debounce email check
   useEffect(() => {
     if (emailStatus !== "initial") return; // Don't check if already verified
@@ -94,6 +151,174 @@ export default function Step2Form({ onNext, onPrev, onComplete, motherName, stat
 
     return () => clearTimeout(timer);
   }, [email, emailStatus, checkEmailAvailability]);
+
+  // Fetch cities for the selected state
+  useEffect(() => {
+    const fetchCitiesForState = async () => {
+      if (!stateCode) {
+        setAvailableCities([]);
+        return;
+      }
+
+      setLoadingCities(true);
+      try {
+        // Use a comprehensive list of major cities from our static data
+        const cities = getCitiesByState(stateCode);
+        setAvailableCities(cities);
+      } catch (error) {
+        console.error("Error loading cities:", error);
+        setAvailableCities([]);
+      } finally {
+        setLoadingCities(false);
+      }
+    };
+
+    fetchCitiesForState();
+  }, [stateCode]);
+
+  // Filter cities based on search
+  const filteredCities = availableCities.filter(cityName =>
+    cityName.toLowerCase().includes(citySearch.toLowerCase())
+  );
+
+  // Debounce mobile check
+  useEffect(() => {
+    if (mobileStatus !== "initial") return; // Don't check if already verified
+
+    const timer = setTimeout(() => {
+      if (mobile) {
+        checkMobileAvailability(mobile);
+      } else {
+        setMobileCheckStatus("idle");
+        setMobileCheckMessage("");
+      }
+    }, 800); // Wait 800ms after user stops typing
+
+    return () => clearTimeout(timer);
+  }, [mobile, mobileStatus, checkMobileAvailability]);
+
+  // Handle "Use Current Location" button
+  const handleUseCurrentLocation = async () => {
+    setLoadingLocation(true);
+    try {
+      const position = await getCurrentLocation();
+      const { latitude, longitude } = position.coords;
+      
+      setCoordinates({ lat: latitude, lng: longitude });
+      
+      // Reverse geocode to get address
+      const addressData = await reverseGeocode(latitude, longitude);
+      
+      if (addressData) {
+        if (addressData.houseNo) setHouseNo(addressData.houseNo);
+        if (addressData.street) setStreet(addressData.street);
+        if (addressData.landmark) setLandmark(addressData.landmark);
+        if (addressData.city) {
+          setCity(addressData.city);
+          setCitySearch(addressData.city);
+        }
+        if (addressData.pinCode) setPincode(addressData.pinCode);
+      }
+    } catch (error) {
+      console.error("Error getting location:", error);
+      alert("Could not get your location. Please ensure location permissions are enabled.");
+    } finally {
+      setLoadingLocation(false);
+    }
+  };
+
+  // Auto-fill city and state from PIN code
+  useEffect(() => {
+    const autofillFromPincode = async () => {
+      if (pincode.length === 6) {
+        try {
+          const pinData = await fetchAddressFromPinCode(pincode);
+          if (pinData) {
+            setCity(pinData.city);
+            setCitySearch(pinData.city);
+          }
+        } catch (error) {
+          console.error("Error fetching PIN code data:", error);
+        }
+      }
+    };
+
+    const timer = setTimeout(autofillFromPincode, 500);
+    return () => clearTimeout(timer);
+  }, [pincode]);
+
+  // Validate PIN code in real-time
+  useEffect(() => {
+    const validatePincode = async () => {
+      if (pincode.length !== 6) {
+        setPincodeValidation({ status: "idle", message: "" });
+        return;
+      }
+
+      setPincodeValidation({ status: "checking", message: "Validating PIN code..." });
+
+      try {
+        // Use India Post API to validate PIN code
+        const response = await fetch(`https://api.postalpincode.in/pincode/${pincode}`);
+        const data = await response.json();
+
+        if (data[0].Status === "Success" && data[0].PostOffice && data[0].PostOffice.length > 0) {
+          const postOffice = data[0].PostOffice[0];
+          const detectedCity = postOffice.District;
+          const detectedState = postOffice.State;
+
+          // Check if city matches
+          const cityMatch = city.trim().toLowerCase() === detectedCity.toLowerCase();
+          
+          // Check if state matches (compare with stateCode)
+          const stateMatch = stateCode && detectedState.toLowerCase().includes(getStateName(stateCode).toLowerCase());
+
+          if (cityMatch && stateMatch) {
+            setPincodeValidation({
+              status: "valid",
+              message: `✓ Valid PIN code for ${detectedCity}, ${detectedState}`,
+              detectedCity,
+              detectedState,
+            });
+          } else if (!cityMatch && !stateMatch) {
+            setPincodeValidation({
+              status: "invalid",
+              message: `PIN code belongs to ${detectedCity}, ${detectedState}. Please update city and state.`,
+              detectedCity,
+              detectedState,
+            });
+          } else if (!cityMatch) {
+            setPincodeValidation({
+              status: "invalid",
+              message: `PIN code belongs to ${detectedCity}, not ${city}`,
+              detectedCity,
+              detectedState,
+            });
+          } else {
+            setPincodeValidation({
+              status: "invalid",
+              message: `PIN code belongs to ${detectedState}, not ${getStateName(stateCode || "")}`,
+              detectedCity,
+              detectedState,
+            });
+          }
+        } else {
+          setPincodeValidation({
+            status: "invalid",
+            message: "Invalid PIN code. Please check and try again.",
+          });
+        }
+      } catch (error) {
+        setPincodeValidation({
+          status: "invalid",
+          message: "Could not validate PIN code. Please check your internet connection.",
+        });
+      }
+    };
+
+    const timer = setTimeout(validatePincode, 800);
+    return () => clearTimeout(timer);
+  }, [pincode, city, stateCode]);
 
   // OTP Input Handler (Auto-focus next box)
   const handleOtpChange = (
@@ -248,9 +473,11 @@ export default function Step2Form({ onNext, onPrev, onComplete, motherName, stat
   const isFormValid =
     emailStatus === "verified" &&
     mobileStatus === "verified" &&
-    address.trim() !== "" &&
+    houseNo.trim() !== "" &&
+    street.trim() !== "" &&
     city.trim() !== "" &&
-    pincode.length === 6;
+    pincode.length === 6 &&
+    pincodeValidation.status === "valid";
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -258,9 +485,16 @@ export default function Step2Form({ onNext, onPrev, onComplete, motherName, stat
       onComplete({
         email,
         mobile,
-        address,
-        city,
-        pincode,
+        address: {
+          houseNo: houseNo.trim(),
+          street: street.trim(),
+          landmark: landmark.trim(),
+          city: city.trim(),
+          state: getStateName(stateCode || ""),
+          pinCode: pincode,
+          addressType: addressType,
+          coordinates,
+        },
       });
       onNext();
     }
@@ -378,10 +612,10 @@ export default function Step2Form({ onNext, onPrev, onComplete, motherName, stat
                   <button 
                     type="button" 
                     onClick={handleSendEmailOtp}
-                    disabled={sendEmailLoading}
+                    disabled={emailLoading}
                     className="text-sm font-medium text-slate-500 hover:text-slate-800 transition-colors disabled:opacity-50"
                   >
-                    {sendEmailLoading ? "Sending..." : "Resend"}
+                    {emailLoading ? "Sending..." : "Resend"}
                   </button>
                   <button 
                     type="button" 
@@ -422,7 +656,11 @@ export default function Step2Form({ onNext, onPrev, onComplete, motherName, stat
                 </span>
                 <div className="relative flex-1">
                   <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
-                    <Phone className={`h-5 w-5 ${mobileStatus === "verified" ? "text-primary" : "text-slate-400"}`} />
+                    <Phone className={`h-5 w-5 ${
+                      mobileStatus === "verified" ? "text-primary" : 
+                      mobileCheckStatus === "limited" ? "text-red-500" : 
+                      "text-slate-400"
+                    }`} />
                   </div>
                   <input 
                     type="tel" 
@@ -434,14 +672,34 @@ export default function Step2Form({ onNext, onPrev, onComplete, motherName, stat
                     className={`block w-full rounded-r-full border bg-white py-3 pl-10 pr-3 outline-none transition-all ${
                       mobileStatus === "verified" 
                         ? "border-primary/50 bg-primary/5 text-primary focus:ring-0 cursor-not-allowed font-medium" 
+                        : mobileCheckStatus === "limited"
+                        ? "border-red-300 text-slate-900 focus:border-red-500 focus:ring-1 focus:ring-red-500"
                         : "border-slate-300 text-slate-900 focus:border-primary focus:ring-1 focus:ring-primary"
                     }`}
                   />
                   {mobileStatus === "verified" && (
                     <CheckCircle2 className="absolute right-3 top-1/2 -translate-y-1/2 h-5 w-5 text-primary" />
                   )}
+                  {mobileCheckStatus === "limited" && mobileStatus === "initial" && (
+                    <AlertCircle className="absolute right-3 top-1/2 -translate-y-1/2 h-5 w-5 text-red-500" />
+                  )}
                 </div>
               </div>
+              {/* Real-time mobile validation message */}
+              {mobileCheckMessage && mobileStatus === "initial" && (
+                <p className={`mt-2 text-sm flex items-center gap-1 ${
+                  mobileCheckStatus === "checking" ? "text-slate-500" :
+                  mobileCheckStatus === "limited" ? "text-red-600" :
+                  mobileCheckStatus === "available" ? "text-green-600" : ""
+                }`}>
+                  {mobileCheckStatus === "checking" && (
+                    <span className="inline-block h-3 w-3 animate-spin rounded-full border-2 border-slate-400 border-t-transparent"></span>
+                  )}
+                  {mobileCheckStatus === "limited" && <AlertCircle className="h-4 w-4" />}
+                  {mobileCheckStatus === "available" && <CheckCircle2 className="h-4 w-4" />}
+                  {mobileCheckMessage}
+                </p>
+              )}
             </div>
             
             <div className="md:col-span-4">
@@ -449,9 +707,9 @@ export default function Step2Form({ onNext, onPrev, onComplete, motherName, stat
                 <button
                   type="button"
                   onClick={handleSendMobileOtp}
-                  disabled={mobile.length !== 10 || mobileLoading}
+                  disabled={mobile.length !== 10 || mobileLoading || mobileCheckStatus === "limited" || mobileCheckStatus === "checking"}
                   className={`flex w-full items-center justify-center gap-2 rounded-full px-4 py-3 font-medium text-white transition-all ${
-                    mobile.length === 10 && !mobileLoading
+                    mobile.length === 10 && !mobileLoading && mobileCheckStatus !== "limited" && mobileCheckStatus !== "checking"
                       ? "bg-primary shadow-sm shadow-primary/20 hover:bg-opacity-90"
                       : "bg-slate-300 cursor-not-allowed"
                   }`}
@@ -499,10 +757,10 @@ export default function Step2Form({ onNext, onPrev, onComplete, motherName, stat
                   <button 
                     type="button" 
                     onClick={handleSendMobileOtp}
-                    disabled={sendMobileLoading}
+                    disabled={mobileLoading}
                     className="text-sm font-medium text-slate-500 hover:text-slate-800 transition-colors disabled:opacity-50"
                   >
-                    {sendMobileLoading ? "Sending..." : "Resend"}
+                    {mobileLoading ? "Sending..." : "Resend"}
                   </button>
                   <button 
                     type="button" 
@@ -523,52 +781,224 @@ export default function Step2Form({ onNext, onPrev, onComplete, motherName, stat
 
         {/* ================= ADDITIONAL DETAILS ================= */}
         <section className="flex flex-col gap-6 border-t border-slate-100 pt-6">
-          <div className="flex items-center gap-2">
-            <MapPin className="h-5 w-5 text-primary" />
-            <h3 className="text-lg font-semibold text-slate-900">Additional Details</h3>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <MapPin className="h-5 w-5 text-primary" />
+              <h3 className="text-lg font-semibold text-slate-900">Address Details</h3>
+            </div>
+            <button
+              type="button"
+              onClick={handleUseCurrentLocation}
+              disabled={loadingLocation}
+              className="flex items-center gap-2 rounded-lg border border-primary/20 bg-primary/5 px-4 py-2 text-sm font-medium text-primary transition-all hover:bg-primary/10 disabled:opacity-50"
+            >
+              {loadingLocation ? (
+                <>
+                  <span className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent"></span>
+                  Getting location...
+                </>
+              ) : (
+                <>
+                  <Navigation className="h-4 w-4" />
+                  Use my current location
+                </>
+              )}
+            </button>
           </div>
+
+          {/* Address Type Selection */}
+          <div>
+            <label className="mb-3 block text-sm font-medium text-slate-700">Address Type</label>
+            <div className="flex gap-3">
+              <button
+                type="button"
+                onClick={() => setAddressType('HOME')}
+                className={`flex flex-1 items-center justify-center gap-2 rounded-lg border-2 px-4 py-3 font-medium transition-all ${
+                  addressType === 'HOME'
+                    ? 'border-primary bg-primary/5 text-primary'
+                    : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300'
+                }`}
+              >
+                <Home className="h-5 w-5" />
+                Home
+              </button>
+              <button
+                type="button"
+                onClick={() => setAddressType('WORK')}
+                className={`flex flex-1 items-center justify-center gap-2 rounded-lg border-2 px-4 py-3 font-medium transition-all ${
+                  addressType === 'WORK'
+                    ? 'border-primary bg-primary/5 text-primary'
+                    : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300'
+                }`}
+              >
+                <Briefcase className="h-5 w-5" />
+                Work
+              </button>
+              <button
+                type="button"
+                onClick={() => setAddressType('OTHER')}
+                className={`flex flex-1 items-center justify-center gap-2 rounded-lg border-2 px-4 py-3 font-medium transition-all ${
+                  addressType === 'OTHER'
+                    ? 'border-primary bg-primary/5 text-primary'
+                    : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300'
+                }`}
+              >
+                <MapPinned className="h-5 w-5" />
+                Other
+              </button>
+            </div>
+          </div>
+
           <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
+            <div>
+              <label className="mb-2 block text-sm font-medium text-slate-700">
+                House/Flat No. *
+              </label>
+              <input
+                type="text"
+                value={houseNo}
+                onChange={(e) => setHouseNo(e.target.value)}
+                className={`block w-full rounded-lg border px-4 py-3 text-slate-900 outline-none transition-all ${
+                  houseNo.trim() 
+                    ? "border-slate-300 bg-white focus:border-primary focus:ring-1 focus:ring-primary"
+                    : "border-slate-300 bg-white focus:border-primary focus:ring-1 focus:ring-primary"
+                }`}
+                placeholder="e.g. Flat 12A, House 45"
+              />
+            </div>
+            <div>
+              <label className="mb-2 block text-sm font-medium text-slate-700">
+                Street/Area *
+              </label>
+              <input
+                type="text"
+                value={street}
+                onChange={(e) => setStreet(e.target.value)}
+                className={`block w-full rounded-lg border px-4 py-3 text-slate-900 outline-none transition-all ${
+                  street.trim()
+                    ? "border-slate-300 bg-white focus:border-primary focus:ring-1 focus:ring-primary"
+                    : "border-slate-300 bg-white focus:border-primary focus:ring-1 focus:ring-primary"
+                }`}
+                placeholder="e.g. MG Road, Sector 4"
+              />
+            </div>
             <div className="md:col-span-2">
-              <label className="mb-2 block text-sm font-medium text-slate-700">Residential Address *</label>
-              <textarea 
-                value={address}
-                onChange={(e) => setAddress(e.target.value)}
-                className="block w-full resize-none rounded-lg border border-slate-300 bg-white px-4 py-3 text-slate-900 outline-none transition-all focus:border-primary focus:ring-1 focus:ring-primary" 
-                placeholder="Flat/House No., Building, Street Name" 
-                rows={3} 
-              />
-            </div>
-            <div>
-              <label className="mb-2 block text-sm font-medium text-slate-700">City/Town *</label>
-              <input 
-                value={city}
-                onChange={(e) => handleNameInput(e.target.value, setCity)}
-                className="block w-full rounded-lg border border-slate-300 bg-white px-4 py-3 text-slate-900 outline-none transition-all focus:border-primary focus:ring-1 focus:ring-primary" 
-                placeholder="e.g. Bengaluru" 
-                type="text" 
-              />
-            </div>
-            <div>
-              <label className="mb-2 block text-sm font-medium text-slate-700">State</label>
-              <input 
-                className="block w-full cursor-not-allowed rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 font-medium text-slate-500 outline-none" 
-                readOnly 
-                type="text" 
-                value={stateCode ? getStateName(stateCode) : "Not selected"} 
-                title="State is carried over from Step 1"
+              <label className="mb-2 block text-sm font-medium text-slate-700">
+                Landmark (Optional)
+              </label>
+              <input
+                type="text"
+                value={landmark}
+                onChange={(e) => setLandmark(e.target.value)}
+                className="block w-full rounded-lg border border-slate-300 bg-white px-4 py-3 text-slate-900 outline-none transition-all focus:border-primary focus:ring-1 focus:ring-primary"
+                placeholder="e.g. Near XYZ School, Opposite ABC Mall"
               />
             </div>
             <div>
               <label className="mb-2 block text-sm font-medium text-slate-700">PIN Code *</label>
-              <input 
-                value={pincode}
-                onChange={(e) => setPincode(e.target.value.replace(/\D/g, ''))}
-                className="block w-full rounded-lg border border-slate-300 bg-white px-4 py-3 text-slate-900 outline-none transition-all focus:border-primary focus:ring-1 focus:ring-primary" 
-                maxLength={6} 
-                placeholder="6-digit PIN" 
-                type="text" 
+              <div className="relative">
+                <input
+                  value={pincode}
+                  onChange={(e) => setPincode(e.target.value.replace(/\D/g, ''))}
+                  className={`block w-full rounded-lg border px-4 py-3 text-slate-900 outline-none transition-all ${
+                    pincodeValidation.status === "valid"
+                      ? "border-green-300 bg-green-50 focus:border-green-500 focus:ring-1 focus:ring-green-500"
+                      : pincodeValidation.status === "invalid"
+                      ? "border-red-300 bg-red-50 focus:border-red-500 focus:ring-1 focus:ring-red-500"
+                      : "border-slate-300 bg-white focus:border-primary focus:ring-1 focus:ring-primary"
+                  }`}
+                  maxLength={6}
+                  placeholder="6-digit PIN"
+                  type="text"
+                />
+                {pincodeValidation.status === "valid" && (
+                  <CheckCircle2 className="absolute right-3 top-1/2 -translate-y-1/2 h-5 w-5 text-green-600" />
+                )}
+                {pincodeValidation.status === "invalid" && (
+                  <AlertCircle className="absolute right-3 top-1/2 -translate-y-1/2 h-5 w-5 text-red-500" />
+                )}
+                {pincodeValidation.status === "checking" && (
+                  <span className="absolute right-3 top-1/2 -translate-y-1/2 inline-block h-4 w-4 animate-spin rounded-full border-2 border-slate-400 border-t-transparent"></span>
+                )}
+              </div>
+              {pincodeValidation.message && (
+                <p className={`mt-2 text-sm flex items-center gap-1 ${
+                  pincodeValidation.status === "checking" ? "text-slate-500" :
+                  pincodeValidation.status === "invalid" ? "text-red-600" :
+                  pincodeValidation.status === "valid" ? "text-green-600" : ""
+                }`}>
+                  {pincodeValidation.message}
+                </p>
+              )}
+              <p className="mt-1 text-xs text-slate-500">
+                City and state will be auto-filled from PIN code
+              </p>
+            </div>
+            <div>
+              <label className="mb-2 block text-sm font-medium text-slate-700">City/Town *</label>
+              <div className="relative">
+                <select
+                  value={city}
+                  onChange={(e) => {
+                    setCity(e.target.value);
+                    setCitySearch(e.target.value);
+                  }}
+                  className="block w-full appearance-none rounded-lg border border-slate-300 bg-white px-4 py-3 pr-10 text-slate-900 outline-none transition-all focus:border-primary focus:ring-1 focus:ring-primary"
+                >
+                  <option value="">Select city or type below</option>
+                  {availableCities.slice(0, 100).map((cityName) => (
+                    <option key={cityName} value={cityName}>
+                      {cityName}
+                    </option>
+                  ))}
+                </select>
+                <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3 text-slate-400">
+                  <ChevronDown className="h-4 w-4" />
+                </div>
+              </div>
+              <p className="mt-1 text-xs text-slate-500">
+                {stateCode
+                  ? `Select from ${availableCities.length} cities in ${getStateName(stateCode)}`
+                  : "State not selected"}
+              </p>
+              {/* Manual input option */}
+              <div className="mt-2">
+                <input
+                  type="text"
+                  value={citySearch}
+                  onChange={(e) => {
+                    setCitySearch(e.target.value);
+                    setCity(e.target.value);
+                  }}
+                  placeholder="Or type your city name manually"
+                  className="block w-full rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm text-slate-900 outline-none transition-all focus:border-primary focus:ring-1 focus:ring-primary"
+                />
+              </div>
+            </div>
+            <div className="md:col-span-2">
+              <label className="mb-2 block text-sm font-medium text-slate-700">State</label>
+              <input
+                className="block w-full cursor-not-allowed rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 font-medium text-slate-500 outline-none"
+                readOnly
+                type="text"
+                value={stateCode ? getStateName(stateCode) : "Not selected"}
+                title="State is carried over from Step 1"
               />
             </div>
+          </div>
+
+          {/* Save Address Checkbox */}
+          <div className="flex items-center gap-3 rounded-lg border border-slate-200 bg-slate-50 p-4">
+            <input
+              type="checkbox"
+              id="saveAddress"
+              checked={saveAddress}
+              onChange={(e) => setSaveAddress(e.target.checked)}
+              className="h-5 w-5 rounded border-slate-300 text-primary focus:ring-2 focus:ring-primary/20"
+            />
+            <label htmlFor="saveAddress" className="text-sm font-medium text-slate-700 cursor-pointer">
+              Save this address for future use
+            </label>
           </div>
         </section>
       </div>

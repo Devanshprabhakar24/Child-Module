@@ -1,5 +1,6 @@
 import { Camera, Cake, User, Copy, Lightbulb } from "lucide-react";
 import type { DashboardChild } from "@/hooks/useDashboardData";
+import { formatAge, getAgeCategory } from "@/utils/ageCalculator";
 
 interface ProfileSectionProps {
   child?: DashboardChild;
@@ -8,8 +9,8 @@ interface ProfileSectionProps {
 export default function ProfileSection({ child }: ProfileSectionProps) {
   const name = child?.childName || "Child Name";
   const isGreen = true; // In this MVP, all registered children are in Green Cohort
-  const age = child?.ageInYears;
-  const ageLabel = typeof age === "number" ? `${age} Year${age === 1 ? "" : "s"}` : "—";
+  const ageLabel = child?.dateOfBirth ? formatAge(child.dateOfBirth) : "—";
+  const ageCategory = child?.dateOfBirth ? getAgeCategory(child.dateOfBirth) : "";
   const gender = child?.childGender || "—";
   const registrationId = child?.registrationId || "Registration ID";
 
@@ -42,7 +43,10 @@ export default function ProfileSection({ child }: ProfileSectionProps) {
             <div className="flex flex-wrap justify-center gap-4 md:justify-start">
               <div className="flex items-center gap-1.5 text-slate-600">
                 <Cake className="h-4 w-4" />
-                <span>{ageLabel}</span>
+                <span className="font-medium">{ageLabel}</span>
+                {ageCategory && (
+                  <span className="ml-1 text-xs text-slate-400">({ageCategory})</span>
+                )}
               </div>
               <div className="flex items-center gap-1.5 border-l border-slate-200 px-4 text-slate-600">
                 <User className="h-4 w-4" />

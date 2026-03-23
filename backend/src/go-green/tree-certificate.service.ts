@@ -1,4 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
+import { CloudinaryService } from '../common/cloudinary.service';
 import * as PDFDocument from 'pdfkit';
 import * as fs from 'fs';
 import * as path from 'path';
@@ -19,6 +20,8 @@ interface TreeCertificateData {
 @Injectable()
 export class TreeCertificateService {
   private readonly logger = new Logger(TreeCertificateService.name);
+  
+  constructor(private readonly cloudinaryService: CloudinaryService) {}
   
   // Tree background image - you can replace this with your actual image URL or local path
   private readonly treeImagePath = path.join(__dirname, 'assets', 'tree-background.jpg');
@@ -328,5 +331,35 @@ export class TreeCertificateService {
         reject(err);
       }
     });
+  }
+
+  /**
+   * Generate tree certificate and upload to Cloudinary
+   */
+  async generateAndUploadTreeCertificate(data: TreeCertificateData): Promise<{ buffer: Buffer; cloudinaryUrl: string }> {
+    const buffer = await this.generateTreeCertificate(data);
+    
+    // Try to upload to Cloudinary if configured
+    let cloudinaryUrl = '';
+    try {
+      if (this.cloudinaryService.isConfigured()) {
+        const cloudinaryResult = await this.cloudinaryService.uploadTreeCertificatePDF(
+          buffer,
+          data.treeId,
+          data.registrationId
+        );
+        cloudinaryUrl = cloudinaryResult.url;
+        this.logger.log(`Tree certificate uploaded to Cloudinary: ${cloudinaryUrl}`);
+      } else {
+        this.logger.warn('Cloudinary not configured, tree certificate will not be stored in cloud');
+      }
+    } catch (error) {
+      this.logger.error(`Failed to upload tree certificate to Cloudinary: ${error instanceof Error ? error.message : error}`);
+    }
+
+    return {
+      buffer,
+      cloudinaryUrl,
+    };
   }
 }

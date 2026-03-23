@@ -8,6 +8,7 @@ import {
   Delete,
   UseGuards,
   Req,
+  Res,
   UseInterceptors,
   UploadedFile,
   BadRequestException,
@@ -18,6 +19,7 @@ import { RemindersService } from '../reminders/reminders.service';
 import { CreateMilestoneDto, UpdateMilestoneStatusDto, ReminderChannel } from '@wombto18/shared';
 import { AuthGuard, AuthenticatedRequest } from '../auth/guards/auth.guard';
 import { storage } from '../auth/multer';
+import { CloudinaryService } from '../common/cloudinary.service';
 import cloudinary from '../auth/cloudinary';
 import * as fs from 'fs';
 
@@ -27,6 +29,7 @@ export class DashboardController {
   constructor(
     private readonly dashboardService: DashboardService,
     private readonly remindersService: RemindersService,
+    private readonly cloudinaryService: CloudinaryService,
   ) {}
 
   // ─── Full Child Dashboard ─────────────────────────────────────────────
@@ -387,5 +390,153 @@ export class DashboardController {
       body.notes
     );
     return { success: true, data: milestone };
+  }
+
+  // ─── Vaccination Card Download ────────────────────────────────────────
+
+  /**
+   * Download vaccination card PDF
+   * GET /dashboard/vaccination-card/:registrationId
+   */
+  @Get('vaccination-card/:registrationId')
+  async downloadVaccinationCard(
+    @Param('registrationId') registrationId: string,
+    @Res({ passthrough: false }) res: any
+  ) {
+    try {
+      // Import email service to generate PDF
+      const { EmailService } = await import('../notifications/email.service');
+      const { ConfigService } = await import('@nestjs/config');
+      const configService = new ConfigService();
+      const emailService = new EmailService(configService);
+
+      // Get child data and vaccination schedule
+      const dashboard = await this.dashboardService.getChildDashboard(registrationId);
+      const vaccinationTracker = await this.dashboardService.getVaccinationTracker(registrationId);
+
+      // Generate PDF
+      const pdfBuffer = await (emailService as any).generateVaccinationSchedulePDF(
+        {
+          childName: dashboard.profile.childName,
+          dateOfBirth: dashboard.profile.dateOfBirth.toISOString().split('T')[0],
+          registrationId: dashboard.profile.registrationId,
+          parentName: dashboard.profile.motherName,
+        },
+        vaccinationTracker.milestones.map((m: any) => ({
+          name: m.vaccineName || m.title,
+          ageGroup: m.ageGroup || 'N/A',
+          dueDate: new Date(m.dueDate).toLocaleDateString('en-IN'),
+          status: m.status.toLowerCase(),
+        }))
+      );
+
+      // Upload to Cloudinary (async, don't wait) - only if configured
+      if (this.cloudinaryService.isConfigured()) {
+        this.cloudinaryService.uploadVaccinationCardPDF(pdfBuffer, registrationId)
+          .then(cloudinaryResult => {
+            if (cloudinaryResult.url) {
+              // Store URL in database
+              return this.dashboardService.updateVaccinationCardUrl(registrationId, cloudinaryResult.url);
+            }
+          })
+          .catch(err => {
+            console.error('Failed to upload vaccination card to Cloudinary:', err);
+          });
+      }
+
+      // Set response headers for PDF download
+      res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader('Content-Disposition', `attachment; filename="Vaccination_Card_${registrationId}.pdf"`);
+      res.setHeader('Content-Length', pdfBuffer.length);
+
+      res.send(pdfBuffer);
+    } catch (error) {
+      console.error('Vaccination card generation error:', error);
+      res.status(400).json({
+        success: false,
+        message: `Failed to generate vaccination card: ${error instanceof Error ? error.message : 'Unknown error'}`
+      });
+    }
+  }
+
+  /**
+   * Share vaccination card with doctor via email
+   * POST /dashboard/share-vaccination-card
+   */
+  @Post('share-vaccination-card')
+  async shareVaccinationCard(
+    @Body() body: { registrationId: string; doctorEmail: string }
+  ) {
+    try {
+      // Import email service
+      const { EmailService } = await import('../notifications/email.service');
+      const { ConfigService } = await import('@nestjs/config');
+      const configService = new ConfigService();
+      const emailService = new EmailService(configService);
+
+      // Get child data and vaccination schedule
+      const dashboard = await this.dashboardService.getChildDashboard(body.registrationId);
+      const vaccinationTracker = await this.dashboardService.getVaccinationTracker(body.registrationId);
+
+      // Generate PDF
+      const pdfBuffer = await (emailService as any).generateVaccinationSchedulePDF(
+        {
+          childName: dashboard.profile.childName,
+          dateOfBirth: dashboard.profile.dateOfBirth.toISOString().split('T')[0],
+          registrationId: dashboard.profile.registrationId,
+          parentName: dashboard.profile.motherName,
+        },
+        vaccinationTracker.milestones.map((m: any) => ({
+          name: m.vaccineName || m.title,
+          ageGroup: m.ageGroup || 'N/A',
+          dueDate: new Date(m.dueDate).toLocaleDateString('en-IN'),
+          status: m.status.toLowerCase(),
+        }))
+      );
+
+      // Send email to doctor
+      await (emailService as any).sendEmailWithAttachment(
+        body.doctorEmail,
+        'Vaccination Card Shared',
+        `
+          <h2>Vaccination Card</h2>
+          <p>A parent has shared their child's vaccination card with you.</p>
+          <p><strong>Child Name:</strong> ${dashboard.profile.childName}</p>
+          <p><strong>Date of Birth:</strong> ${dashboard.profile.dateOfBirth.toISOString().split('T')[0]}</p>
+          <p>Please find the vaccination card attached as a PDF.</p>
+        `,
+        [{
+          filename: `Vaccination_Card_${body.registrationId}.pdf`,
+          content: pdfBuffer,
+          contentType: 'application/pdf',
+        }]
+      );
+
+      return {
+        success: true,
+        message: 'Vaccination card shared successfully',
+      };
+    } catch (error) {
+      throw new BadRequestException(`Failed to share vaccination card: ${error instanceof Error ? error.message : error}`);
+    }
+  }
+
+  /**
+   * Update reminder settings
+   * PATCH /dashboard/update-reminder-settings
+   */
+  @Patch('update-reminder-settings')
+  async updateReminderSettings(
+    @Body() body: { registrationId: string; channels: { email: boolean; whatsapp: boolean; sms: boolean } }
+  ) {
+    try {
+      await this.dashboardService.updateReminderSettings(body.registrationId, body.channels);
+      return {
+        success: true,
+        message: 'Reminder settings updated successfully',
+      };
+    } catch (error) {
+      throw new BadRequestException(`Failed to update reminder settings: ${error instanceof Error ? error.message : error}`);
+    }
   }
 }
