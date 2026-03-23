@@ -7,6 +7,8 @@ import { TrendingUp, Activity, Ruler, Weight, Calendar, Plus, Trash2, Edit, Load
 // Prevent prerendering
 export const dynamic = 'force-dynamic';
 
+const API_BASE = (process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000").replace(/\/$/, "");
+
 interface GrowthRecord {
   _id: string;
   registrationId: string;
@@ -130,7 +132,7 @@ export default function GrowthChartPage() {
     setSuccess("");
 
     try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/growth-chart/${registrationId}`, {
+      const response = await fetch(`${API_BASE}/growth-chart/${registrationId}`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -173,7 +175,7 @@ export default function GrowthChartPage() {
     if (!confirm("Are you sure you want to delete this growth record?")) return;
 
     try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/growth-chart/record/${recordId}`, {
+      const response = await fetch(`${API_BASE}/growth-chart/record/${recordId}`, {
         method: "DELETE",
         headers: {
           Authorization: `Bearer ${token}`,

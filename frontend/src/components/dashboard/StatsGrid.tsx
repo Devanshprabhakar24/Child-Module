@@ -5,7 +5,7 @@ import { Cake, Syringe, FileText, TrendingUp, Activity, Clock, CheckCircle, Aler
 import type { DashboardChild, DashboardMilestone } from "@/hooks/useDashboardData";
 import { formatAge, calculateDetailedAge } from "@/utils/ageCalculator";
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+const API_BASE = (process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000").replace(/\/$/, "");
 
 interface StatsGridProps {
   child?: DashboardChild;

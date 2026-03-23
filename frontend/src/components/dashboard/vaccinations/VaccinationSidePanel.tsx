@@ -4,7 +4,7 @@ import { useState } from "react";
 import { FileText, Share2, Bell, Mail, MessageCircle, Send, Loader2, X } from "lucide-react";
 import { useChildData } from "@/hooks/useChildData";
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+const API_BASE = (process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000").replace(/\/$/, "");
 
 export default function VaccinationSidePanel() {
   const { registrationId, token } = useChildData();

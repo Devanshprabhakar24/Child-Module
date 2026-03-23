@@ -10,7 +10,7 @@ import SuccessCelebrationModal from "@/components/dashboard/green/SuccessCelebra
 import FloatingCredit, { useFloatingCredit } from "@/components/dashboard/green/FloatingCredit";
 import { Award, QrCode, Star, MapPin, BadgeCheck, Loader2, TrendingUp, Check, Sprout, Trees, Camera, X, FileText, TreePine } from "lucide-react";
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+const API_BASE = (process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000").replace(/\/$/, "");
 
 // Prevent prerendering
 export const dynamic = 'force-dynamic';

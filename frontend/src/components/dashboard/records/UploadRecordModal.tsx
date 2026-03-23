@@ -5,7 +5,7 @@ import { useSearchParams } from "next/navigation";
 import { CloudUpload, X, FileText, Image as ImageIcon, Trash2, ChevronDown } from "lucide-react";
 import { getRegistrationId } from "@/utils/registrationId";
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+const API_BASE = (process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000").replace(/\/$/, "");
 
 interface UploadRecordModalProps {
   isOpen: boolean;

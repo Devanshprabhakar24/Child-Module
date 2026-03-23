@@ -9,7 +9,7 @@ import SubscriptionCard from "@/components/dashboard/settings/SubscriptionCard";
 import EditableProfileSettings from "@/components/dashboard/settings/EditableProfileSettings";
 import { User, Camera, Loader2, Zap, CheckCircle, X } from "lucide-react";
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+const API_BASE = (process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000").replace(/\/$/, "");
 
 // Prevent prerendering
 export const dynamic = 'force-dynamic';

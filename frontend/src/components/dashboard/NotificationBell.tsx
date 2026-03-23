@@ -5,7 +5,7 @@ import { Bell, X, Check } from "lucide-react";
 import { useNotifications } from "@/hooks/useNotifications";
 import { useChildData } from "@/hooks/useChildData";
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+const API_BASE = (process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000").replace(/\/$/, "");
 
 export default function NotificationBell() {
   const { registrationId, token } = useChildData();

@@ -33,7 +33,7 @@ export default function SuccessCelebrationModal({
 
     setDownloading(true);
     try {
-      const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+      const API_BASE = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000').replace(/\/$/, '');
       const token = localStorage.getItem('wt18_token');
       
       console.log('📥 Downloading certificate for tree:', treeData.treeId);

@@ -7,7 +7,7 @@ import { handleNameInput } from "../../utils/textFormatting";
 import { getCitiesByState } from "../../utils/indianCities";
 import { getCurrentLocation, reverseGeocode, fetchAddressFromPinCode } from "../../utils/addressUtils";
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+const API_BASE = (process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000").replace(/\/$/, "");
 
 export interface ContactDetails {
   email: string;

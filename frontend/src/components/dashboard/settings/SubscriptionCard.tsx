@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { CreditCard, Receipt, BadgeCheck, Download, Loader2, FileText, TrendingUp, Sparkles } from "lucide-react";
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+const API_BASE = (process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000").replace(/\/$/, "");
 
 interface SubscriptionData {
   plan: 'ANNUAL' | 'FIVE_YEAR';

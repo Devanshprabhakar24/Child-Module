@@ -6,7 +6,7 @@ import {
   HelpCircle, MessageSquare, Syringe, TrendingUp
 } from "lucide-react";
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+const API_BASE = (process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000").replace(/\/$/, "");
 
 type TabType = "seed" | "faqs" | "testimonials" | "vaccines" | "milestones";
 

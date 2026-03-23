@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { User, Edit2, Save, X, Loader2 } from "lucide-react";
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+const API_BASE = (process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000").replace(/\/$/, "");
 
 interface ProfileData {
   childName: string;

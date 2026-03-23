@@ -8,7 +8,7 @@ import Step1Form, { ChildDetails } from "./Step1Form";
 import Step2Form, { ContactDetails } from "./Step2Form";
 import RegistrationProgress from "./RegistrationProgress";
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+const API_BASE = (process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000").replace(/\/$/, "");
 
 export default function RegistrationFlow() {
   const [currentStep, setCurrentStep] = useState(1);

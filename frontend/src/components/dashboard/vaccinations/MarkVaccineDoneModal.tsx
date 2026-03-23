@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { X, Upload, FileText, Loader2, Check } from "lucide-react";
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+const API_BASE = (process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000").replace(/\/$/, "");
 
 interface MarkVaccineDoneModalProps {
   isOpen: boolean;

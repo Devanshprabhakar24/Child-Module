@@ -4,6 +4,8 @@ import { useState, useEffect } from "react";
 import Sidebar from "./Sidebar";
 import DashboardHeader from "./DashboardHeader";
 
+const API_BASE = (process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000").replace(/\/$/, "");
+
 export default function DashboardShell({ children }: { children: React.ReactNode }) {
   const [isDesktopCollapsed, setIsDesktopCollapsed] = useState(false);
   const [isMobileOpen, setIsMobileOpen] = useState(false);
@@ -18,7 +20,7 @@ export default function DashboardShell({ children }: { children: React.ReactNode
           
           if (token) {
             // Fetch child's profile and use mother's name
-            const familyRes = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/dashboard/family`, {
+            const familyRes = await fetch(`${API_BASE}/dashboard/family`, {
               headers: { Authorization: `Bearer ${token}` },
             });
 

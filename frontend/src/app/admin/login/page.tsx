@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { Shield, Loader2, AlertCircle, Mail, Lock, Eye, EyeOff, Check, LogIn } from "lucide-react";
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+const API_BASE = (process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000").replace(/\/$/, "");
 
 export default function AdminLoginPage() {
   const [username, setUsername] = useState("");

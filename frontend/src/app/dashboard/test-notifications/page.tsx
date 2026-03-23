@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useChildData } from "@/hooks/useChildData";
 import { Bell, Syringe, Award, Leaf, CreditCard, Send } from "lucide-react";
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+const API_BASE = (process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000").replace(/\/$/, "");
 
 // Prevent prerendering
 export const dynamic = 'force-dynamic';
