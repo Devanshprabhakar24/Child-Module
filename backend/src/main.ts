@@ -17,36 +17,35 @@ async function bootstrap(): Promise<void> {
     }),
   );
 
-  // Configure CORS
+  // Configure CORS - Allow Vercel frontend
   const allowedOrigins = [
     'http://localhost:3000',
     'http://127.0.0.1:3000',
-    process.env['APP_BASE_URL'],
-  ].filter(Boolean);
+    'https://child-module.vercel.app',
+  ];
 
-  // Add all Vercel preview URLs
-  if (process.env['APP_BASE_URL']?.includes('vercel.app')) {
-    allowedOrigins.push('https://*.vercel.app');
+  // Add APP_BASE_URL from environment
+  if (process.env['APP_BASE_URL']) {
+    allowedOrigins.push(process.env['APP_BASE_URL']);
   }
+
+  console.log('🔐 CORS allowed origins:', allowedOrigins);
 
   app.enableCors({
     origin: (origin, callback) => {
-      // Allow requests with no origin (mobile apps, Postman, etc.)
-      if (!origin) return callback(null, true);
+      // Allow requests with no origin (mobile apps, Postman, curl, etc.)
+      if (!origin) {
+        console.log('✅ CORS: Allowing request with no origin');
+        return callback(null, true);
+      }
       
-      // Check if origin is allowed
-      const isAllowed = allowedOrigins.some(allowed => {
-        if (allowed?.includes('*')) {
-          const pattern = allowed.replace('*', '.*');
-          return new RegExp(pattern).test(origin);
-        }
-        return allowed === origin;
-      });
-
-      if (isAllowed) {
+      // Check if origin is in allowed list
+      if (allowedOrigins.includes(origin)) {
+        console.log('✅ CORS: Allowing origin:', origin);
         callback(null, true);
       } else {
-        console.log('CORS blocked origin:', origin);
+        console.log('❌ CORS: Blocking origin:', origin);
+        console.log('   Allowed origins:', allowedOrigins);
         callback(new Error('Not allowed by CORS'));
       }
     },
