@@ -42,12 +42,18 @@ async function bootstrap(): Promise<void> {
       // Check if origin is in allowed list
       if (allowedOrigins.includes(origin)) {
         console.log('✅ CORS: Allowing origin:', origin);
-        callback(null, true);
-      } else {
-        console.log('❌ CORS: Blocking origin:', origin);
-        console.log('   Allowed origins:', allowedOrigins);
-        callback(new Error('Not allowed by CORS'));
+        return callback(null, true);
       }
+      
+      // Allow all Vercel preview deployments (*.vercel.app)
+      if (origin.endsWith('.vercel.app')) {
+        console.log('✅ CORS: Allowing Vercel preview origin:', origin);
+        return callback(null, true);
+      }
+      
+      console.log('❌ CORS: Blocking origin:', origin);
+      console.log('   Allowed origins:', allowedOrigins);
+      callback(new Error('Not allowed by CORS'));
     },
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization', 'Accept'],
