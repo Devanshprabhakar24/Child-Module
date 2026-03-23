@@ -13,6 +13,9 @@ import {
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
+// Prevent prerendering
+export const dynamic = 'force-dynamic';
+
 // Age period definitions matching vaccination-schedule.ts ageInMonths values
 const AGE_PERIODS = [
   { label: "At Birth", months: 0, icon: Baby, color: "bg-pink-50 border-pink-200 text-pink-700" },

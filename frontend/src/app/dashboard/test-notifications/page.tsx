@@ -6,6 +6,9 @@ import { Bell, Syringe, Award, Leaf, CreditCard, Send } from "lucide-react";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
+// Prevent prerendering
+export const dynamic = 'force-dynamic';
+
 export default function TestNotificationsPage() {
   const { registrationId, token } = useChildData();
   const [loading, setLoading] = useState<string | null>(null);

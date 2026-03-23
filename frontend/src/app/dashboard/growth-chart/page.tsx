@@ -4,6 +4,9 @@ import { useState, useEffect } from "react";
 import { useChildData } from "@/hooks/useChildData";
 import { TrendingUp, Activity, Ruler, Weight, Calendar, Plus, Trash2, Edit, Loader2, AlertCircle } from "lucide-react";
 
+// Prevent prerendering
+export const dynamic = 'force-dynamic';
+
 interface GrowthRecord {
   _id: string;
   registrationId: string;

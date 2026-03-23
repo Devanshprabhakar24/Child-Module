@@ -11,6 +11,9 @@ import { User, Camera, Loader2, Zap, CheckCircle, X } from "lucide-react";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
+// Prevent prerendering
+export const dynamic = 'force-dynamic';
+
 export default function SettingsPage() {
   const searchParams = useSearchParams();
   const upgraded = searchParams.get("upgraded") === "true";

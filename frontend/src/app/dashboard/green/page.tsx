@@ -1,5 +1,6 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import { useState, useEffect } from "react";
 import { useChildData } from "@/hooks/useChildData";
 import GreenHeader from "@/components/dashboard/green/GreenHeader";
@@ -11,6 +12,9 @@ import FloatingCredit, { useFloatingCredit } from "@/components/dashboard/green/
 import { Award, QrCode, Star, MapPin, BadgeCheck, Loader2, TrendingUp, Check, Sprout, Trees, Camera, X, FileText, TreePine } from "lucide-react";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+
+// Prevent prerendering
+export const dynamic = 'force-dynamic';
 
 interface TreeData {
   _id: string;

@@ -14,6 +14,9 @@ import {
   MessageSquare
 } from "lucide-react";
 
+// Prevent prerendering
+export const dynamic = 'force-dynamic';
+
 const AGE_GROUPS = [
   { key: '0-1 years', label: '0-1 Years', emoji: '👶', order: 1 },
   { key: '1-3 years', label: '1-3 Years', emoji: '🧒', order: 2 },
