@@ -1,6 +1,5 @@
 "use client";
 
-import dynamic from "next/dynamic";
 import { useState, useEffect } from "react";
 import { useChildData } from "@/hooks/useChildData";
 import GreenHeader from "@/components/dashboard/green/GreenHeader";
