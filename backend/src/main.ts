@@ -17,8 +17,39 @@ async function bootstrap(): Promise<void> {
     }),
   );
 
+  // Configure CORS
+  const allowedOrigins = [
+    'http://localhost:3000',
+    'http://127.0.0.1:3000',
+    process.env['APP_BASE_URL'],
+  ].filter(Boolean);
+
+  // Add all Vercel preview URLs
+  if (process.env['APP_BASE_URL']?.includes('vercel.app')) {
+    allowedOrigins.push('https://*.vercel.app');
+  }
+
   app.enableCors({
-    origin: ['http://localhost:3000', 'http://127.0.0.1:3000'],
+    origin: (origin, callback) => {
+      // Allow requests with no origin (mobile apps, Postman, etc.)
+      if (!origin) return callback(null, true);
+      
+      // Check if origin is allowed
+      const isAllowed = allowedOrigins.some(allowed => {
+        if (allowed?.includes('*')) {
+          const pattern = allowed.replace('*', '.*');
+          return new RegExp(pattern).test(origin);
+        }
+        return allowed === origin;
+      });
+
+      if (isAllowed) {
+        callback(null, true);
+      } else {
+        console.log('CORS blocked origin:', origin);
+        callback(new Error('Not allowed by CORS'));
+      }
+    },
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization', 'Accept'],
     credentials: true,
