@@ -12,6 +12,7 @@ import {
 } from '../registration/schemas/child-registration.schema';
 import { Milestone, MilestoneDocument } from '../dashboard/schemas/milestone.schema';
 import { NotificationsService } from '../notifications/notifications.service';
+import { NotificationsGateway } from '../notifications/notifications.gateway';
 import { GoGreenService } from '../go-green/go-green.service';
 import { DashboardService } from '../dashboard/dashboard.service';
 import { RemindersService } from '../reminders/reminders.service';
@@ -39,6 +40,7 @@ export class PaymentsService {
     private readonly milestoneModel: Model<MilestoneDocument>,
     private readonly configService: ConfigService,
     private readonly notificationsService: NotificationsService,
+    private readonly notificationsGateway: NotificationsGateway,
     private readonly goGreenService: GoGreenService,
     private readonly dashboardService: DashboardService,
     private readonly remindersService: RemindersService,
@@ -201,6 +203,13 @@ export class PaymentsService {
       await registration.save();
 
       this.logger.log(`✅ Payment completed for registration: ${registration.registrationId}`);
+
+      // Send real-time notification for payment success
+      this.notificationsGateway.sendPaymentNotification(
+        registration.registrationId,
+        registration.subscriptionAmount,
+        'successful'
+      );
 
       // Step 4: Trigger post-payment actions
       this.logger.log(`🚀 Triggering post-payment actions for ${registration.registrationId}...`);

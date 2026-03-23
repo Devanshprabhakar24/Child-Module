@@ -8,6 +8,7 @@ import { PlantedTree, TreeStatus as PlantedTreeStatus } from './schemas/planted-
 import { ChildRegistration, ChildRegistrationDocument } from '../registration/schemas/child-registration.schema';
 import { AwardCreditDto, RedeemTreeDto } from './dto/credit.dto';
 import { TreeCertificateService } from './tree-certificate.service';
+import { NotificationsGateway } from '../notifications/notifications.gateway';
 
 // Type definitions
 export type GoGreenTreeDocument = GoGreenTree & Document;
@@ -47,6 +48,7 @@ export class GoGreenService {
     @InjectModel(ChildRegistration.name)
     private readonly childModel: Model<ChildRegistrationDocument>,
     private readonly treeCertificateService: TreeCertificateService,
+    private readonly notificationsGateway: NotificationsGateway,
   ) {}
 
   // ==================== CREDIT MANAGEMENT ====================
@@ -96,6 +98,12 @@ export class GoGreenService {
       }, session);
 
       await session.commitTransaction();
+
+      // Send real-time notification for credit earning
+      this.notificationsGateway.sendGoGreenNotification(
+        dto.registrationId,
+        `You earned ${dto.amount} Go Green credits! 🌱 New balance: ${newBalance}`
+      );
 
       return {
         success: true,

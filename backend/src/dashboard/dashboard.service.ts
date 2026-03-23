@@ -21,6 +21,7 @@ import {
   MilestoneStatus,
 } from '@wombto18/shared';
 import { VACCINATION_SCHEDULE, calculateDueDate } from './data/vaccination-schedule';
+import { NotificationsGateway } from '../notifications/notifications.gateway';
 
 @Injectable()
 export class DashboardService {
@@ -44,6 +45,7 @@ export class DashboardService {
     @InjectModel(GoGreenTree.name)
     private readonly goGreenTreeModel: Model<GoGreenTreeDocument>,
     private readonly eventEmitter: EventEmitter2,
+    private readonly notificationsGateway: NotificationsGateway,
   ) {}
 
   // ─── Seed Vaccination Schedule ────────────────────────────────────────
@@ -154,6 +156,15 @@ export class DashboardService {
         vaccineName: milestone.vaccineName || milestone.title,
         sequenceNumber,
         completedDate: milestone.completedDate || new Date(),
+      });
+
+      // Send real-time notification
+      this.notificationsGateway.sendToChild(milestone.registrationId, {
+        type: 'vaccination_due',
+        title: 'Vaccination Completed',
+        message: `${milestone.vaccineName || milestone.title} has been marked as completed!`,
+        timestamp: new Date(),
+        data: { vaccineName: milestone.vaccineName || milestone.title },
       });
     }
 
@@ -977,6 +988,8 @@ export class DashboardService {
       throw new NotFoundException('Development milestone not found');
     }
 
+    const previousStatus = milestone.status;
+
     if (status !== undefined) {
       milestone.status = status as any;
     }
@@ -988,6 +1001,15 @@ export class DashboardService {
     }
 
     await milestone.save();
+
+    // Send real-time notification when milestone is achieved
+    if (previousStatus !== 'ACHIEVED' && status === 'ACHIEVED') {
+      this.notificationsGateway.sendMilestoneNotification(
+        milestone.registrationId,
+        milestone.title
+      );
+    }
+
     return milestone;
   }
 

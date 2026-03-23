@@ -2,6 +2,7 @@ import { Injectable, Logger, BadRequestException, NotFoundException } from '@nes
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { HealthRecord, HealthRecordDocument, HealthRecordCategory, HealthRecordStatus, UploadedBy } from './schemas/health-record.schema';
+import { NotificationsGateway } from '../notifications/notifications.gateway';
 
 export interface CreateHealthRecordDto {
   registrationId: string;
@@ -44,6 +45,7 @@ export class HealthRecordsService {
   constructor(
     @InjectModel(HealthRecord.name)
     private readonly healthRecordModel: Model<HealthRecordDocument>,
+    private readonly notificationsGateway: NotificationsGateway,
   ) {}
 
   /**
@@ -53,6 +55,13 @@ export class HealthRecordsService {
     try {
       const healthRecord = await this.healthRecordModel.create(dto);
       this.logger.log(`Health record created: ${healthRecord._id} for ${dto.registrationId}`);
+      
+      // Send real-time notification
+      this.notificationsGateway.sendHealthRecordNotification(
+        dto.registrationId,
+        dto.category
+      );
+      
       return healthRecord;
     } catch (error) {
       this.logger.error(`Failed to create health record: ${error instanceof Error ? error.message : error}`);
