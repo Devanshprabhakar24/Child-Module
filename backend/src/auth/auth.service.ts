@@ -51,13 +51,18 @@ export class AuthService {
     this.jwtSecret = this.configService.get<string>('JWT_SECRET') ?? 'wombto18-dev-secret';
 
     if (this.otpSmsTestMode) {
-      this.logger.warn('⚠️  OTP SMS Test Mode Enabled');
-      this.logger.log(`📱 Test OTP Code: ${this.otpTestCode}`);
+      this.logger.warn('⚠️  ========================================');
+      this.logger.warn('⚠️  SMS OTP TEST MODE ENABLED');
+      this.logger.warn(`⚠️  Test OTP Code: ${this.otpTestCode}`);
+      this.logger.warn(`⚠️  SMS will NOT be sent, use OTP: ${this.otpTestCode}`);
+      this.logger.warn('⚠️  Set OTP_SMS_TEST_MODE=false to disable');
+      this.logger.warn('⚠️  ========================================');
     } else {
       this.logger.log('✅ Twilio SMS enabled for SMS OTP');
-      if (this.resendEmailService.isEnabled()) {
-        this.logger.log('✅ Resend Email enabled for Email OTP');
-      }
+    }
+    
+    if (this.resendEmailService.isEnabled()) {
+      this.logger.log('✅ Resend Email enabled for Email OTP');
     }
   }
 
@@ -195,11 +200,11 @@ export class AuthService {
       };
     }
     
-    // Generate OTP code - ALWAYS generate unique OTP for phone (different from email)
-    const code = this.generateSecureOtp();
+    // Generate OTP code - use test code if SMS test mode is enabled
+    const code = this.otpSmsTestMode ? this.otpTestCode : this.generateSecureOtp();
     const expiresAt = new Date(Date.now() + OTP_EXPIRY_MINUTES * 60 * 1000);
 
-    this.logger.log(`🔢 Generated Phone OTP code: ${code} for ${normalizedPhone}`);
+    this.logger.log(`🔢 Generated Phone OTP code: ${code} for ${normalizedPhone}${this.otpSmsTestMode ? ' (TEST MODE)' : ''}`);
 
     // Invalidate previous unused OTPs for this phone
     await this.otpModel.updateMany(
@@ -216,17 +221,22 @@ export class AuthService {
 
     this.logger.log(`💾 Phone OTP record saved to database for ${normalizedPhone}`);
 
-    let logMessage = `📱 Phone OTP for ${normalizedPhone}: ${code}`;
+    let logMessage = `📱 Phone OTP for ${normalizedPhone}: ${code}${this.otpSmsTestMode ? ' (TEST MODE)' : ''}`;
 
-    // Send SMS OTP via Twilio
-    this.logger.log(`📤 Attempting to send SMS via Twilio to ${normalizedPhone}`);
-    const smsSent = await this.twilioSmsService.sendOTP(normalizedPhone, code);
-    if (smsSent) {
-      logMessage += ` | ✅ SMS sent via Twilio`;
-      this.logger.log(`✅ SMS OTP sent successfully to ${normalizedPhone}`);
+    // Send SMS OTP via Twilio (skip if test mode)
+    if (this.otpSmsTestMode) {
+      logMessage += ` | ⚠️ SMS not sent (TEST MODE - use OTP: ${this.otpTestCode})`;
+      this.logger.warn(`⚠️  SMS OTP test mode - SMS not sent to ${normalizedPhone}`);
     } else {
-      logMessage += ` | ❌ SMS failed via Twilio`;
-      this.logger.error(`❌ Failed to send SMS OTP to ${normalizedPhone}`);
+      this.logger.log(`📤 Attempting to send SMS via Twilio to ${normalizedPhone}`);
+      const smsSent = await this.twilioSmsService.sendOTP(normalizedPhone, code);
+      if (smsSent) {
+        logMessage += ` | ✅ SMS sent via Twilio`;
+        this.logger.log(`✅ SMS OTP sent successfully to ${normalizedPhone}`);
+      } else {
+        logMessage += ` | ❌ SMS failed via Twilio`;
+        this.logger.error(`❌ Failed to send SMS OTP to ${normalizedPhone}`);
+      }
     }
 
     this.logger.log(logMessage);
