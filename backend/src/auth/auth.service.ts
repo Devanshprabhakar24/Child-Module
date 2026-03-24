@@ -23,6 +23,7 @@ import {
 import { Fast2SmsService } from '../notifications/fast2sms.service';
 import { ResendEmailService } from '../notifications/resend-email.service';
 import { NotificationsService } from '../notifications/notifications.service';
+import { NotificationsGateway } from '../notifications/notifications.gateway';
 
 const OTP_EXPIRY_MINUTES = 5;
 const MAX_OTP_ATTEMPTS = 5;
@@ -43,6 +44,7 @@ export class AuthService {
     private readonly fast2smsService: Fast2SmsService,
     private readonly resendEmailService: ResendEmailService,
     private readonly notificationsService: NotificationsService,
+    private readonly notificationsGateway: NotificationsGateway,
   ) {
     this.otpSmsTestMode = this.configService.get<string>('OTP_SMS_TEST_MODE') === 'true';
     this.otpTestCode = this.configService.get<string>('OTP_TEST_CODE') ?? '123456';
@@ -344,9 +346,31 @@ export class AuthService {
           childrenNames: childRegs.map(child => child.childName),
           lastLoginDate: lastLoginDate?.toISOString(),
         });
+        
+        // Send in-app notification
+        this.notificationsGateway.sendWelcomeBackNotification(user.id as string, parentName);
+        
         this.logger.log(`Welcome back message sent to ${user.email}`);
       } catch (error) {
         this.logger.warn(`Failed to send welcome back message to ${user.email}: ${error instanceof Error ? error.message : error}`);
+      }
+    } else if (!isReturningUser) {
+      // Send welcome notification for new users
+      try {
+        let parentName = user.fullName;
+        if (!parentName || parentName.trim() === '') {
+          const firstChild = await this.childRegModel
+            .findOne({ registrationId: childRegs[0]?.registrationId })
+            .select('motherName')
+            .lean()
+            .exec();
+          parentName = firstChild?.motherName || 'Parent';
+        }
+        
+        this.notificationsGateway.sendWelcomeNotification(user.id as string, parentName);
+        this.logger.log(`Welcome notification sent to ${user.email}`);
+      } catch (error) {
+        this.logger.warn(`Failed to send welcome notification: ${error instanceof Error ? error.message : error}`);
       }
     }
 

@@ -125,7 +125,20 @@ export default function LoginForm() {
       const token = data.token ?? data.access_token;
       if (typeof window !== 'undefined') {
         if (token) localStorage.setItem("wt18_token", token);
-        if (data.user) localStorage.setItem("wt18_user", JSON.stringify(data.user));
+        if (data.user) {
+          localStorage.setItem("wt18_user", JSON.stringify(data.user));
+          
+          // Store the first registration ID for dashboard access
+          if (data.user.registrationIds && data.user.registrationIds.length > 0) {
+            const firstRegId = data.user.registrationIds[0];
+            sessionStorage.setItem("wt18_reg_id", firstRegId);
+            localStorage.setItem("wt18_reg_id", firstRegId);
+          } else if (loginMethod === "regId" && registrationId.trim()) {
+            // If using registration ID login, store that ID
+            sessionStorage.setItem("wt18_reg_id", registrationId.trim());
+            localStorage.setItem("wt18_reg_id", registrationId.trim());
+          }
+        }
         window.location.href = "/dashboard";
       }
     } catch (err: any) {

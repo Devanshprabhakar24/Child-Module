@@ -20,6 +20,7 @@ import { CreateMilestoneDto, UpdateMilestoneStatusDto, ReminderChannel } from '@
 import { AuthGuard, AuthenticatedRequest } from '../auth/guards/auth.guard';
 import { storage } from '../auth/multer';
 import { CloudinaryService } from '../common/cloudinary.service';
+import { VaccineScheduleService } from '../payments/vaccine-schedule.service';
 import cloudinary from '../auth/cloudinary';
 import * as fs from 'fs';
 
@@ -30,6 +31,7 @@ export class DashboardController {
     private readonly dashboardService: DashboardService,
     private readonly remindersService: RemindersService,
     private readonly cloudinaryService: CloudinaryService,
+    private readonly vaccineScheduleService: VaccineScheduleService,
   ) {}
 
   // ─── Full Child Dashboard ─────────────────────────────────────────────
@@ -404,8 +406,91 @@ export class DashboardController {
     @Res({ passthrough: false }) res: any
   ) {
     try {
-      // Email service removed - PDF generation temporarily unavailable
-      throw new Error('Email service has been removed. PDF generation temporarily unavailable.');
+      // Get child data and vaccination schedule
+      const child = await this.dashboardService.getChildDashboard(registrationId);
+      const vaccinationTracker = await this.dashboardService.getVaccinationTracker(registrationId);
+
+      // Build vaccine schedule array
+      const vaccineSchedule = vaccinationTracker.milestones.map((milestone) => {
+        const dueDate = new Date(milestone.dueDate);
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        
+        let status: 'completed' | 'due' | 'upcoming' = 'upcoming';
+        
+        if (milestone.status === 'COMPLETED') {
+          status = 'completed';
+        } else if (dueDate <= today) {
+          status = 'due';
+        }
+        
+        // Calculate age group from due date and DOB
+        const dob = new Date(child.profile.dateOfBirth);
+        const ageInMonths = Math.floor((dueDate.getTime() - dob.getTime()) / (1000 * 60 * 60 * 24 * 30.44));
+        
+        let ageGroup = 'At Birth';
+        if (ageInMonths === 0) {
+          ageGroup = 'At Birth';
+        } else if (ageInMonths < 2) {
+          ageGroup = '6 Weeks';
+        } else if (ageInMonths < 3) {
+          ageGroup = '10 Weeks';
+        } else if (ageInMonths < 4) {
+          ageGroup = '14 Weeks';
+        } else if (ageInMonths < 7) {
+          ageGroup = '6 Months';
+        } else if (ageInMonths < 9) {
+          ageGroup = '7 Months';
+        } else if (ageInMonths < 12) {
+          ageGroup = '9 Months';
+        } else if (ageInMonths < 15) {
+          ageGroup = '12 Months';
+        } else if (ageInMonths < 18) {
+          ageGroup = '15 Months';
+        } else if (ageInMonths < 24) {
+          ageGroup = '18 Months';
+        } else if (ageInMonths < 36) {
+          ageGroup = '2 Years';
+        } else if (ageInMonths < 60) {
+          ageGroup = `${Math.floor(ageInMonths / 12)} Years`;
+        } else if (ageInMonths < 120) {
+          ageGroup = `${Math.floor(ageInMonths / 12)} Years`;
+        } else {
+          ageGroup = `${Math.floor(ageInMonths / 12)} Years`;
+        }
+        
+        return {
+          name: milestone.vaccineName || milestone.title,
+          ageGroup,
+          dueDate: dueDate.toLocaleDateString('en-IN', {
+            day: 'numeric',
+            month: 'long',
+            year: 'numeric',
+          }),
+          status,
+        };
+      });
+
+      // Generate PDF using VaccineScheduleService
+      const pdfBuffer = await this.vaccineScheduleService.generateVaccineSchedulePDF({
+        childName: child.profile.childName,
+        parentName: child.profile.motherName,
+        dateOfBirth: child.profile.dateOfBirth.toLocaleDateString('en-IN', {
+          day: 'numeric',
+          month: 'long',
+          year: 'numeric',
+        }),
+        registrationId: child.profile.registrationId,
+        vaccines: vaccineSchedule,
+      });
+
+      // Set response headers for PDF download
+      res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader('Content-Disposition', `attachment; filename="${child.profile.childName}-Vaccination-Schedule.pdf"`);
+      res.setHeader('Content-Length', pdfBuffer.length);
+      
+      // Send PDF buffer
+      res.send(pdfBuffer);
     } catch (error) {
       console.error('Vaccination card generation error:', error);
       res.status(400).json({

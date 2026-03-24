@@ -465,7 +465,7 @@ export class PaymentsService {
         });
         
         // Generate vaccine schedule PDF
-        const { buffer: vaccinePdfBuffer, cloudinaryUrl: vaccineCloudinaryUrl } = 
+        const { buffer: vaccinePdfBuffer, cloudinaryUrl: vaccineCloudinaryUrl} = 
           await this.vaccineScheduleService.generateAndUploadVaccineSchedule({
             childName: registration.childName,
             parentName: registration.motherName,
@@ -500,6 +500,14 @@ export class PaymentsService {
         this.logger.log(`✅ Vaccination schedule email sent with PDF for ${registration.registrationId} (${vaccineSchedule.length} vaccines)`);
       } catch (scheduleError) {
         this.logger.error(`❌ Failed to send vaccination schedule email: ${scheduleError instanceof Error ? scheduleError.message : scheduleError}`);
+      }
+
+      // 6. Send in-app notification about emails sent
+      try {
+        this.notificationsGateway.sendPostPaymentNotification(registration.registrationId);
+        this.logger.log(`✅ In-app notification sent for ${registration.registrationId}`);
+      } catch (notifError) {
+        this.logger.warn(`⚠️  Failed to send in-app notification: ${notifError instanceof Error ? notifError.message : notifError}`);
       }
 
       // SUMMARY: What was actually sent

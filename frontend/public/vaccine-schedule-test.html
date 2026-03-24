@@ -1,0 +1,689 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>WOMBTO18 · Vaccine Schedule Engine</title>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --womb-lavender: #8B5CF6;
+      --lavender-light: #C4B5FD;
+      --lavender-pale: #EDE9FE;
+      --journey-teal: #0D9488;
+      --teal-light: #5EEAD4;
+      --teal-pale: #CCFBF1;
+      --future-blue: #2563EB;
+      --blue-light: #93C5FD;
+      --blue-pale: #DBEAFE;
+      --ink: #0F172A;
+      --ink-mid: #334155;
+      --ink-soft: #64748B;
+      --ink-faint: #CBD5E1;
+      --surface: #FAFAFA;
+      --white: #FFFFFF;
+      --overdue: #DC2626;
+      --overdue-pale: #FEF2F2;
+      --due-now: #D97706;
+      --due-pale: #FFFBEB;
+      --upcoming: #059669;
+      --upcoming-pale: #ECFDF5;
+      --completed: #6B7280;
+      --completed-pale: #F9FAFB;
+      --radius: 12px;
+      --radius-sm: 8px;
+    }
+    
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    
+    body {
+      font-family: 'DM Sans', sans-serif;
+      background: var(--surface);
+      color: var(--ink);
+      min-height: 100vh;
+    }
+    
+    /* ── HEADER ── */
+    header {
+      background: var(--ink);
+      padding: 20px 32px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      border-bottom: 1px solid #1E293B;
+    }
+    
+    .brand { display: flex; align-items: center; gap: 12px; }
+    
+    .brand-icon {
+      width: 36px;
+      height: 36px;
+      background: linear-gradient(135deg, var(--womb-lavender), var(--journey-teal));
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 18px;
+    }
+    
+    .brand-name {
+      font-family: 'DM Serif Display', serif;
+      color: var(--white);
+      font-size: 18px;
+      letter-spacing: -0.3px;
+    }
+    
+    .brand-name span { color: var(--lavender-light); }
+    
+    .header-badge {
+      font-size: 11px;
+      font-weight: 500;
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+      color: var(--ink-soft);
+      background: #1E293B;
+      padding: 5px 10px;
+      border-radius: 20px;
+      border: 1px solid #334155;
+    }
+    
+    /* ── MAIN LAYOUT ── */
+    main { max-width: 1100px; margin: 0 auto; padding: 40px 24px 80px; }
+    
+    /* ── INPUT CARD ── */
+    .input-card {
+      background: var(--white);
+      border-radius: 20px;
+      padding: 36px 40px;
+      border: 1px solid var(--ink-faint);
+      margin-bottom: 40px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.04), 0 4px 16px rgba(0,0,0,0.04);
+    }
+    
+    .input-card h1 {
+      font-family: 'DM Serif Display', serif;
+      font-size: 28px;
+      color: var(--ink);
+      margin-bottom: 6px;
+      letter-spacing: -0.5px;
+    }
+    
+    .input-card p {
+      color: var(--ink-soft);
+      font-size: 14px;
+      margin-bottom: 28px;
+      line-height: 1.6;
+    }
+    
+    .input-row {
+      display: flex;
+      gap: 16px;
+      align-items: flex-end;
+      flex-wrap: wrap;
+    }
+    
+    .field-group { display: flex; flex-direction: column; gap: 6px; }
+    
+    .field-group label {
+      font-size: 12px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: var(--ink-soft);
+    }
+    
+    .field-group input, .field-group select {
+      font-family: 'DM Sans', sans-serif;
+      font-size: 15px;
+      padding: 10px 14px;
+      border: 1.5px solid var(--ink-faint);
+      border-radius: var(--radius-sm);
+      background: var(--surface);
+      color: var(--ink);
+      outline: none;
+      transition: border-color 0.2s;
+      min-width: 200px;
+    }
+    
+    .field-group input:focus, .field-group select:focus {
+      border-color: var(--womb-lavender);
+    }
+    
+    .btn-calc {
+      font-family: 'DM Sans', sans-serif;
+      font-size: 14px;
+      font-weight: 600;
+      padding: 11px 28px;
+      background: linear-gradient(135deg, var(--womb-lavender), var(--future-blue));
+      color: white;
+      border: none;
+      border-radius: var(--radius-sm);
+      cursor: pointer;
+      transition: opacity 0.2s, transform 0.1s;
+      white-space: nowrap;
+    }
+    
+    .btn-calc:hover { opacity: 0.9; transform: translateY(-1px); }
+    .btn-calc:active { transform: translateY(0); }
+    
+    /* ── AGE DISPLAY ── */
+    .age-display {
+      display: flex;
+      gap: 12px;
+      margin-top: 20px;
+      flex-wrap: wrap;
+    }
+    
+    .age-chip {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 14px;
+      border-radius: 20px;
+      font-size: 13px;
+      font-weight: 500;
+    }
+    
+    .age-chip.age { background: var(--lavender-pale); color: var(--womb-lavender); }
+    .age-chip.today { background: var(--teal-pale); color: var(--journey-teal); }
+    
+    /* ── STATS ROW ── */
+    .stats-row {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 14px;
+      margin-bottom: 32px;
+    }
+    
+    .stat-card {
+      background: var(--white);
+      border-radius: var(--radius);
+      padding: 20px;
+      border: 1px solid var(--ink-faint);
+      text-align: center;
+      transition: transform 0.2s;
+    }
+    
+    .stat-card:hover { transform: translateY(-2px); }
+    
+    .stat-num {
+      font-family: 'DM Serif Display', serif;
+      font-size: 32px;
+      margin-bottom: 4px;
+    }
+    
+    .stat-label {
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--ink-soft);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    
+    .stat-card.overdue .stat-num { color: var(--overdue); }
+    .stat-card.due .stat-num { color: var(--due-now); }
+    .stat-card.upcoming .stat-num { color: var(--upcoming); }
+    .stat-card.done .stat-num { color: var(--womb-lavender); }
+    
+    /* ── FILTER TABS ── */
+    .filter-row {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 24px;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+    
+    .filter-label {
+      font-size: 13px;
+      color: var(--ink-soft);
+      font-weight: 500;
+      margin-right: 4px;
+    }
+    
+    .filter-btn {
+      font-family: 'DM Sans', sans-serif;
+      font-size: 13px;
+      font-weight: 500;
+      padding: 7px 16px;
+      border-radius: 20px;
+      border: 1.5px solid var(--ink-faint);
+      background: var(--white);
+      color: var(--ink-soft);
+      cursor: pointer;
+      transition: all 0.15s;
+      display: flex;
+      align-items: center;
+      gap: 5px;
+    }
+    
+    .filter-btn .dot { width: 7px; height: 7px; border-radius: 50%; }
+    
+    .filter-btn.active, .filter-btn:hover {
+      border-color: var(--womb-lavender);
+      color: var(--womb-lavender);
+      background: var(--lavender-pale);
+    }
+    
+    .filter-btn[data-filter="overdue"].active,
+    .filter-btn[data-filter="overdue"]:hover {
+      border-color: var(--overdue);
+      color: var(--overdue);
+      background: var(--overdue-pale);
+    }
+    
+    .filter-btn[data-filter="due"].active,
+    .filter-btn[data-filter="due"]:hover {
+      border-color: var(--due-now);
+      color: var(--due-now);
+      background: var(--due-pale);
+    }
+    
+    .filter-btn[data-filter="upcoming"].active,
+    .filter-btn[data-filter="upcoming"]:hover {
+      border-color: var(--upcoming);
+      color: var(--upcoming);
+      background: var(--upcoming-pale);
+    }
+    
+    .filter-btn[data-filter="completed"].active,
+    .filter-btn[data-filter="completed"]:hover {
+      border-color: var(--completed);
+      color: var(--completed);
+      background: var(--completed-pale);
+    }
+    
+    /* ── TIMELINE ── */
+    .timeline { display: flex; flex-direction: column; gap: 4px; }
+    
+    .phase-header {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      padding: 14px 20px 10px;
+      margin-top: 16px;
+    }
+    
+    .phase-header:first-child { margin-top: 0; }
+    
+    .phase-label {
+      font-family: 'DM Serif Display', serif;
+      font-size: 17px;
+      color: var(--ink);
+      white-space: nowrap;
+    }
+    
+    .phase-line {
+      flex: 1;
+      height: 1px;
+      background: var(--ink-faint);
+    }
+    
+    .phase-age-tag {
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+      padding: 3px 10px;
+      border-radius: 10px;
+      white-space: nowrap;
+    }
+    
+    .vaccine-row {
+      display: grid;
+      grid-template-columns: 28px 1fr 160px 140px 90px 90px;
+      align-items: center;
+      gap: 12px;
+      padding: 13px 20px;
+      border-radius: var(--radius);
+      background: var(--white);
+      border: 1px solid transparent;
+      transition: all 0.15s;
+      cursor: default;
+    }
+    
+    .vaccine-row:hover {
+      border-color: var(--ink-faint);
+      box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+    }
+    
+    .vaccine-row.overdue {
+      border-left: 3px solid var(--overdue);
+      background: var(--overdue-pale);
+    }
+    
+    .vaccine-row.due {
+      border-left: 3px solid var(--due-now);
+      background: var(--due-pale);
+    }
+    
+    .vaccine-row.upcoming {
+      border-left: 3px solid var(--upcoming);
+    }
+    
+    .vaccine-row.completed {
+      border-left: 3px solid var(--ink-faint);
+      opacity: 0.6;
+    }
+    
+    .vaccine-row.hidden { display: none; }
+    
+    .row-icon { font-size: 16px; text-align: center; }
+    
+    .vaccine-name {
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--ink);
+      line-height: 1.3;
+    }
+    
+    .vaccine-abbr {
+      font-size: 11px;
+      color: var(--ink-soft);
+      font-weight: 400;
+      margin-top: 1px;
+    }
+    
+    .vaccine-note {
+      font-size: 11px;
+      color: var(--ink-soft);
+      font-style: italic;
+      margin-top: 2px;
+      line-height: 1.4;
+    }
+    
+    .due-date-cell { text-align: right; }
+    
+    .due-date {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 12px;
+      color: var(--ink-mid);
+    }
+    
+    .due-window {
+      font-size: 11px;
+      color: var(--ink-soft);
+    }
+    
+    .status-badge {
+      font-size: 10px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      padding: 4px 8px;
+      border-radius: 6px;
+      text-align: center;
+    }
+    
+    .status-badge.overdue {
+      background: var(--overdue-pale);
+      color: var(--overdue);
+    }
+    
+    .status-badge.due {
+      background: var(--due-pale);
+      color: var(--due-now);
+    }
+    
+    .status-badge.upcoming {
+      background: var(--upcoming-pale);
+      color: var(--upcoming);
+    }
+    
+    .status-badge.completed {
+      background: var(--completed-pale);
+      color: var(--completed);
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="brand">
+      <div class="brand-icon">🌱</div>
+      <div class="brand-name">Womb<span>To18</span></div>
+    </div>
+    <div class="header-badge">Vaccine Schedule Engine</div>
+  </header>
+
+  <main>
+    <div class="input-card">
+      <h1>Vaccination Schedule Calculator</h1>
+      <p>Enter your child's date of birth to generate a personalized vaccination schedule based on the Indian Academy of Pediatrics (IAP) guidelines.</p>
+      
+      <div class="input-row">
+        <div class="field-group">
+          <label for="dob">Date of Birth</label>
+          <input type="date" id="dob" value="2024-06-14">
+        </div>
+        <button class="btn-calc" onclick="calculateSchedule()">Calculate Schedule</button>
+      </div>
+      
+      <div class="age-display" id="ageDisplay" style="display: none;">
+        <div class="age-chip age">
+          <span>👶</span>
+          <span id="childAge"></span>
+        </div>
+        <div class="age-chip today">
+          <span>📅</span>
+          <span id="todayDate"></span>
+        </div>
+      </div>
+    </div>
+
+    <div id="scheduleContainer" style="display: none;">
+      <div class="stats-row">
+        <div class="stat-card overdue">
+          <div class="stat-num" id="overdueCount">0</div>
+          <div class="stat-label">Overdue</div>
+        </div>
+        <div class="stat-card due">
+          <div class="stat-num" id="dueCount">0</div>
+          <div class="stat-label">Due Now</div>
+        </div>
+        <div class="stat-card upcoming">
+          <div class="stat-num" id="upcomingCount">0</div>
+          <div class="stat-label">Upcoming</div>
+        </div>
+        <div class="stat-card done">
+          <div class="stat-num" id="completedCount">0</div>
+          <div class="stat-label">Completed</div>
+        </div>
+      </div>
+
+      <div class="filter-row">
+        <span class="filter-label">Filter:</span>
+        <button class="filter-btn active" data-filter="all" onclick="filterVaccines('all')">
+          <span class="dot" style="background: var(--womb-lavender);"></span>
+          All Vaccines
+        </button>
+        <button class="filter-btn" data-filter="overdue" onclick="filterVaccines('overdue')">
+          <span class="dot" style="background: var(--overdue);"></span>
+          Overdue
+        </button>
+        <button class="filter-btn" data-filter="due" onclick="filterVaccines('due')">
+          <span class="dot" style="background: var(--due-now);"></span>
+          Due Now
+        </button>
+        <button class="filter-btn" data-filter="upcoming" onclick="filterVaccines('upcoming')">
+          <span class="dot" style="background: var(--upcoming);"></span>
+          Upcoming
+        </button>
+        <button class="filter-btn" data-filter="completed" onclick="filterVaccines('completed')">
+          <span class="dot" style="background: var(--completed);"></span>
+          Completed
+        </button>
+      </div>
+
+      <div class="timeline" id="timeline"></div>
+    </div>
+  </main>
+
+  <script>
+    const VACCINATION_SCHEDULE = [
+      { name: 'OPV Zero Dose', abbr: 'OPV-0', ageMonths: 0, description: 'Oral Polio Vaccine — Birth dose' },
+      { name: 'Hepatitis B — 1st Dose', abbr: 'Hep-B1', ageMonths: 0, description: 'Hepatitis B birth dose' },
+      { name: 'BCG Vaccine', abbr: 'BCG', ageMonths: 0, description: 'Tuberculosis protection' },
+      { name: 'DTP/DTaP 1st Dose', abbr: 'DTP-1', ageMonths: 1.5, description: 'Diphtheria, Tetanus, Pertussis' },
+      { name: 'Hepatitis B — 2nd Dose', abbr: 'Hep-B2', ageMonths: 1.5, description: 'Hepatitis B — 6 weeks' },
+      { name: 'H. Influenzae Type B — 1st Dose', abbr: 'Hib-1', ageMonths: 1.5, description: 'Haemophilus influenzae' },
+      { name: 'IPV 1st Dose', abbr: 'IPV-1', ageMonths: 1.5, description: 'Injectable Polio Vaccine' },
+      { name: 'Rotavirus 1st Dose', abbr: 'Rota-1', ageMonths: 1.5, description: 'Rotavirus vaccine' },
+      { name: 'Pneumococcal 1st Dose', abbr: 'PCV-1', ageMonths: 1.5, description: 'Pneumococcal Conjugate Vaccine' },
+      { name: 'DTP/DTaP 2nd Dose', abbr: 'DTP-2', ageMonths: 2.5, description: 'Diphtheria, Tetanus, Pertussis' },
+      { name: 'MR/MMR 1st Dose', abbr: 'MR-1', ageMonths: 9, description: 'Measles-Rubella' },
+      { name: 'DTP/DTaP 1st Booster', abbr: 'DTP-B1', ageMonths: 18, description: 'DPT Booster' },
+    ];
+
+    function calculateSchedule() {
+      const dobInput = document.getElementById('dob').value;
+      if (!dobInput) {
+        alert('Please enter a date of birth');
+        return;
+      }
+
+      const dob = new Date(dobInput);
+      const today = new Date();
+      
+      // Calculate age
+      const ageMonths = Math.floor((today - dob) / (1000 * 60 * 60 * 24 * 30.44));
+      const ageYears = Math.floor(ageMonths / 12);
+      const remainingMonths = ageMonths % 12;
+      
+      let ageText = '';
+      if (ageYears > 0) {
+        ageText = `${ageYears} year${ageYears > 1 ? 's' : ''}`;
+        if (remainingMonths > 0) {
+          ageText += `, ${remainingMonths} month${remainingMonths > 1 ? 's' : ''}`;
+        }
+      } else {
+        ageText = `${ageMonths} month${ageMonths > 1 ? 's' : ''}`;
+      }
+      
+      document.getElementById('childAge').textContent = ageText;
+      document.getElementById('todayDate').textContent = today.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
+      document.getElementById('ageDisplay').style.display = 'flex';
+      document.getElementById('scheduleContainer').style.display = 'block';
+      
+      // Generate schedule
+      generateTimeline(dob, today);
+    }
+
+    function generateTimeline(dob, today) {
+      const timeline = document.getElementById('timeline');
+      timeline.innerHTML = '';
+      
+      let overdueCount = 0, dueCount = 0, upcomingCount = 0, completedCount = 0;
+      
+      const groupedByAge = {};
+      
+      VACCINATION_SCHEDULE.forEach(vaccine => {
+        const dueDate = new Date(dob);
+        dueDate.setMonth(dueDate.getMonth() + Math.floor(vaccine.ageMonths));
+        dueDate.setDate(dueDate.getDate() + Math.round((vaccine.ageMonths % 1) * 30));
+        
+        const daysDiff = Math.floor((today - dueDate) / (1000 * 60 * 60 * 24));
+        
+        let status = 'upcoming';
+        let icon = '⏳';
+        if (daysDiff > 30) {
+          status = 'overdue';
+          icon = '⚠️';
+          overdueCount++;
+        } else if (daysDiff >= -7 && daysDiff <= 30) {
+          status = 'due';
+          icon = '📅';
+          dueCount++;
+        } else if (daysDiff < -7) {
+          status = 'upcoming';
+          icon = '⏳';
+          upcomingCount++;
+        }
+        
+        const ageGroup = vaccine.ageMonths === 0 ? 'At Birth' : 
+                        vaccine.ageMonths < 1 ? `${Math.round(vaccine.ageMonths * 4)} Weeks` :
+                        vaccine.ageMonths < 12 ? `${vaccine.ageMonths} Months` :
+                        `${Math.floor(vaccine.ageMonths / 12)} Years`;
+        
+        if (!groupedByAge[ageGroup]) {
+          groupedByAge[ageGroup] = [];
+        }
+        
+        groupedByAge[ageGroup].push({
+          ...vaccine,
+          dueDate,
+          status,
+          icon,
+          daysDiff
+        });
+      });
+      
+      // Update stats
+      document.getElementById('overdueCount').textContent = overdueCount;
+      document.getElementById('dueCount').textContent = dueCount;
+      document.getElementById('upcomingCount').textContent = upcomingCount;
+      document.getElementById('completedCount').textContent = completedCount;
+      
+      // Render timeline
+      Object.keys(groupedByAge).forEach(ageGroup => {
+        const phaseHeader = document.createElement('div');
+        phaseHeader.className = 'phase-header';
+        phaseHeader.innerHTML = `
+          <div class="phase-label">${ageGroup}</div>
+          <div class="phase-line"></div>
+          <div class="phase-age-tag">${groupedByAge[ageGroup].length} vaccines</div>
+        `;
+        timeline.appendChild(phaseHeader);
+        
+        groupedByAge[ageGroup].forEach(vaccine => {
+          const row = document.createElement('div');
+          row.className = `vaccine-row ${vaccine.status}`;
+          row.setAttribute('data-status', vaccine.status);
+          row.innerHTML = `
+            <div class="row-icon">${vaccine.icon}</div>
+            <div>
+              <div class="vaccine-name">${vaccine.name}</div>
+              <div class="vaccine-abbr">${vaccine.abbr}</div>
+              <div class="vaccine-note">${vaccine.description}</div>
+            </div>
+            <div class="due-date-cell">
+              <div class="due-date">${vaccine.dueDate.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}</div>
+              <div class="due-window">${vaccine.daysDiff > 0 ? `${vaccine.daysDiff} days ago` : `in ${Math.abs(vaccine.daysDiff)} days`}</div>
+            </div>
+            <div></div>
+            <div></div>
+            <div class="status-badge ${vaccine.status}">${vaccine.status}</div>
+          `;
+          timeline.appendChild(row);
+        });
+      });
+    }
+
+    function filterVaccines(filter) {
+      document.querySelectorAll('.filter-btn').forEach(btn => {
+        btn.classList.remove('active');
+      });
+      event.target.closest('.filter-btn').classList.add('active');
+      
+      document.querySelectorAll('.vaccine-row').forEach(row => {
+        if (filter === 'all') {
+          row.classList.remove('hidden');
+        } else {
+          if (row.getAttribute('data-status') === filter) {
+            row.classList.remove('hidden');
+          } else {
+            row.classList.add('hidden');
+          }
+        }
+      });
+    }
+
+    // Auto-calculate on page load
+    window.addEventListener('load', () => {
+      calculateSchedule();
+    });
+  </script>
+</body>
+</html>

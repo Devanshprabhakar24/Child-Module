@@ -170,4 +170,71 @@ export class NotificationsGateway implements OnGatewayConnection, OnGatewayDisco
       timestamp: new Date(),
     });
   }
+
+  /**
+   * Send welcome notification for new registration
+   */
+  sendWelcomeNotification(userId: string, userName: string) {
+    this.sendToUser(userId, {
+      type: 'general',
+      title: `Welcome ${userName}!`,
+      message: `Thank you for registering with WombTo18. Your child's health journey starts here.`,
+      timestamp: new Date(),
+    });
+  }
+
+  /**
+   * Send welcome back notification for returning users
+   */
+  sendWelcomeBackNotification(userId: string, userName: string) {
+    this.sendToUser(userId, {
+      type: 'general',
+      title: `Welcome back, ${userName}!`,
+      message: `We're glad to see you again. Check your dashboard for the latest updates.`,
+      timestamp: new Date(),
+    });
+  }
+
+  /**
+   * Send email notification reminder (invoice sent)
+   */
+  sendEmailReminderNotification(registrationId: string, emailType: 'invoice' | 'certificate' | 'vaccine_schedule') {
+    let message = '';
+    let title = '';
+    
+    switch (emailType) {
+      case 'invoice':
+        title = '📧 Invoice Sent to Email';
+        message = 'Your payment invoice has been sent to your registered email address. Please check your inbox.';
+        break;
+      case 'certificate':
+        title = '📧 Go Green Certificate Sent';
+        message = 'Your Go Green participation certificate has been sent to your email. Check your inbox!';
+        break;
+      case 'vaccine_schedule':
+        title = '📧 Vaccination Schedule Sent';
+        message = 'Complete vaccination schedule with all 64 vaccines has been sent to your email.';
+        break;
+    }
+    
+    this.sendToChild(registrationId, {
+      type: 'general',
+      title,
+      message,
+      data: { emailType },
+      timestamp: new Date(),
+    });
+  }
+
+  /**
+   * Send combined post-payment notification
+   */
+  sendPostPaymentNotification(registrationId: string) {
+    this.sendToChild(registrationId, {
+      type: 'payment',
+      title: '✅ Documents Sent to Email',
+      message: 'Payment invoice, Go Green certificate, and vaccination schedule have been sent to your registered email address.',
+      timestamp: new Date(),
+    });
+  }
 }

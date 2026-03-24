@@ -59,6 +59,7 @@ export default function AdminChildrenPage() {
     try {
       const token = localStorage.getItem("wt18_token");
       if (!token) {
+        console.error("No auth token found, redirecting to login");
         window.location.href = "/admin/login";
         return;
       }
@@ -67,12 +68,25 @@ export default function AdminChildrenPage() {
         headers: { Authorization: `Bearer ${token}` },
       });
 
-      if (!res.ok) throw new Error("Failed to load children");
+      if (res.status === 401 || res.status === 403) {
+        console.error("Authentication failed, redirecting to login");
+        localStorage.removeItem("wt18_token");
+        window.location.href = "/admin/login";
+        return;
+      }
+
+      if (!res.ok) {
+        const errorText = await res.text();
+        console.error("Failed to load children:", res.status, errorText);
+        throw new Error(`Failed to load children: ${res.status} ${res.statusText}`);
+      }
 
       const data = await res.json();
+      console.log("Loaded children:", data);
       setChildren(data.data || []);
     } catch (error) {
       console.error("Failed to load children:", error);
+      alert("Failed to load children. Please check console for details and try logging in again.");
     } finally {
       setLoading(false);
     }

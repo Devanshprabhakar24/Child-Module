@@ -26,7 +26,12 @@ export default function NotificationBell() {
   useEffect(() => {
     if (token) {
       try {
-        const payload = JSON.parse(atob(token.split('.')[1]));
+        // Token is base64url encoded (not JWT format)
+        // Convert base64url to base64 by replacing - with + and _ with /
+        const base64 = token.replace(/-/g, '+').replace(/_/g, '/');
+        // Add padding if needed
+        const paddedBase64 = base64 + '='.repeat((4 - base64.length % 4) % 4);
+        const payload = JSON.parse(atob(paddedBase64));
         setUserId(payload.sub);
       } catch (error) {
         console.error('Failed to parse token:', error);

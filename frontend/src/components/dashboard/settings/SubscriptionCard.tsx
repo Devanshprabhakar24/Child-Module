@@ -44,20 +44,81 @@ export default function SubscriptionCard() {
 
   const loadSubscriptionData = async () => {
     try {
-      // Get registration ID from session storage or local storage
-      const registrationId = sessionStorage.getItem("wt18_reg_id") || localStorage.getItem("wt18_reg_id");
-      
-      if (!registrationId) {
+      const token = localStorage.getItem("wt18_token");
+      if (!token) {
+        console.warn("No auth token found");
         setLoading(false);
         return;
       }
 
-      // Fetch registration details
-      const response = await fetch(`${API_BASE}/registration/${registrationId}`);
-      if (!response.ok) throw new Error("Failed to fetch subscription data");
+      // First, try to get registration ID from storage
+      let registrationId = sessionStorage.getItem("wt18_reg_id") || localStorage.getItem("wt18_reg_id");
+      
+      // If no registration ID in storage, fetch from family dashboard
+      if (!registrationId) {
+        console.log("No registration ID in storage, fetching from family dashboard...");
+        
+        try {
+          // Fetch family dashboard to get children (uses auth token to identify user)
+          const familyResponse = await fetch(`${API_BASE}/dashboard/family`, {
+            headers: { Authorization: `Bearer ${token}` },
+          });
+          
+          if (familyResponse.ok) {
+            const familyData = await familyResponse.json();
+            console.log("Family dashboard data:", familyData);
+            
+            if (familyData.success && familyData.data.children && familyData.data.children.length > 0) {
+              registrationId = familyData.data.children[0].registrationId;
+              // Store it for future use
+              sessionStorage.setItem("wt18_reg_id", registrationId);
+              localStorage.setItem("wt18_reg_id", registrationId);
+              console.log("Got registration ID from family dashboard:", registrationId);
+            }
+          } else {
+            console.error("Family dashboard request failed:", familyResponse.status);
+          }
+        } catch (e) {
+          console.error("Failed to fetch from family dashboard:", e);
+        }
+      }
+      
+      if (!registrationId) {
+        console.warn("No registration ID found after all attempts");
+        setLoading(false);
+        return;
+      }
+
+      console.log("Fetching subscription for registration ID:", registrationId);
+
+      // Fetch registration details from the backend
+      const response = await fetch(`${API_BASE}/registration/${registrationId}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      
+      if (!response.ok) {
+        console.error("Failed to fetch subscription data:", response.status, response.statusText);
+        const errorText = await response.text();
+        console.error("Error response:", errorText);
+        throw new Error("Failed to fetch subscription data");
+      }
 
       const data = await response.json();
+      console.log("Registration data received:", data);
+      
+      if (!data.success || !data.data) {
+        console.error("Invalid response format:", data);
+        throw new Error("Invalid response format");
+      }
+      
       const registration = data.data;
+
+      // Check if payment is completed
+      if (registration.paymentStatus !== 'COMPLETED') {
+        console.warn("Payment not completed for this registration:", registration.paymentStatus);
+        setLoading(false);
+        return;
+      }
 
       // Calculate renewal date
       const regDate = new Date(registration.createdAt);
@@ -83,6 +144,8 @@ export default function SubscriptionCard() {
           year: 'numeric',
         }),
       });
+      
+      console.log("Subscription data loaded successfully");
     } catch (error) {
       console.error("Failed to load subscription data:", error);
     } finally {
@@ -158,6 +221,15 @@ export default function SubscriptionCard() {
         </h3>
         <div className="rounded-2xl border-2 border-dashed border-slate-200 bg-slate-50 p-8 text-center">
           <p className="text-sm text-slate-600">No active subscription found</p>
+          <p className="mt-2 text-xs text-slate-500">
+            Please complete payment to activate your subscription
+          </p>
+          <button
+            onClick={() => window.location.reload()}
+            className="mt-4 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-white hover:bg-primary/90"
+          >
+            Refresh
+          </button>
         </div>
       </section>
     );

@@ -13,6 +13,8 @@ import { AuthGuard } from './guards/auth.guard';
 import { RolesGuard } from './guards/roles.guard';
 import { Fast2SmsService } from '../notifications/fast2sms.service';
 import { ResendEmailService } from '../notifications/resend-email.service';
+import { NotificationsGateway } from '../notifications/notifications.gateway';
+import { NotificationsService } from '../notifications/notifications.service';
 
 @Module({
   imports: [
@@ -24,7 +26,7 @@ import { ResendEmailService } from '../notifications/resend-email.service';
     ]),
   ],
   controllers: [AuthController],
-  providers: [AuthService, AuthGuard, RolesGuard, Fast2SmsService, ResendEmailService],
+  providers: [AuthService, AuthGuard, RolesGuard, Fast2SmsService, ResendEmailService, NotificationsGateway, NotificationsService],
   exports: [AuthService, AuthGuard, RolesGuard],
 })
 export class AuthModule {}
