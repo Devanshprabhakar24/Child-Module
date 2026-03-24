@@ -116,13 +116,13 @@ export class AuthService {
       user = await this.userModel.findOne({ email: dto.email }).exec();
     }
 
-    // Generate OTP code
-    const code = this.otpSmsTestMode ? this.otpTestCode : this.generateSecureOtp();
+    // Generate OTP code - ALWAYS generate unique OTP for email
+    const code = this.generateSecureOtp();
     const expiresAt = new Date(Date.now() + OTP_EXPIRY_MINUTES * 60 * 1000);
 
     // Invalidate previous unused OTPs for this email
     await this.otpModel.updateMany(
-      { email: dto.email, isUsed: false },
+      { email: dto.email, type: 'email', isUsed: false },
       { isUsed: true },
     );
 
@@ -133,51 +133,24 @@ export class AuthService {
       type: 'email',
     });
 
-    let logMessage = `📧 OTP for ${dto.email}: ${code}`;
+    let logMessage = `📧 Email OTP for ${dto.email}: ${code}`;
 
     // Send Email OTP
-    if (!this.otpSmsTestMode && this.resendEmailService.isEnabled()) {
+    if (this.resendEmailService.isEnabled()) {
       const emailSent = await this.resendEmailService.sendOTP(dto.email, code);
       if (emailSent) {
-        logMessage += ` | 📧 Email sent via Resend`;
+        logMessage += ` | ✅ Email sent via Resend`;
       } else {
-        logMessage += ` | 📧 [FAILED] Email via Resend`;
-      }
-    }
-
-    // Send SMS OTP if phone is provided
-    if (dto.phone) {
-      if (this.otpSmsTestMode) {
-        logMessage += ` | 📱 [TEST MODE] ${dto.phone}: ${code}`;
-      } else {
-        const smsSent = await this.fast2smsService.sendOTP(dto.phone, code);
-        if (smsSent) {
-          logMessage += ` | 📱 SMS sent to ${dto.phone} via Fast2SMS`;
-        } else {
-          logMessage += ` | 📱 [FAILED] SMS to ${dto.phone} via Fast2SMS`;
-        }
+        logMessage += ` | ❌ Email failed via Resend`;
       }
     } else {
-      // Check if user exists and has phone number
-      const existingUser = await this.userModel.findOne({ email: dto.email }).exec();
-      if (existingUser?.phone) {
-        if (this.otpSmsTestMode) {
-          logMessage += ` | 📱 [TEST MODE] ${existingUser.phone}: ${code}`;
-        } else {
-          const smsSent = await this.fast2smsService.sendOTP(existingUser.phone, code);
-          if (smsSent) {
-            logMessage += ` | 📱 SMS sent to ${existingUser.phone} via Fast2SMS`;
-          } else {
-            logMessage += ` | 📱 [FAILED] SMS to ${existingUser.phone} via Fast2SMS`;
-          }
-        }
-      }
+      logMessage += ` | ⚠️ Resend Email not configured`;
     }
 
     this.logger.log(logMessage);
 
     return { 
-      message: this.otpSmsTestMode ? 'OTP sent (test mode)' : 'OTP sent successfully via Email & SMS', 
+      message: 'Email OTP sent successfully', 
       expiresInMinutes: OTP_EXPIRY_MINUTES 
     };
   }
@@ -205,13 +178,13 @@ export class AuthService {
       };
     }
     
-    // Generate OTP code
-    const code = this.otpSmsTestMode ? this.otpTestCode : this.generateSecureOtp();
+    // Generate OTP code - ALWAYS generate unique OTP for phone (different from email)
+    const code = this.generateSecureOtp();
     const expiresAt = new Date(Date.now() + OTP_EXPIRY_MINUTES * 60 * 1000);
 
     // Invalidate previous unused OTPs for this phone
     await this.otpModel.updateMany(
-      { phone: normalizedPhone, isUsed: false },
+      { phone: normalizedPhone, type: 'phone', isUsed: false },
       { isUsed: true },
     );
 
@@ -222,23 +195,20 @@ export class AuthService {
       type: 'phone',
     });
 
-    let logMessage = '';
+    let logMessage = `📱 Phone OTP for ${normalizedPhone}: ${code}`;
 
-    if (this.otpSmsTestMode) {
-      logMessage = `📱 [TEST MODE] ${normalizedPhone}: ${code}`;
+    // Send SMS OTP via Fast2SMS
+    const smsSent = await this.fast2smsService.sendOTP(normalizedPhone, code);
+    if (smsSent) {
+      logMessage += ` | ✅ SMS sent via Fast2SMS`;
     } else {
-      const smsSent = await this.fast2smsService.sendOTP(normalizedPhone, code);
-      if (smsSent) {
-        logMessage = `📱 SMS sent to ${normalizedPhone} via Fast2SMS`;
-      } else {
-        logMessage = `📱 [FAILED] SMS to ${normalizedPhone} via Fast2SMS`;
-      }
+      logMessage += ` | ❌ SMS failed via Fast2SMS`;
     }
 
     this.logger.log(logMessage);
 
     return { 
-      message: this.otpSmsTestMode ? 'Phone OTP sent (test mode)' : 'Phone OTP sent successfully via SMS', 
+      message: 'Phone OTP sent successfully via SMS', 
       expiresInMinutes: OTP_EXPIRY_MINUTES 
     };
   }
