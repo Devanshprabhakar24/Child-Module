@@ -24,21 +24,19 @@ services:
         sync: false
       - key: RAZORPAY_WEBHOOK_SECRET
         sync: false
-      - key: SMTP_HOST
+      - key: RESEND_API_KEY
+        sync: false
+      - key: RESEND_FROM_EMAIL
+        value: noreply@wombto18.com
+      - key: RESEND_DOMAIN_VERIFIED
+        value: true
+      - key: EMAIL_HOST
         value: smtp.gmail.com
-      - key: SMTP_PORT
+      - key: EMAIL_PORT
         value: 465
-      - key: SMTP_USER
+      - key: EMAIL_USER
         sync: false
-      - key: SMTP_PASS
-        sync: false
-      - key: SMTP_FROM
-        sync: false
-      - key: CLOUDINARY_CLOUD_NAME
-        sync: false
-      - key: CLOUDINARY_API_KEY
-        sync: false
-      - key: CLOUDINARY_API_SECRET
+      - key: EMAIL_PASS
         sync: false
       - key: TWILIO_ACCOUNT_SID
         sync: false
@@ -46,6 +44,16 @@ services:
         sync: false
       - key: TWILIO_PHONE_NUMBER
         sync: false
+      - key: CLOUDINARY_CLOUD_NAME
+        sync: false
+      - key: CLOUDINARY_API_KEY
+        sync: false
+      - key: CLOUDINARY_API_SECRET
+        sync: false
+      - key: WATI_ACCESS_TOKEN
+        sync: false
+      - key: WATI_API_ENDPOINT
+        value: https://live-mt-server.wati.io/326037
       - key: USE_TWILIO
         value: true
       - key: PAYMENT_TEST_MODE

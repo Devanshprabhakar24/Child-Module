@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Resend } from 'resend';
+import { GmailSmtpService } from './gmail-smtp.service';
 
 @Injectable()
 export class ResendEmailService {
@@ -9,8 +10,13 @@ export class ResendEmailService {
   private readonly fromEmail: string;
   private readonly fromName: string;
   private readonly enabled: boolean;
+  private readonly gmailSmtp: GmailSmtpService;
 
-  constructor(private configService: ConfigService) {
+  constructor(
+    private configService: ConfigService,
+    gmailSmtpService: GmailSmtpService,
+  ) {
+    this.gmailSmtp = gmailSmtpService;
     const apiKey = this.configService.get<string>('RESEND_API_KEY');
     this.fromName = this.configService.get<string>('APP_NAME') || 'WombTo18';
     
@@ -48,6 +54,11 @@ export class ResendEmailService {
     } else {
       this.enabled = false;
       this.logger.warn('⚠️  Resend Email not configured. Set RESEND_API_KEY in .env');
+      
+      // Check if Gmail SMTP is available as fallback
+      if (this.gmailSmtp.isEnabled()) {
+        this.logger.log('✅ Gmail SMTP available as email fallback');
+      }
     }
   }
 
@@ -56,9 +67,32 @@ export class ResendEmailService {
   }
 
   /**
-   * Send OTP email
+   * Send OTP email - tries Resend first, falls back to Gmail SMTP
    */
   async sendOTP(email: string, otp: string): Promise<boolean> {
+    // Try Resend first if enabled
+    if (this.enabled && this.resend) {
+      const resendSuccess = await this.sendOTPViaResend(email, otp);
+      if (resendSuccess) {
+        return true;
+      }
+      this.logger.warn('⚠️  Resend failed, trying Gmail SMTP fallback...');
+    }
+    
+    // Fallback to Gmail SMTP
+    if (this.gmailSmtp.isEnabled()) {
+      this.logger.log('📧 Using Gmail SMTP for OTP email');
+      return await this.gmailSmtp.sendOTP(email, otp);
+    }
+    
+    this.logger.error('❌ No email service available (neither Resend nor Gmail SMTP)');
+    return false;
+  }
+
+  /**
+   * Send OTP email via Resend
+   */
+  private async sendOTPViaResend(email: string, otp: string): Promise<boolean> {
     if (!this.enabled || !this.resend) {
       this.logger.warn('⚠️  Resend Email not configured');
       return false;
@@ -74,6 +108,12 @@ export class ResendEmailService {
         subject: `Your ${this.fromName} OTP Code`,
         html: this.getOTPEmailTemplate(otp),
       });
+
+      // Check if Resend returned an error
+      if (result.error) {
+        this.logger.error(`❌ Resend API error: ${result.error.message}`);
+        return false;
+      }
 
       this.logger.log(`✅ OTP email sent successfully to ${email}`);
       this.logger.debug(`Resend Response: ${JSON.stringify(result)}`);

@@ -4,8 +4,9 @@ import { MongooseModule } from '@nestjs/mongoose';
 import { NotificationsService } from './notifications.service';
 import { Msg91WhatsAppService } from './msg91-whatsapp.service';
 import { WatiWhatsAppService } from './wati-whatsapp.service';
-import { Fast2SmsService } from './fast2sms.service';
+import { TwilioSmsService } from './twilio-sms.service';
 import { ResendEmailService } from './resend-email.service';
+import { GmailSmtpService } from './gmail-smtp.service';
 import { CertificateService } from '../registration/certificate.service';
 import { CloudinaryService } from '../common/cloudinary.service';
 import { NotificationsGateway } from './notifications.gateway';
@@ -28,7 +29,8 @@ import { AuthModule } from '../auth/auth.module';
     NotificationsService,
     Msg91WhatsAppService,
     WatiWhatsAppService,
-    Fast2SmsService,
+    TwilioSmsService,
+    GmailSmtpService,
     ResendEmailService,
     CertificateService,
     CloudinaryService,
@@ -38,7 +40,8 @@ import { AuthModule } from '../auth/auth.module';
     NotificationsService,
     Msg91WhatsAppService,
     WatiWhatsAppService,
-    Fast2SmsService,
+    TwilioSmsService,
+    GmailSmtpService,
     ResendEmailService,
     NotificationsGateway,
   ],

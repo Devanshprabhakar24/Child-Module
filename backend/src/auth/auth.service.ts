@@ -20,7 +20,7 @@ import {
   VerifyPhoneOtpDto,
   UserRole,
 } from '@wombto18/shared';
-import { Fast2SmsService } from '../notifications/fast2sms.service';
+import { TwilioSmsService } from '../notifications/twilio-sms.service';
 import { ResendEmailService } from '../notifications/resend-email.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { NotificationsGateway } from '../notifications/notifications.gateway';
@@ -41,7 +41,7 @@ export class AuthService {
     @InjectModel(ChildRegistration.name)
     private readonly childRegModel: Model<ChildRegistrationDocument>,
     private readonly configService: ConfigService,
-    private readonly fast2smsService: Fast2SmsService,
+    private readonly twilioSmsService: TwilioSmsService,
     private readonly resendEmailService: ResendEmailService,
     private readonly notificationsService: NotificationsService,
     private readonly notificationsGateway: NotificationsGateway,
@@ -54,7 +54,7 @@ export class AuthService {
       this.logger.warn('⚠️  OTP SMS Test Mode Enabled');
       this.logger.log(`📱 Test OTP Code: ${this.otpTestCode}`);
     } else {
-      this.logger.log('✅ Fast2SMS enabled for SMS OTP');
+      this.logger.log('✅ Twilio SMS enabled for SMS OTP');
       if (this.resendEmailService.isEnabled()) {
         this.logger.log('✅ Resend Email enabled for Email OTP');
       }
@@ -218,14 +218,14 @@ export class AuthService {
 
     let logMessage = `📱 Phone OTP for ${normalizedPhone}: ${code}`;
 
-    // Send SMS OTP via Fast2SMS
-    this.logger.log(`📤 Attempting to send SMS via Fast2SMS to ${normalizedPhone}`);
-    const smsSent = await this.fast2smsService.sendOTP(normalizedPhone, code);
+    // Send SMS OTP via Twilio
+    this.logger.log(`📤 Attempting to send SMS via Twilio to ${normalizedPhone}`);
+    const smsSent = await this.twilioSmsService.sendOTP(normalizedPhone, code);
     if (smsSent) {
-      logMessage += ` | ✅ SMS sent via Fast2SMS`;
+      logMessage += ` | ✅ SMS sent via Twilio`;
       this.logger.log(`✅ SMS OTP sent successfully to ${normalizedPhone}`);
     } else {
-      logMessage += ` | ❌ SMS failed via Fast2SMS`;
+      logMessage += ` | ❌ SMS failed via Twilio`;
       this.logger.error(`❌ Failed to send SMS OTP to ${normalizedPhone}`);
     }
 
