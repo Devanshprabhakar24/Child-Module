@@ -15,14 +15,15 @@ export class Fast2SmsService {
   async sendOTP(phone: string, otp: string): Promise<boolean> {
     try {
       if (!this.apiKey) {
-        this.logger.error('Fast2SMS API key not configured');
+        this.logger.error('❌ Fast2SMS API key not configured');
         return false;
       }
 
       // Remove +91 prefix if present, Fast2SMS expects 10-digit number
       const cleanPhone = phone.replace(/^\+91/, '').replace(/^91/, '');
 
-      this.logger.log(`Sending OTP SMS to ${cleanPhone} via Fast2SMS`);
+      this.logger.log(`📱 Attempting to send OTP SMS to ${cleanPhone} via Fast2SMS`);
+      this.logger.debug(`OTP Code: ${otp}`);
 
       const response = await axios.post(
         this.apiUrl,
@@ -41,25 +42,26 @@ export class Fast2SmsService {
         },
       );
 
+      this.logger.debug(`Fast2SMS Response: ${JSON.stringify(response.data)}`);
+
       if (response.data.return === true) {
-        this.logger.log(`OTP SMS sent successfully to ${cleanPhone}`);
-        this.logger.debug(`Fast2SMS Response: ${JSON.stringify(response.data)}`);
+        this.logger.log(`✅ OTP SMS sent successfully to ${cleanPhone}`);
         return true;
       } else {
-        this.logger.error(`Fast2SMS API returned false: ${JSON.stringify(response.data)}`);
+        this.logger.error(`❌ Fast2SMS API returned false: ${JSON.stringify(response.data)}`);
         return false;
       }
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-      this.logger.error(`Failed to send OTP SMS via Fast2SMS: ${errorMessage}`);
+      this.logger.error(`❌ Failed to send OTP SMS via Fast2SMS: ${errorMessage}`);
       
       if (error && typeof error === 'object' && 'response' in error) {
-        const axiosError = error as { response?: { data?: { status_code?: number } } };
+        const axiosError = error as { response?: { data?: { status_code?: number; message?: string } } };
         this.logger.error(`Fast2SMS Error Response: ${JSON.stringify(axiosError.response?.data)}`);
         
         // Handle specific error codes
         if (axiosError.response?.data?.status_code === 416) {
-          this.logger.error('Insufficient wallet balance in Fast2SMS account');
+          this.logger.error('⚠️  Insufficient wallet balance in Fast2SMS account');
         }
       }
       

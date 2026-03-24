@@ -348,18 +348,27 @@ export default function Step2Form({ onNext, onPrev, onComplete, motherName, stat
     // Clear previous OTP input when sending new OTP
     setMobileOtp(["", "", "", "", "", ""]);
     
+    console.log('🔔 [REGISTRATION] Sending mobile OTP to:', mobile);
+    
     try {
+      console.log('📱 [REGISTRATION] Calling /auth/send-phone-otp');
       const res = await fetch(`${API_BASE}/auth/send-phone-otp`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ phone: `+91${mobile}` }),
       });
+      
+      const data = await res.json();
+      console.log('📱 [REGISTRATION] Send Phone OTP response:', data);
+      
       if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
         throw new Error(data.message || "Failed to send OTP");
       }
+      
+      console.log('✅ [REGISTRATION] Mobile OTP sent successfully');
       setMobileStatus("sent");
     } catch (err: any) {
+      console.error('❌ [REGISTRATION] Error sending mobile OTP:', err);
       setMobileError(err.message || "Failed to send OTP. Please try again.");
     } finally {
       setMobileLoading(false);
@@ -412,24 +421,39 @@ export default function Step2Form({ onNext, onPrev, onComplete, motherName, stat
     // Clear previous OTP input when sending new OTP
     setEmailOtp(["", "", "", "", "", ""]);
     
+    console.log('🔔 [REGISTRATION] Sending email OTP to:', email);
+    console.log('🔔 [REGISTRATION] Mother name:', motherName);
+    console.log('🔔 [REGISTRATION] Mobile:', mobile);
+    
     try {
       // Register user first (idempotent — returns existing if already registered)
-      await fetch(`${API_BASE}/auth/register`, {
+      console.log('📝 [REGISTRATION] Step 1: Calling /auth/register');
+      const registerRes = await fetch(`${API_BASE}/auth/register`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email, phone: `+91${mobile || "0000000000"}`, fullName: motherName }),
       });
+      const registerData = await registerRes.json();
+      console.log('📝 [REGISTRATION] Register response:', registerData);
+      
+      console.log('📧 [REGISTRATION] Step 2: Calling /auth/send-otp');
       const res = await fetch(`${API_BASE}/auth/send-otp`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email, phone: mobile ? `+91${mobile}` : undefined }),
       });
+      
+      const otpData = await res.json();
+      console.log('📧 [REGISTRATION] Send OTP response:', otpData);
+      
       if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
-        throw new Error(data.message || "Failed to send OTP");
+        throw new Error(otpData.message || "Failed to send OTP");
       }
+      
+      console.log('✅ [REGISTRATION] Email OTP sent successfully');
       setEmailStatus("sent");
     } catch (err: any) {
+      console.error('❌ [REGISTRATION] Error sending email OTP:', err);
       setEmailError(err.message || "Failed to send OTP. Please try again.");
     } finally {
       setEmailLoading(false);

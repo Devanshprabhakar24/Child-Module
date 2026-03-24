@@ -36,21 +36,30 @@ export default function LoginForm() {
       setError("Please enter a valid email address.");
       return;
     }
+    
+    console.log('🔔 [LOGIN] Sending OTP to:', activeEmail);
+    
     setLoadingSend(true);
     try {
+      console.log('📧 [LOGIN] Calling /auth/send-otp');
       const res = await fetch(`${API_BASE}/auth/send-otp`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email: activeEmail }),
       });
       const data = await res.json().catch(() => ({}));
+      console.log('📧 [LOGIN] Send OTP response:', data);
+      
       if (!res.ok) {
         // Show specific error message from backend
         throw new Error(data.message || "Failed to send OTP");
       }
+      
+      console.log('✅ [LOGIN] OTP sent successfully');
       setOtpSent(true);
     } catch (err: any) {
       const errorMessage = err.message || "Failed to send OTP. Please try again.";
+      console.error('❌ [LOGIN] Error sending OTP:', errorMessage);
       setError(errorMessage);
       
       // If email not found, suggest registration

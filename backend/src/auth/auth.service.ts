@@ -83,9 +83,13 @@ export class AuthService {
   // ─── OTP Flow ─────────────────────────────────────────────────────────
 
   async sendOtp(dto: SendOtpDto): Promise<{ message: string; expiresInMinutes: number }> {
+    this.logger.log(`🔔 sendOtp called for email: ${dto.email}`);
+    
     // Check if user exists in database OR if there's a child registration with this email
     let user = await this.userModel.findOne({ email: dto.email }).exec();
     const childReg = await this.childRegModel.findOne({ email: dto.email }).exec();
+    
+    this.logger.debug(`User exists: ${!!user}, Child registration exists: ${!!childReg}`);
     
     // Check if an OTP was sent recently (within last 60 seconds) to prevent spam
     const recentOtp = await this.otpModel
@@ -99,7 +103,7 @@ export class AuthService {
     
     if (recentOtp) {
       const secondsAgo = Math.floor((Date.now() - new Date(recentOtp.get('createdAt')).getTime()) / 1000);
-      this.logger.warn(`OTP request too soon for ${dto.email}. Last OTP sent ${secondsAgo}s ago`);
+      this.logger.warn(`⏱️  OTP request too soon for ${dto.email}. Last OTP sent ${secondsAgo}s ago`);
       return { 
         message: 'OTP was sent recently. Please wait before requesting again.', 
         expiresInMinutes: OTP_EXPIRY_MINUTES 
@@ -108,7 +112,7 @@ export class AuthService {
     
     // If no user exists, create one automatically (for registration flow)
     if (!user) {
-      this.logger.log(`Auto-creating user for OTP request: ${dto.email}`);
+      this.logger.log(`👤 Auto-creating user for OTP request: ${dto.email}`);
       const newUser = await this.registerUser({
         email: dto.email,
         phone: dto.phone || (childReg?.phone) || '+910000000000',
@@ -116,11 +120,14 @@ export class AuthService {
         role: UserRole.PARENT,
       });
       user = await this.userModel.findOne({ email: dto.email }).exec();
+      this.logger.log(`✅ User created successfully: ${user?.email}`);
     }
 
     // Generate OTP code - ALWAYS generate unique OTP for email
     const code = this.generateSecureOtp();
     const expiresAt = new Date(Date.now() + OTP_EXPIRY_MINUTES * 60 * 1000);
+
+    this.logger.log(`🔢 Generated OTP code: ${code} for ${dto.email}`);
 
     // Invalidate previous unused OTPs for this email
     await this.otpModel.updateMany(
@@ -135,18 +142,24 @@ export class AuthService {
       type: 'email',
     });
 
+    this.logger.log(`💾 OTP record saved to database for ${dto.email}`);
+
     let logMessage = `📧 Email OTP for ${dto.email}: ${code}`;
 
     // Send Email OTP
     if (this.resendEmailService.isEnabled()) {
+      this.logger.log(`📤 Attempting to send email via Resend to ${dto.email}`);
       const emailSent = await this.resendEmailService.sendOTP(dto.email, code);
       if (emailSent) {
         logMessage += ` | ✅ Email sent via Resend`;
+        this.logger.log(`✅ Email OTP sent successfully to ${dto.email}`);
       } else {
         logMessage += ` | ❌ Email failed via Resend`;
+        this.logger.error(`❌ Failed to send email OTP to ${dto.email}`);
       }
     } else {
       logMessage += ` | ⚠️ Resend Email not configured`;
+      this.logger.warn(`⚠️  Resend Email service not enabled`);
     }
 
     this.logger.log(logMessage);
@@ -161,6 +174,8 @@ export class AuthService {
     // Normalize phone number to include +91 prefix
     const normalizedPhone = dto.phone.startsWith('+91') ? dto.phone : `+91${dto.phone.replace(/^\+?91?/, '')}`;
     
+    this.logger.log(`🔔 sendPhoneOtp called for phone: ${normalizedPhone}`);
+    
     // Check if an OTP was sent recently (within last 60 seconds) to prevent spam
     const recentOtp = await this.otpModel
       .findOne({ 
@@ -173,7 +188,7 @@ export class AuthService {
     
     if (recentOtp) {
       const secondsAgo = Math.floor((Date.now() - new Date(recentOtp.get('createdAt')).getTime()) / 1000);
-      this.logger.warn(`Phone OTP request too soon for ${normalizedPhone}. Last OTP sent ${secondsAgo}s ago`);
+      this.logger.warn(`⏱️  Phone OTP request too soon for ${normalizedPhone}. Last OTP sent ${secondsAgo}s ago`);
       return { 
         message: 'OTP was sent recently. Please wait before requesting again.', 
         expiresInMinutes: OTP_EXPIRY_MINUTES 
@@ -183,6 +198,8 @@ export class AuthService {
     // Generate OTP code - ALWAYS generate unique OTP for phone (different from email)
     const code = this.generateSecureOtp();
     const expiresAt = new Date(Date.now() + OTP_EXPIRY_MINUTES * 60 * 1000);
+
+    this.logger.log(`🔢 Generated Phone OTP code: ${code} for ${normalizedPhone}`);
 
     // Invalidate previous unused OTPs for this phone
     await this.otpModel.updateMany(
@@ -197,14 +214,19 @@ export class AuthService {
       type: 'phone',
     });
 
+    this.logger.log(`💾 Phone OTP record saved to database for ${normalizedPhone}`);
+
     let logMessage = `📱 Phone OTP for ${normalizedPhone}: ${code}`;
 
     // Send SMS OTP via Fast2SMS
+    this.logger.log(`📤 Attempting to send SMS via Fast2SMS to ${normalizedPhone}`);
     const smsSent = await this.fast2smsService.sendOTP(normalizedPhone, code);
     if (smsSent) {
       logMessage += ` | ✅ SMS sent via Fast2SMS`;
+      this.logger.log(`✅ SMS OTP sent successfully to ${normalizedPhone}`);
     } else {
       logMessage += ` | ❌ SMS failed via Fast2SMS`;
+      this.logger.error(`❌ Failed to send SMS OTP to ${normalizedPhone}`);
     }
 
     this.logger.log(logMessage);

@@ -13,14 +13,38 @@ export class ResendEmailService {
   constructor(private configService: ConfigService) {
     const apiKey = this.configService.get<string>('RESEND_API_KEY');
     this.fromName = this.configService.get<string>('APP_NAME') || 'WombTo18';
-    // Use test domain if RESEND_FROM_EMAIL is not set or is the default unverified domain
+    
+    // Check if domain is verified, otherwise use test domain
     const configuredEmail = this.configService.get<string>('RESEND_FROM_EMAIL') || 'noreply@wombto18.com';
-    this.fromEmail = configuredEmail === 'noreply@wombto18.com' ? 'onboarding@resend.dev' : configuredEmail;
+    const domainVerified = this.configService.get<string>('RESEND_DOMAIN_VERIFIED') === 'true';
+    
+    // Use test domain if custom domain is not verified
+    this.fromEmail = domainVerified ? configuredEmail : 'onboarding@resend.dev';
 
     if (apiKey) {
       this.resend = new Resend(apiKey);
       this.enabled = true;
       this.logger.log(`✅ Resend Email service initialized (from: ${this.fromEmail})`);
+      
+      // Warn about test domain limitations
+      if (this.fromEmail === 'onboarding@resend.dev') {
+        this.logger.warn('⚠️  ========================================');
+        this.logger.warn('⚠️  USING RESEND TEST DOMAIN');
+        this.logger.warn('⚠️  Emails can ONLY be sent to verified addresses');
+        this.logger.warn('⚠️  ');
+        this.logger.warn('⚠️  Current verified email: dev24prabhakar@gmail.com');
+        this.logger.warn('⚠️  ');
+        this.logger.warn('⚠️  To send to ANY email address:');
+        this.logger.warn('⚠️  1. Go to https://resend.com/domains');
+        this.logger.warn('⚠️  2. Add and verify wombto18.com');
+        this.logger.warn('⚠️  3. Add DNS records to your domain registrar');
+        this.logger.warn('⚠️  4. Set RESEND_DOMAIN_VERIFIED=true in .env');
+        this.logger.warn('⚠️  5. Restart backend');
+        this.logger.warn('⚠️  ');
+        this.logger.warn('⚠️  OR add test emails at:');
+        this.logger.warn('⚠️  https://resend.com/settings/emails');
+        this.logger.warn('⚠️  ========================================');
+      }
     } else {
       this.enabled = false;
       this.logger.warn('⚠️  Resend Email not configured. Set RESEND_API_KEY in .env');
@@ -36,23 +60,63 @@ export class ResendEmailService {
    */
   async sendOTP(email: string, otp: string): Promise<boolean> {
     if (!this.enabled || !this.resend) {
-      this.logger.warn('Resend Email not configured');
+      this.logger.warn('⚠️  Resend Email not configured');
       return false;
     }
 
     try {
-      await this.resend.emails.send({
+      this.logger.log(`📧 Attempting to send OTP email to ${email}`);
+      this.logger.debug(`OTP Code: ${otp}`);
+      
+      const result = await this.resend.emails.send({
         from: `${this.fromName} <${this.fromEmail}>`,
         to: email,
         subject: `Your ${this.fromName} OTP Code`,
         html: this.getOTPEmailTemplate(otp),
       });
 
-      this.logger.log(`OTP email sent to ${email}`);
+      this.logger.log(`✅ OTP email sent successfully to ${email}`);
+      this.logger.debug(`Resend Response: ${JSON.stringify(result)}`);
       return true;
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-      this.logger.error(`Failed to send OTP email to ${email}: ${errorMessage}`);
+      this.logger.error(`❌ Failed to send OTP email to ${email}: ${errorMessage}`);
+      
+      if (error && typeof error === 'object') {
+        this.logger.error(`Resend Error Details: ${JSON.stringify(error)}`);
+        
+        // Check for domain verification errors
+        const errorStr = JSON.stringify(error).toLowerCase();
+        if (errorStr.includes('domain') && (errorStr.includes('not verified') || errorStr.includes('not found') || errorStr.includes('invalid'))) {
+          this.logger.error('⚠️  ========================================');
+          this.logger.error('⚠️  DOMAIN NOT VERIFIED ERROR');
+          this.logger.error(`⚠️  Cannot send from ${this.fromEmail}`);
+          this.logger.error('⚠️  ');
+          this.logger.error('⚠️  QUICK FIX: Using test domain instead');
+          this.logger.error('⚠️  Set RESEND_DOMAIN_VERIFIED=false in .env');
+          this.logger.error('⚠️  Then restart backend');
+          this.logger.error('⚠️  ');
+          this.logger.error('⚠️  PERMANENT FIX:');
+          this.logger.error('⚠️  1. Go to https://resend.com/domains');
+          this.logger.error('⚠️  2. Add and verify wombto18.com');
+          this.logger.error('⚠️  3. Add DNS records to your domain registrar');
+          this.logger.error('⚠️  4. Set RESEND_DOMAIN_VERIFIED=true in .env');
+          this.logger.error('⚠️  5. Restart backend');
+          this.logger.error('⚠️  ========================================');
+        } else if (this.fromEmail === 'onboarding@resend.dev') {
+          // Test domain restriction
+          this.logger.error('⚠️  ========================================');
+          this.logger.error('⚠️  TEST DOMAIN RESTRICTION');
+          this.logger.error(`⚠️  Cannot send to ${email}`);
+          this.logger.error('⚠️  Test domain can only send to verified emails');
+          this.logger.error('⚠️  ');
+          this.logger.error('⚠️  OPTIONS:');
+          this.logger.error('⚠️  1. Add this email at https://resend.com/settings/emails');
+          this.logger.error('⚠️  2. OR verify your domain at https://resend.com/domains');
+          this.logger.error('⚠️  ========================================');
+        }
+      }
+      
       return false;
     }
   }
