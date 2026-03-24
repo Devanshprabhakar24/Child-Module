@@ -1,9 +1,13 @@
+'use client';
+
 import Header from "@/components/shared/Header";
 import Footer from "@/components/shared/Footer";
 import JoinHero from "@/components/join/JoinHero";
 import JoinCategories from "@/components/join/JoinCategories";
 import PartnerImpact from "@/components/join/PartnerImpact";
 import JoinCTA from "@/components/join/JoinCTA";
+
+export const dynamic = 'force-dynamic';
 
 export default function JoinUsPage() {
   return (

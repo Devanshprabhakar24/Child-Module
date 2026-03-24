@@ -1,3 +1,5 @@
+'use client';
+
 import Header from "@/components/shared/Header";
 import Footer from "@/components/shared/Footer";
 import NewsHero from "@/components/blogs/NewsHero";

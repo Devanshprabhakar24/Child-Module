@@ -1,3 +1,5 @@
+'use client';
+
 import Header from '@/components/shared/Header';
 import Hero from '@/components/home/Hero';
 import AgeSelectors from '@/components/home/AgeSelectors';
@@ -9,6 +11,8 @@ import Milestones from '@/components/home/Milestones';
 import Testimonials from '@/components/home/Testimonials';
 import FAQ from '@/components/home/FAQ';
 import Commitment from '@/components/home/Commitment';
+
+export const dynamic = 'force-dynamic';
 
 export default function Home() {
   return (

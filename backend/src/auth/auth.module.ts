@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { Module, forwardRef } from '@nestjs/common';
 import { MongooseModule } from '@nestjs/mongoose';
 import { ConfigModule } from '@nestjs/config';
 import { AuthService } from './auth.service';
@@ -15,6 +15,7 @@ import { Fast2SmsService } from '../notifications/fast2sms.service';
 import { ResendEmailService } from '../notifications/resend-email.service';
 import { NotificationsGateway } from '../notifications/notifications.gateway';
 import { NotificationsService } from '../notifications/notifications.service';
+import { Msg91WhatsAppService } from '../notifications/msg91-whatsapp.service';
 
 @Module({
   imports: [
@@ -24,9 +25,19 @@ import { NotificationsService } from '../notifications/notifications.service';
       { name: OtpRecord.name, schema: OtpRecordSchema },
       { name: ChildRegistration.name, schema: ChildRegistrationSchema },
     ]),
+    forwardRef(() => require('../registration/registration.module').RegistrationModule),
   ],
   controllers: [AuthController],
-  providers: [AuthService, AuthGuard, RolesGuard, Fast2SmsService, ResendEmailService, NotificationsGateway, NotificationsService],
+  providers: [
+    AuthService, 
+    AuthGuard, 
+    RolesGuard, 
+    Fast2SmsService, 
+    ResendEmailService, 
+    Msg91WhatsAppService,
+    NotificationsGateway, 
+    NotificationsService
+  ],
   exports: [AuthService, AuthGuard, RolesGuard],
 })
 export class AuthModule {}

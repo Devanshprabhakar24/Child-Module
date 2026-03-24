@@ -2,16 +2,12 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation"; // 1. Import usePathname
 
 export default function Header() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [authMode, setAuthMode] = useState<"login" | "register">("login");
   const [isScrolled, setIsScrolled] = useState(false);
   
-  // 2. Get the current route
-  const pathname = usePathname(); 
-
   // Detect scroll to toggle navbar styling
   useEffect(() => {
     const handleScroll = () => {
@@ -26,8 +22,15 @@ export default function Header() {
     setIsModalOpen(true);
   };
 
-  // 3. THE FIX: Force solid styling if we are scrolled OR if we are NOT on the homepage
-  const useSolidHeader = isScrolled || pathname !== "/";
+  // Use solid header when scrolled or not on homepage
+  // Check if we're on homepage by looking at window.location
+  const [isHomepage, setIsHomepage] = useState(true);
+  
+  useEffect(() => {
+    setIsHomepage(window.location.pathname === "/");
+  }, []);
+
+  const useSolidHeader = isScrolled || !isHomepage;
 
   return (
     <>

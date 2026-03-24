@@ -69,11 +69,14 @@ export default function SubscriptionCard() {
             console.log("Family dashboard data:", familyData);
             
             if (familyData.success && familyData.data.children && familyData.data.children.length > 0) {
-              registrationId = familyData.data.children[0].registrationId;
-              // Store it for future use
-              sessionStorage.setItem("wt18_reg_id", registrationId);
-              localStorage.setItem("wt18_reg_id", registrationId);
-              console.log("Got registration ID from family dashboard:", registrationId);
+              const fetchedRegId = familyData.data.children[0]?.registrationId;
+              if (fetchedRegId && typeof fetchedRegId === 'string') {
+                registrationId = fetchedRegId;
+                // Store it for future use
+                sessionStorage.setItem("wt18_reg_id", fetchedRegId);
+                localStorage.setItem("wt18_reg_id", fetchedRegId);
+                console.log("Got registration ID from family dashboard:", fetchedRegId);
+              }
             }
           } else {
             console.error("Family dashboard request failed:", familyResponse.status);

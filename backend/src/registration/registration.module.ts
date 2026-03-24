@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { Module, forwardRef } from '@nestjs/common';
 import { MongooseModule } from '@nestjs/mongoose';
 import { ConfigModule } from '@nestjs/config';
 import { RegistrationService } from './registration.service';
@@ -21,7 +21,7 @@ import { CloudinaryService } from '../common/cloudinary.service';
     MongooseModule.forFeature([
       { name: ChildRegistration.name, schema: ChildRegistrationSchema },
     ]),
-    AuthModule,
+    forwardRef(() => AuthModule),
     DashboardModule,
     RemindersModule,
     CmsModule,
@@ -29,6 +29,6 @@ import { CloudinaryService } from '../common/cloudinary.service';
   ],
   controllers: [RegistrationController],
   providers: [RegistrationService, CertificateService, CloudinaryService],
-  exports: [RegistrationService],
+  exports: [RegistrationService, CertificateService],
 })
 export class RegistrationModule {}

@@ -8,6 +8,8 @@ import JourneyTimeline from "@/components/about/JourneyTimeline";
 import Leadership from "@/components/about/Leadership";
 import Compliance from "@/components/about/Compliance";
 
+export const dynamic = 'force-dynamic';
+
 export default function AboutPage() {
   return (
     <div className="flex min-h-screen flex-col font-display selection:bg-primary/20">

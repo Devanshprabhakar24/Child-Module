@@ -1,8 +1,12 @@
+'use client';
+
 import Header from "@/components/shared/Header";
 import Footer from "@/components/shared/Footer";
 import ContactHero from "@/components/contact/ContactHero";
 import ContactForm from "@/components/contact/ContactForm";
 import SupportOptions from "@/components/contact/SupportOptions";
+
+export const dynamic = 'force-dynamic';
 
 export default function ContactPage() {
   return (

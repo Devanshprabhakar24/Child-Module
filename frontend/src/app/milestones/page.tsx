@@ -1,9 +1,13 @@
+'use client';
+
 import Header from "@/components/shared/Header";
 import Footer from "@/components/shared/Footer";
 import MilestonesHero from "@/components/milestones/MilestonesHero";
 import DevelopmentStages from "@/components/milestones/DevelopmentStages";
 import AiTracking from "@/components/milestones/AiTracking";
 import AssessmentTools from "@/components/milestones/AssessmentTools";
+
+export const dynamic = 'force-dynamic';
 
 export default function MilestonesPage() {
   return (
