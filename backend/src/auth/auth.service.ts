@@ -21,7 +21,7 @@ import {
   UserRole,
 } from '@wombto18/shared';
 import { TwilioSmsService } from '../notifications/twilio-sms.service';
-import { ResendEmailService } from '../notifications/resend-email.service';
+import { GmailSmtpService } from '../notifications/gmail-smtp.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { NotificationsGateway } from '../notifications/notifications.gateway';
 
@@ -42,7 +42,7 @@ export class AuthService {
     private readonly childRegModel: Model<ChildRegistrationDocument>,
     private readonly configService: ConfigService,
     private readonly twilioSmsService: TwilioSmsService,
-    private readonly resendEmailService: ResendEmailService,
+    private readonly gmailSmtpService: GmailSmtpService,
     private readonly notificationsService: NotificationsService,
     private readonly notificationsGateway: NotificationsGateway,
   ) {
@@ -61,8 +61,8 @@ export class AuthService {
       this.logger.log('✅ Twilio SMS enabled for SMS OTP');
     }
     
-    if (this.resendEmailService.isEnabled()) {
-      this.logger.log('✅ Resend Email enabled for Email OTP');
+    if (this.gmailSmtpService.isEnabled()) {
+      this.logger.log('✅ Gmail SMTP enabled for Email OTP');
     }
   }
 
@@ -151,20 +151,20 @@ export class AuthService {
 
     let logMessage = `📧 Email OTP for ${dto.email}: ${code}`;
 
-    // Send Email OTP
-    if (this.resendEmailService.isEnabled()) {
-      this.logger.log(`📤 Attempting to send email via Resend to ${dto.email}`);
-      const emailSent = await this.resendEmailService.sendOTP(dto.email, code);
+    // Send Email OTP via Gmail SMTP
+    if (this.gmailSmtpService.isEnabled()) {
+      this.logger.log(`📤 Attempting to send email via Gmail SMTP to ${dto.email}`);
+      const emailSent = await this.gmailSmtpService.sendOTP(dto.email, code);
       if (emailSent) {
-        logMessage += ` | ✅ Email sent via Resend`;
+        logMessage += ` | ✅ Email sent via Gmail SMTP`;
         this.logger.log(`✅ Email OTP sent successfully to ${dto.email}`);
       } else {
-        logMessage += ` | ❌ Email failed via Resend`;
+        logMessage += ` | ❌ Email failed via Gmail SMTP`;
         this.logger.error(`❌ Failed to send email OTP to ${dto.email}`);
       }
     } else {
-      logMessage += ` | ⚠️ Resend Email not configured`;
-      this.logger.warn(`⚠️  Resend Email service not enabled`);
+      logMessage += ` | ⚠️ Gmail SMTP not configured`;
+      this.logger.warn(`⚠️  Gmail SMTP service not enabled`);
     }
 
     this.logger.log(logMessage);

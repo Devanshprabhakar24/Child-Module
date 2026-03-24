@@ -24,12 +24,6 @@ services:
         sync: false
       - key: RAZORPAY_WEBHOOK_SECRET
         sync: false
-      - key: RESEND_API_KEY
-        sync: false
-      - key: RESEND_FROM_EMAIL
-        value: noreply@wombto18.com
-      - key: RESEND_DOMAIN_VERIFIED
-        value: true
       - key: EMAIL_HOST
         value: smtp.gmail.com
       - key: EMAIL_PORT

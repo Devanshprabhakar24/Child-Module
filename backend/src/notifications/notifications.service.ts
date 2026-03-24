@@ -1,7 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Msg91WhatsAppService } from './msg91-whatsapp.service';
-import { ResendEmailService } from './resend-email.service';
+import { GmailSmtpService } from './gmail-smtp.service';
 import { CertificateService } from '../registration/certificate.service';
 
 /**
@@ -41,12 +41,12 @@ export class NotificationsService {
   constructor(
     private readonly configService: ConfigService,
     private readonly whatsappService: Msg91WhatsAppService,
-    private readonly resendEmailService: ResendEmailService,
+    private readonly gmailSmtpService: GmailSmtpService,
     private readonly certificateService: CertificateService,
   ) {
     this.testMode = this.configService.get<string>('NOTIFICATION_TEST_MODE') !== 'false';
     this.baseUrl = this.configService.get<string>('APP_BASE_URL') ?? 'https://wombto18.com';
-    this.logger.log('✅ NotificationsService initialized (WhatsApp + Email)');
+    this.logger.log('✅ NotificationsService initialized (WhatsApp + Gmail SMTP)');
   }
 
   // ─── High-Level Event Dispatchers ─────────────────────────────────────
@@ -76,20 +76,20 @@ export class NotificationsService {
     );
     
     // Send Email with invoice PDF attachment
-    if (this.resendEmailService.isEnabled()) {
-      await this.resendEmailService.sendPaymentConfirmation({
-        email: payload.email,
+    if (this.gmailSmtpService.isEnabled()) {
+      const emailHtml = this.getPaymentConfirmationEmailTemplate({
         parentName: payload.parentName,
         childName: payload.childName,
         amount: payload.amount,
-        orderId: payload.registrationId,
-        paymentId: payload.registrationId,
         registrationId: payload.registrationId,
         subscriptionPlan: payload.subscriptionPlan,
-        vaccinationCount: payload.vaccinationCount,
-        invoicePdfBuffer: payload.invoiceBuffer,
       });
-      this.logger.log(`✅ Payment confirmation sent via WhatsApp + Email (with invoice PDF) to ${payload.phone} / ${payload.email}`);
+      await this.gmailSmtpService.sendEmail(
+        payload.email,
+        'Payment Confirmation - WombTo18',
+        emailHtml
+      );
+      this.logger.log(`✅ Payment confirmation sent via WhatsApp + Gmail SMTP to ${payload.phone} / ${payload.email}`);
     } else {
       this.logger.log(`✅ Payment confirmation sent via WhatsApp to ${payload.phone}`);
     }
@@ -118,18 +118,22 @@ export class NotificationsService {
     );
     
     // Send Email with full details
-    if (this.resendEmailService.isEnabled()) {
-      await this.resendEmailService.sendWelcome(
+    if (this.gmailSmtpService.isEnabled()) {
+      const emailHtml = this.getWelcomeEmailTemplate({
+        parentName: payload.parentName,
+        childName: payload.childName,
+        registrationId: payload.registrationId,
+        ageGroup: payload.ageGroup,
+        state: payload.state,
+        subscriptionAmount: payload.subscriptionAmount,
+        subscriptionPlan: payload.subscriptionPlan,
+      });
+      await this.gmailSmtpService.sendEmail(
         payload.email,
-        payload.parentName,
-        payload.childName,
-        payload.registrationId,
-        payload.ageGroup,
-        payload.state,
-        payload.subscriptionAmount,
-        payload.subscriptionPlan,
+        'Welcome to WombTo18! 🌱',
+        emailHtml
       );
-      this.logger.log(`✅ Welcome message sent via WhatsApp + Email to ${payload.phone} / ${payload.email}`);
+      this.logger.log(`✅ Welcome message sent via WhatsApp + Gmail SMTP to ${payload.phone} / ${payload.email}`);
     } else {
       this.logger.log(`✅ Welcome message sent via WhatsApp to ${payload.phone}`);
     }
@@ -177,16 +181,19 @@ export class NotificationsService {
       );
 
       // Send via Email with PDF attachment
-      if (this.resendEmailService.isEnabled()) {
-        await this.resendEmailService.sendGoGreenCertificate({
-          email: payload.email,
+      if (this.gmailSmtpService.isEnabled()) {
+        const emailHtml = this.getGoGreenCertificateEmailTemplate({
           parentName: payload.parentName,
           childName: payload.childName,
           registrationId: payload.registrationId,
           treeId: payload.treeId,
-          certificatePdfBuffer: certificateBuffer,
         });
-        this.logger.log(`✅ Go Green certificate sent via WhatsApp + Email to ${payload.phone} / ${payload.email}`);
+        await this.gmailSmtpService.sendEmail(
+          payload.email,
+          `${payload.childName}'s Go Green Certificate - WombTo18`,
+          emailHtml
+        );
+        this.logger.log(`✅ Go Green certificate sent via WhatsApp + Gmail SMTP to ${payload.phone} / ${payload.email}`);
       } else {
         this.logger.log(`✅ Go Green certificate sent via WhatsApp to ${payload.phone}`);
       }
@@ -267,18 +274,22 @@ export class NotificationsService {
     state: string;
     subscriptionAmount: number;
   }): Promise<void> {
-    if (this.resendEmailService.isEnabled()) {
-      await this.resendEmailService.sendRegistrationConfirmation({
-        email: payload.email,
+    if (this.gmailSmtpService.isEnabled()) {
+      const emailHtml = this.getRegistrationConfirmationEmailTemplate({
         parentName: payload.parentName,
         childName: payload.childName,
         registrationId: payload.registrationId,
         ageGroup: payload.ageGroup,
         state: payload.state,
       });
+      await this.gmailSmtpService.sendEmail(
+        payload.email,
+        `Registration Successful - ${payload.childName}`,
+        emailHtml
+      );
       this.logger.log(`✅ Registration confirmation email sent to ${payload.email}`);
     } else {
-      this.logger.warn(`⚠️  Resend Email not configured, skipping registration confirmation email`);
+      this.logger.warn(`⚠️  Gmail SMTP not configured, skipping registration confirmation email`);
     }
   }
 
@@ -299,11 +310,22 @@ export class NotificationsService {
     }>;
     vaccinePdfBuffer?: Buffer;
   }): Promise<void> {
-    if (this.resendEmailService.isEnabled()) {
-      await this.resendEmailService.sendVaccinationSchedule(payload);
-      this.logger.log(`✅ Vaccination schedule email sent to ${payload.email} (${payload.vaccineSchedule.length} vaccines)${payload.vaccinePdfBuffer ? ' with PDF attachment' : ''}`);
+    if (this.gmailSmtpService.isEnabled()) {
+      const emailHtml = this.getVaccinationScheduleEmailTemplate({
+        parentName: payload.parentName,
+        childName: payload.childName,
+        dateOfBirth: payload.dateOfBirth,
+        registrationId: payload.registrationId,
+        vaccineSchedule: payload.vaccineSchedule,
+      });
+      await this.gmailSmtpService.sendEmail(
+        payload.email,
+        `${payload.childName}'s Vaccination Schedule - WombTo18`,
+        emailHtml
+      );
+      this.logger.log(`✅ Vaccination schedule email sent to ${payload.email} (${payload.vaccineSchedule.length} vaccines)`);
     } else {
-      this.logger.warn(`⚠️  Resend Email not configured, skipping vaccination schedule email`);
+      this.logger.warn(`⚠️  Gmail SMTP not configured, skipping vaccination schedule email`);
     }
   }
 
@@ -319,5 +341,379 @@ export class NotificationsService {
     }
 
     this.logger.log(`[WhatsApp] Sending to ${phone} via MSG91`);
+  }
+
+  // ─── Email Template Helpers ─────────────────────────────────────────
+
+  private getWelcomeEmailTemplate(payload: {
+    parentName: string;
+    childName: string;
+    registrationId: string;
+    ageGroup?: string;
+    state?: string;
+    subscriptionAmount?: number;
+    subscriptionPlan?: string;
+  }): string {
+    const planName = payload.subscriptionPlan === 'FIVE_YEAR' ? '5-Year Plan' : 'Annual Plan';
+    
+    return `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      </head>
+      <body style="margin: 0; padding: 0; font-family: Arial, sans-serif; background-color: #f4f4f4;">
+        <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #f4f4f4; padding: 20px;">
+          <tr>
+            <td align="center">
+              <table width="600" cellpadding="0" cellspacing="0" style="background-color: #ffffff; border-radius: 8px; overflow: hidden;">
+                <tr>
+                  <td style="background-color: #4CAF50; padding: 30px; text-align: center;">
+                    <h1 style="color: #ffffff; margin: 0; font-size: 28px;">🎉 Registration Successful! ✅</h1>
+                  </td>
+                </tr>
+                <tr>
+                  <td style="padding: 40px 30px;">
+                    <h2 style="color: #333333; margin: 0 0 20px 0;">🎉 Congratulations, ${payload.parentName}!</h2>
+                    <p style="color: #666666; font-size: 16px; line-height: 1.5; margin: 0 0 30px 0;">
+                      ${payload.childName} has been successfully registered with WombTo18.
+                    </p>
+                    
+                    <table width="100%" cellpadding="10" style="background-color: #f0f9ff; border-radius: 8px; margin: 0 0 30px 0; border-left: 4px solid #4CAF50;">
+                      <tr>
+                        <td style="color: #666666; font-size: 14px; padding: 5px 15px;">
+                          🆔 <strong>Registration ID:</strong> ${payload.registrationId}
+                        </td>
+                      </tr>
+                      <tr>
+                        <td style="color: #666666; font-size: 14px; padding: 5px 15px;">
+                          👶 <strong>Child Name:</strong> ${payload.childName}
+                        </td>
+                      </tr>
+                      ${payload.ageGroup ? `
+                      <tr>
+                        <td style="color: #666666; font-size: 14px; padding: 5px 15px;">
+                          📊 <strong>Age Group:</strong> ${payload.ageGroup}
+                        </td>
+                      </tr>
+                      ` : ''}
+                      ${payload.state ? `
+                      <tr>
+                        <td style="color: #666666; font-size: 14px; padding: 5px 15px;">
+                          📍 <strong>State:</strong> ${payload.state}
+                        </td>
+                      </tr>
+                      ` : ''}
+                      ${payload.subscriptionAmount ? `
+                      <tr>
+                        <td style="color: #666666; font-size: 14px; padding: 5px 15px;">
+                          💳 <strong>Subscription:</strong> ₹${payload.subscriptionAmount} (${planName})
+                        </td>
+                      </tr>
+                      ` : ''}
+                    </table>
+                    
+                    <div style="background-color: #f8f8f8; border-radius: 8px; padding: 20px; margin: 0 0 30px 0;">
+                      <p style="color: #666666; font-size: 14px; margin: 0 0 10px 0;">
+                        <strong>You now have access to:</strong>
+                      </p>
+                      <ul style="color: #666666; font-size: 14px; line-height: 1.8; margin: 0; padding-left: 20px;">
+                        <li>✅ Vaccination Tracker with smart reminders</li>
+                        <li>🌱 Go Green Program – Earn credits & plant trees</li>
+                        <li>📈 Development Milestone Tracking</li>
+                        <li>📄 Digital Health Records</li>
+                        <li>🔔 Automated Notifications</li>
+                      </ul>
+                    </div>
+
+                    <div style="text-align: center; margin: 30px 0;">
+                      <a href="${this.baseUrl}/dashboard" 
+                         style="display: inline-block; background-color: #4CAF50; color: #ffffff; text-decoration: none; padding: 15px 40px; border-radius: 5px; font-size: 16px; font-weight: bold;">
+                        Access Dashboard
+                      </a>
+                    </div>
+                  </td>
+                </tr>
+                <tr>
+                  <td style="background-color: #f8f8f8; padding: 20px 30px; text-align: center;">
+                    <p style="color: #999999; font-size: 12px; margin: 0;">
+                      © ${new Date().getFullYear()} WombTo18. All rights reserved.
+                    </p>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+        </table>
+      </body>
+      </html>
+    `;
+  }
+
+  private getRegistrationConfirmationEmailTemplate(payload: {
+    parentName: string;
+    childName: string;
+    registrationId: string;
+    ageGroup: string;
+    state: string;
+  }): string {
+    return `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      </head>
+      <body style="margin: 0; padding: 0; font-family: Arial, sans-serif; background-color: #f4f4f4;">
+        <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #f4f4f4; padding: 20px;">
+          <tr>
+            <td align="center">
+              <table width="600" cellpadding="0" cellspacing="0" style="background-color: #ffffff; border-radius: 8px; overflow: hidden;">
+                <tr>
+                  <td style="background-color: #4CAF50; padding: 30px; text-align: center;">
+                    <h1 style="color: #ffffff; margin: 0; font-size: 28px;">Registration Successful! ✅</h1>
+                  </td>
+                </tr>
+                <tr>
+                  <td style="padding: 40px 30px;">
+                    <h2 style="color: #333333; margin: 0 0 20px 0;">Congratulations ${payload.parentName}!</h2>
+                    <p style="color: #666666; font-size: 16px; line-height: 1.5; margin: 0 0 30px 0;">
+                      ${payload.childName} has been successfully registered with WombTo18.
+                    </p>
+                    <table width="100%" cellpadding="10" style="background-color: #f8f8f8; border-radius: 8px; margin: 0 0 30px 0;">
+                      <tr>
+                        <td style="color: #666666; font-size: 14px;"><strong>Registration ID:</strong></td>
+                        <td style="color: #4CAF50; font-size: 14px; font-weight: bold;">${payload.registrationId}</td>
+                      </tr>
+                      <tr>
+                        <td style="color: #666666; font-size: 14px;"><strong>Child Name:</strong></td>
+                        <td style="color: #333333; font-size: 14px;">${payload.childName}</td>
+                      </tr>
+                      <tr>
+                        <td style="color: #666666; font-size: 14px;"><strong>Age Group:</strong></td>
+                        <td style="color: #333333; font-size: 14px;">${payload.ageGroup}</td>
+                      </tr>
+                      <tr>
+                        <td style="color: #666666; font-size: 14px;"><strong>State:</strong></td>
+                        <td style="color: #333333; font-size: 14px;">${payload.state}</td>
+                      </tr>
+                    </table>
+                  </td>
+                </tr>
+                <tr>
+                  <td style="background-color: #f8f8f8; padding: 20px 30px; text-align: center;">
+                    <p style="color: #999999; font-size: 12px; margin: 0;">
+                      © ${new Date().getFullYear()} WombTo18. All rights reserved.
+                    </p>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+        </table>
+      </body>
+      </html>
+    `;
+  }
+
+  private getGoGreenCertificateEmailTemplate(payload: {
+    parentName: string;
+    childName: string;
+    registrationId: string;
+    treeId?: string;
+  }): string {
+    return `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      </head>
+      <body style="margin: 0; padding: 0; font-family: Arial, sans-serif; background-color: #f4f4f4;">
+        <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #f4f4f4; padding: 20px;">
+          <tr>
+            <td align="center">
+              <table width="600" cellpadding="0" cellspacing="0" style="background-color: #ffffff; border-radius: 8px; overflow: hidden;">
+                <tr>
+                  <td style="background: linear-gradient(135deg, #4CAF50 0%, #2E7D32 100%); padding: 40px 30px; text-align: center;">
+                    <h1 style="color: #ffffff; margin: 0 0 10px 0; font-size: 28px;">🌱 WombTo18 Go Green Initiative</h1>
+                    <p style="color: rgba(255,255,255,0.95); margin: 0; font-size: 16px;">Committed to a Greener Future</p>
+                  </td>
+                </tr>
+                <tr>
+                  <td style="padding: 40px 30px;">
+                    <h2 style="color: #4CAF50; margin: 0 0 20px 0; font-size: 24px;">Congratulations, ${payload.parentName}!</h2>
+                    <p style="color: #666666; font-size: 16px; line-height: 1.6; margin: 0 0 25px 0;">
+                      ${payload.childName} has been enrolled in the WombTo18 Green Cohort. A tree has been planted in their name!
+                    </p>
+                    
+                    <div style="background-color: #e8f5e9; border-left: 4px solid #4CAF50; border-radius: 4px; padding: 20px; margin: 0 0 25px 0;">
+                      <p style="color: #333333; font-size: 15px; line-height: 1.6; margin: 0;">
+                        🌳 Registration ID: ${payload.registrationId}
+                      </p>
+                    </div>
+                  </td>
+                </tr>
+                <tr>
+                  <td style="background-color: #f8f8f8; padding: 20px 30px; text-align: center;">
+                    <p style="color: #999999; font-size: 12px; margin: 0;">
+                      © ${new Date().getFullYear()} WombTo18. All rights reserved.
+                    </p>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+        </table>
+      </body>
+      </html>
+    `;
+  }
+
+  private getPaymentConfirmationEmailTemplate(payload: {
+    parentName: string;
+    childName: string;
+    amount: number;
+    registrationId: string;
+    subscriptionPlan?: string;
+  }): string {
+    const planName = payload.subscriptionPlan === 'FIVE_YEAR' ? '5-Year Plan' : 'Annual Plan';
+    
+    return `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      </head>
+      <body style="margin: 0; padding: 0; font-family: Arial, sans-serif; background-color: #f4f4f4;">
+        <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #f4f4f4; padding: 20px;">
+          <tr>
+            <td align="center">
+              <table width="600" cellpadding="0" cellspacing="0" style="background-color: #ffffff; border-radius: 8px; overflow: hidden;">
+                <tr>
+                  <td style="background-color: #4CAF50; padding: 30px; text-align: center;">
+                    <h1 style="color: #ffffff; margin: 0; font-size: 28px;">Payment Confirmed! ✅</h1>
+                  </td>
+                </tr>
+                <tr>
+                  <td style="padding: 40px 30px;">
+                    <h2 style="color: #333333; margin: 0 0 20px 0;">Thank you, ${payload.parentName}!</h2>
+                    <p style="color: #666666; font-size: 16px; line-height: 1.5; margin: 0 0 30px 0;">
+                      Your payment for ${payload.childName}'s subscription has been received.
+                    </p>
+                    <table width="100%" cellpadding="10" style="background-color: #f8f8f8; border-radius: 8px; margin: 0 0 30px 0;">
+                      <tr>
+                        <td style="color: #666666; font-size: 14px;"><strong>Amount Paid:</strong></td>
+                        <td style="color: #4CAF50; font-size: 18px; font-weight: bold;">₹${payload.amount}</td>
+                      </tr>
+                      <tr>
+                        <td style="color: #666666; font-size: 14px;"><strong>Registration ID:</strong></td>
+                        <td style="color: #333333; font-size: 14px;">${payload.registrationId}</td>
+                      </tr>
+                      ${payload.subscriptionPlan ? `
+                      <tr>
+                        <td style="color: #666666; font-size: 14px;"><strong>Plan:</strong></td>
+                        <td style="color: #333333; font-size: 14px;">${planName}</td>
+                      </tr>
+                      ` : ''}
+                    </table>
+                  </td>
+                </tr>
+                <tr>
+                  <td style="background-color: #f8f8f8; padding: 20px 30px; text-align: center;">
+                    <p style="color: #999999; font-size: 12px; margin: 0;">
+                      © ${new Date().getFullYear()} WombTo18. All rights reserved.
+                    </p>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+        </table>
+      </body>
+      </html>
+    `;
+  }
+
+  private getVaccinationScheduleEmailTemplate(payload: {
+    parentName: string;
+    childName: string;
+    dateOfBirth: string;
+    registrationId: string;
+    vaccineSchedule: Array<{
+      name: string;
+      ageGroup: string;
+      dueDate: string;
+      status: 'completed' | 'due' | 'upcoming';
+    }>;
+  }): string {
+    const vaccineRows = payload.vaccineSchedule.map(vaccine => `
+      <tr>
+        <td style="padding: 10px; border-bottom: 1px solid #e0e0e0; color: #333333; font-size: 14px;">${vaccine.name}</td>
+        <td style="padding: 10px; border-bottom: 1px solid #e0e0e0; color: #666666; font-size: 14px;">${vaccine.ageGroup}</td>
+        <td style="padding: 10px; border-bottom: 1px solid #e0e0e0; color: #666666; font-size: 14px;">${vaccine.dueDate}</td>
+        <td style="padding: 10px; border-bottom: 1px solid #e0e0e0; font-size: 14px;">
+          <span style="padding: 4px 8px; border-radius: 4px; background-color: ${vaccine.status === 'completed' ? '#4CAF50' : vaccine.status === 'due' ? '#FF9800' : '#2196F3'}; color: white; font-size: 12px;">
+            ${vaccine.status.toUpperCase()}
+          </span>
+        </td>
+      </tr>
+    `).join('');
+
+    return `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      </head>
+      <body style="margin: 0; padding: 0; font-family: Arial, sans-serif; background-color: #f4f4f4;">
+        <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #f4f4f4; padding: 20px;">
+          <tr>
+            <td align="center">
+              <table width="600" cellpadding="0" cellspacing="0" style="background-color: #ffffff; border-radius: 8px; overflow: hidden;">
+                <tr>
+                  <td style="background-color: #4CAF50; padding: 30px; text-align: center;">
+                    <h1 style="color: #ffffff; margin: 0; font-size: 28px;">Vaccination Schedule</h1>
+                  </td>
+                </tr>
+                <tr>
+                  <td style="padding: 40px 30px;">
+                    <h2 style="color: #333333; margin: 0 0 20px 0;">Hello ${payload.parentName}!</h2>
+                    <p style="color: #666666; font-size: 16px; line-height: 1.5; margin: 0 0 30px 0;">
+                      Here is ${payload.childName}'s complete vaccination schedule.
+                    </p>
+                    
+                    <table width="100%" cellpadding="0" cellspacing="0" style="border-collapse: collapse; margin: 0 0 30px 0;">
+                      <thead>
+                        <tr style="background-color: #f8f8f8;">
+                          <th style="padding: 10px; text-align: left; color: #333333; font-size: 14px; border-bottom: 2px solid #4CAF50;">Vaccine</th>
+                          <th style="padding: 10px; text-align: left; color: #333333; font-size: 14px; border-bottom: 2px solid #4CAF50;">Age Group</th>
+                          <th style="padding: 10px; text-align: left; color: #333333; font-size: 14px; border-bottom: 2px solid #4CAF50;">Due Date</th>
+                          <th style="padding: 10px; text-align: left; color: #333333; font-size: 14px; border-bottom: 2px solid #4CAF50;">Status</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        ${vaccineRows}
+                      </tbody>
+                    </table>
+                  </td>
+                </tr>
+                <tr>
+                  <td style="background-color: #f8f8f8; padding: 20px 30px; text-align: center;">
+                    <p style="color: #999999; font-size: 12px; margin: 0;">
+                      © ${new Date().getFullYear()} WombTo18. All rights reserved.
+                    </p>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+        </table>
+      </body>
+      </html>
+    `;
   }
 }

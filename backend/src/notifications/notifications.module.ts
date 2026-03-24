@@ -5,7 +5,6 @@ import { NotificationsService } from './notifications.service';
 import { Msg91WhatsAppService } from './msg91-whatsapp.service';
 import { WatiWhatsAppService } from './wati-whatsapp.service';
 import { TwilioSmsService } from './twilio-sms.service';
-import { ResendEmailService } from './resend-email.service';
 import { GmailSmtpService } from './gmail-smtp.service';
 import { CertificateService } from '../registration/certificate.service';
 import { CloudinaryService } from '../common/cloudinary.service';
@@ -31,7 +30,6 @@ import { AuthModule } from '../auth/auth.module';
     WatiWhatsAppService,
     TwilioSmsService,
     GmailSmtpService,
-    ResendEmailService,
     CertificateService,
     CloudinaryService,
     NotificationsGateway,
@@ -42,7 +40,6 @@ import { AuthModule } from '../auth/auth.module';
     WatiWhatsAppService,
     TwilioSmsService,
     GmailSmtpService,
-    ResendEmailService,
     NotificationsGateway,
   ],
 })

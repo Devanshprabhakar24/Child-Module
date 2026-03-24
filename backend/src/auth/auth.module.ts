@@ -12,7 +12,7 @@ import {
 import { AuthGuard } from './guards/auth.guard';
 import { RolesGuard } from './guards/roles.guard';
 import { TwilioSmsService } from '../notifications/twilio-sms.service';
-import { ResendEmailService } from '../notifications/resend-email.service';
+import { GmailSmtpService } from '../notifications/gmail-smtp.service';
 import { NotificationsGateway } from '../notifications/notifications.gateway';
 import { NotificationsService } from '../notifications/notifications.service';
 import { Msg91WhatsAppService } from '../notifications/msg91-whatsapp.service';
@@ -33,7 +33,7 @@ import { Msg91WhatsAppService } from '../notifications/msg91-whatsapp.service';
     AuthGuard, 
     RolesGuard, 
     TwilioSmsService, 
-    ResendEmailService, 
+    GmailSmtpService, 
     Msg91WhatsAppService,
     NotificationsGateway, 
     NotificationsService
