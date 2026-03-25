@@ -1,3 +1,5 @@
+'use client';
+
 import { FileArchive, Image as ImageIcon, Download, ExternalLink, Quote } from "lucide-react";
 
 export default function MediaResources() {

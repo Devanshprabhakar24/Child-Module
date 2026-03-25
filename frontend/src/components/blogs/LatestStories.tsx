@@ -1,3 +1,5 @@
+'use client';
+
 import { Calendar, ArrowRight } from "lucide-react";
 
 export default function LatestStories() {

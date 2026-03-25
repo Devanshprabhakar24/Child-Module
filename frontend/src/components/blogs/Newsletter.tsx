@@ -1,3 +1,5 @@
+'use client';
+
 export default function Newsletter() {
   return (
     <section className="mb-10 mt-20 w-full">

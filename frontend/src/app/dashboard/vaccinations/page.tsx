@@ -96,6 +96,32 @@ export default function VaccinationTrackerPage() {
   const [healthRecords, setHealthRecords] = useState<Record<string, any>>({});
   const [undoing, setUndoing] = useState<string | null>(null);
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
+  const [registrationDate, setRegistrationDate] = useState<Date | null>(null);
+
+  // Get test date from environment variable (for testing purposes)
+  // Format: YYYY-MM-DD or leave empty for actual today
+  const testDateEnv = process.env.NEXT_PUBLIC_TEST_DATE;
+  const effectiveToday = testDateEnv ? new Date(testDateEnv) : new Date();
+
+  // Fetch registration date for credit logic
+  useEffect(() => {
+    if (!registrationId || !token) return;
+    const fetchRegistrationDate = async () => {
+      try {
+        const res = await fetch(`${API_BASE}/registration/${registrationId}`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (!res.ok) return;
+        const data = await res.json();
+        if (data.data?.createdAt) {
+          setRegistrationDate(new Date(data.data.createdAt));
+        }
+      } catch (e) {
+        console.error("Failed to fetch registration date:", e);
+      }
+    };
+    fetchRegistrationDate();
+  }, [registrationId, token]);
 
   const togglePeriod = (label: string) =>
     setCollapsed((prev) => {
@@ -358,31 +384,69 @@ export default function VaccinationTrackerPage() {
                       {!collapsed.has(period.label) && (
                         <div className="space-y-3">
                           {period.milestones.map((m: any) => {
-                          const s = STATUS_CONFIG[m.status] || STATUS_CONFIG.UPCOMING;
                           const dateLabel =
                             m.status === "COMPLETED" && m.completedDate
                               ? `Given on: ${new Date(m.completedDate).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })}`
                               : `Due: ${new Date(m.dueDate).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })}`;
 
+                          // Determine if vaccine is OLD or NEW based on registration date (for credit logic)
+                          const vaccineDueDate = new Date(m.dueDate);
+                          vaccineDueDate.setHours(0, 0, 0, 0);
+                          const regDate = registrationDate ? new Date(registrationDate) : null;
+                          if (regDate) regDate.setHours(0, 0, 0, 0);
+                          const isOldVaccine = regDate && vaccineDueDate < regDate;
+                          const isNewVaccine = regDate && vaccineDueDate >= regDate;
+
+                          // Use effective today (from env or actual today)
+                          const todayDate = new Date(effectiveToday);
+                          todayDate.setHours(0, 0, 0, 0);
+                          
+                          const isMarkable = vaccineDueDate <= todayDate; // Vaccine is markable if due date has arrived
+                          
+                          // Recalculate display status based on effective "today" date
+                          let displayStatus = m.status;
+                          if (m.status !== "COMPLETED") {
+                            const daysPastDue = Math.floor(
+                              (todayDate.getTime() - vaccineDueDate.getTime()) / (1000 * 60 * 60 * 24)
+                            );
+                            
+                            if (daysPastDue > 30) {
+                              displayStatus = "MISSED";
+                            } else if (daysPastDue >= 0) {
+                              displayStatus = "DUE";
+                            } else {
+                              displayStatus = "UPCOMING";
+                            }
+                          }
+                          
+                          const s = STATUS_CONFIG[displayStatus] || STATUS_CONFIG.UPCOMING;
+                          
+                          // Determine button tooltip message
+                          const buttonTooltip = !isMarkable
+                            ? `Not due yet (Due: ${new Date(m.dueDate).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })})`
+                            : isOldVaccine 
+                            ? "OLD vaccine - No credits will be awarded"
+                            : "";
+
                           return (
                             <div
                               key={m._id}
                               className={`flex flex-col justify-between gap-3 rounded-xl border bg-white p-4 shadow-sm transition-shadow hover:shadow-md sm:flex-row sm:items-center ${
-                                m.status === "DUE" ? "border-l-4 border-l-amber-400 border-t-slate-200 border-r-slate-200 border-b-slate-200" :
-                                m.status === "MISSED" ? "border-l-4 border-l-red-400 border-t-slate-200 border-r-slate-200 border-b-slate-200" :
+                                displayStatus === "DUE" ? "border-l-4 border-l-amber-400 border-t-slate-200 border-r-slate-200 border-b-slate-200" :
+                                displayStatus === "MISSED" ? "border-l-4 border-l-red-400 border-t-slate-200 border-r-slate-200 border-b-slate-200" :
                                 "border-slate-200"
                               }`}
                             >
                               <div className="flex items-start gap-3">
                                 <div
                                   className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg ${
-                                    m.status === "COMPLETED" ? "bg-primary/10 text-primary" :
-                                    m.status === "DUE" ? "bg-amber-50 text-amber-500" :
-                                    m.status === "MISSED" ? "bg-red-50 text-red-500" :
+                                    displayStatus === "COMPLETED" ? "bg-primary/10 text-primary" :
+                                    displayStatus === "DUE" ? "bg-amber-50 text-amber-500" :
+                                    displayStatus === "MISSED" ? "bg-red-50 text-red-500" :
                                     "bg-slate-100 text-slate-400"
                                   }`}
                                 >
-                                  {m.status === "DUE" || m.status === "MISSED" ? (
+                                  {displayStatus === "DUE" || displayStatus === "MISSED" ? (
                                     <AlertTriangle className="h-5 w-5" />
                                   ) : (
                                     <Syringe className="h-5 w-5" />
@@ -399,14 +463,25 @@ export default function VaccinationTrackerPage() {
                                         Optional
                                       </span>
                                     )}
+                                    {/* Testing Badge - OLD vs NEW vaccine */}
+                                    {isOldVaccine && (
+                                      <span className="rounded bg-red-100 px-2 py-0.5 text-[10px] font-bold text-red-700 border border-red-300">
+                                        OLD (No Credits)
+                                      </span>
+                                    )}
+                                    {isNewVaccine && (
+                                      <span className="rounded bg-green-100 px-2 py-0.5 text-[10px] font-bold text-green-700 border border-green-300">
+                                        NEW (Credits ✓)
+                                      </span>
+                                    )}
                                   </div>
                                   {m.description && (
                                     <p className="text-xs text-slate-500 line-clamp-1">{m.description}</p>
                                   )}
                                   <p className={`mt-1 text-xs font-medium ${
-                                    m.status === "DUE" ? "text-amber-600" :
-                                    m.status === "MISSED" ? "text-red-600" :
-                                    m.status === "COMPLETED" ? "text-slate-600" : "text-slate-400"
+                                    displayStatus === "DUE" ? "text-amber-600" :
+                                    displayStatus === "MISSED" ? "text-red-600" :
+                                    displayStatus === "COMPLETED" ? "text-slate-600" : "text-slate-400"
                                   }`}>
                                     {dateLabel}
                                   </p>
@@ -435,18 +510,20 @@ export default function VaccinationTrackerPage() {
                                   <div className="relative group">
                                     <button
                                       onClick={() => handleMarkDone(m)}
-                                      disabled={m.status === "UPCOMING"}
+                                      disabled={!isMarkable}
                                       className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition-colors ${
-                                        m.status === "UPCOMING"
-                                          ? "cursor-not-allowed bg-slate-100 text-slate-400"
+                                        !isMarkable
+                                          ? isOldVaccine
+                                            ? "cursor-not-allowed bg-red-100 text-red-400 border border-red-200"
+                                            : "cursor-not-allowed bg-slate-100 text-slate-400"
                                           : "bg-primary text-white hover:bg-primary/90"
                                       }`}
                                     >
                                       <Check className="h-3.5 w-3.5" /> Mark Done
                                     </button>
-                                    {m.status === "UPCOMING" && (
+                                    {!isMarkable && buttonTooltip && (
                                       <div className="absolute bottom-full left-1/2 mb-2 hidden -translate-x-1/2 whitespace-nowrap rounded-lg bg-slate-800 px-3 py-1.5 text-xs text-white shadow-lg group-hover:block z-20">
-                                        Not due yet
+                                        {buttonTooltip}
                                         <div className="absolute left-1/2 top-full h-0 w-0 -translate-x-1/2 border-4 border-transparent border-t-slate-800" />
                                       </div>
                                     )}

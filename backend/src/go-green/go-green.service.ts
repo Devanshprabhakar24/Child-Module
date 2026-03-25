@@ -169,7 +169,7 @@ export class GoGreenService {
     try {
       const Milestone = this.treeModel.db.model('Milestone');
       const milestone = await Milestone.findById(milestoneId).select('dueDate').lean().exec();
-      return milestone;
+      return milestone as { dueDate: Date } | null;
     } catch (error) {
       this.logger.error(`Error fetching vaccine milestone ${milestoneId}:`, error);
       return null;
@@ -185,7 +185,7 @@ export class GoGreenService {
         .select('createdAt')
         .lean()
         .exec();
-      return child;
+      return child as { createdAt: Date } | null;
     } catch (error) {
       this.logger.error(`Error fetching child registration ${registrationId}:`, error);
       return null;
