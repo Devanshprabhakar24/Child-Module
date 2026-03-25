@@ -79,7 +79,7 @@ export default function Header() {
             <div className="flex items-center gap-3">
               <Link href="/login"
                 onClick={() => openModal("login")}
-                className={`hidden sm:block px-4 py-2 text-sm font-normal transition rounded-lg ${
+                className={`px-4 py-2 text-sm font-normal transition rounded-lg ${
                   useSolidHeader 
                     ? "text-primary hover:bg-primary/5" 
                     : "text-white hover:bg-white/10"
@@ -96,7 +96,8 @@ export default function Header() {
                     : "bg-white text-primary shadow-black/10 hover:bg-slate-50"
                 }`}
               >
-                Register Now
+                <span className="hidden sm:inline">Register Now</span>
+                <span className="sm:hidden">Register</span>
               </Link>
             </div>
           </div>

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import VaccinationHeader from "@/components/dashboard/vaccinations/VaccinationHeader";
 import VaccinationSidePanel from "@/components/dashboard/vaccinations/VaccinationSidePanel";
 import MarkVaccineDoneModal from "@/components/dashboard/vaccinations/MarkVaccineDoneModal";
@@ -100,8 +100,17 @@ export default function VaccinationTrackerPage() {
 
   // Get test date from environment variable (for testing purposes)
   // Format: YYYY-MM-DD or leave empty for actual today
-  const testDateEnv = typeof window !== 'undefined' ? process.env.NEXT_PUBLIC_TEST_DATE : undefined;
-  const effectiveToday = testDateEnv && testDateEnv.trim() !== '' ? new Date(testDateEnv) : new Date();
+  const testDateEnv = process.env.NEXT_PUBLIC_TEST_DATE;
+  const effectiveToday = React.useMemo(() => {
+    if (!testDateEnv || testDateEnv.trim() === '') {
+      return new Date();
+    }
+    try {
+      return new Date(testDateEnv);
+    } catch {
+      return new Date();
+    }
+  }, [testDateEnv]);
 
   // Fetch registration date for credit logic
   useEffect(() => {
