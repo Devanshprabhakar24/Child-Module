@@ -3,11 +3,16 @@ import { ValidationPipe } from '@nestjs/common';
 import { AppModule } from './app.module';
 import { NestExpressApplication } from '@nestjs/platform-express';
 import { join } from 'path';
+import * as compression from 'compression';
 
 async function bootstrap(): Promise<void> {
   const app = await NestFactory.create<NestExpressApplication>(AppModule, {
     rawBody: true, // Required for RazorPay webhook signature verification
+    logger: process.env.NODE_ENV === 'production' ? ['error', 'warn'] : ['log', 'error', 'warn', 'debug'],
   });
+
+  // Enable compression for faster response times
+  app.use(compression());
 
   app.useGlobalPipes(
     new ValidationPipe({

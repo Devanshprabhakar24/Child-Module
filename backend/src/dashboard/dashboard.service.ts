@@ -232,19 +232,35 @@ export class DashboardService {
     const milestones = await this.milestoneModel
       .find({ registrationId, category: MilestoneCategory.VACCINATION })
       .sort({ dueDate: 1 })
+      .lean() // Use lean() for faster read-only queries
       .exec();
 
     const now = new Date();
+    const bulkOps = [];
 
-    // Auto-update statuses: mark overdue UPCOMING milestones as DUE or MISSED
+    // Collect bulk update operations instead of individual saves
     for (const m of milestones) {
       if (m.status === MilestoneStatus.UPCOMING && m.dueDate <= now) {
         const daysPastDue = Math.floor(
-          (now.getTime() - m.dueDate.getTime()) / (1000 * 60 * 60 * 24),
+          (now.getTime() - new Date(m.dueDate).getTime()) / (1000 * 60 * 60 * 24),
         );
-        m.status = daysPastDue > 30 ? MilestoneStatus.MISSED : MilestoneStatus.DUE;
-        await m.save();
+        const newStatus = daysPastDue > 30 ? MilestoneStatus.MISSED : MilestoneStatus.DUE;
+        
+        bulkOps.push({
+          updateOne: {
+            filter: { _id: m._id },
+            update: { $set: { status: newStatus } },
+          },
+        });
+        
+        // Update in-memory object for response
+        m.status = newStatus;
       }
+    }
+
+    // Execute all updates in a single bulk operation
+    if (bulkOps.length > 0) {
+      await this.milestoneModel.bulkWrite(bulkOps);
     }
 
     return {
@@ -254,7 +270,7 @@ export class DashboardService {
         (m) => m.status === MilestoneStatus.UPCOMING || m.status === MilestoneStatus.DUE,
       ).length,
       missed: milestones.filter((m) => m.status === MilestoneStatus.MISSED).length,
-      milestones,
+      milestones: milestones as any, // Cast since lean() returns plain objects
     };
   }
 

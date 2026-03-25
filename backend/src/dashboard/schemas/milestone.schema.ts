@@ -15,13 +15,13 @@ export class Milestone {
   @Prop({ type: String, default: null })
   description?: string;
 
-  @Prop({ type: String, enum: MilestoneCategory, required: true })
+  @Prop({ type: String, enum: MilestoneCategory, required: true, index: true })
   category!: MilestoneCategory;
 
-  @Prop({ type: String, enum: MilestoneStatus, default: MilestoneStatus.UPCOMING })
+  @Prop({ type: String, enum: MilestoneStatus, default: MilestoneStatus.UPCOMING, index: true })
   status!: MilestoneStatus;
 
-  @Prop({ type: Date, required: true })
+  @Prop({ type: Date, required: true, index: true })
   dueDate!: Date;
 
   @Prop({ type: Date, default: null })
@@ -44,3 +44,9 @@ export class Milestone {
 }
 
 export const MilestoneSchema = SchemaFactory.createForClass(Milestone);
+
+// Add compound indexes for common query patterns
+MilestoneSchema.index({ registrationId: 1, category: 1 });
+MilestoneSchema.index({ registrationId: 1, status: 1 });
+MilestoneSchema.index({ registrationId: 1, dueDate: 1 });
+MilestoneSchema.index({ registrationId: 1, category: 1, dueDate: 1 });
