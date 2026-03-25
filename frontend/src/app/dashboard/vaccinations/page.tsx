@@ -100,8 +100,8 @@ export default function VaccinationTrackerPage() {
 
   // Get test date from environment variable (for testing purposes)
   // Format: YYYY-MM-DD or leave empty for actual today
-  const testDateEnv = process.env.NEXT_PUBLIC_TEST_DATE;
-  const effectiveToday = testDateEnv ? new Date(testDateEnv) : new Date();
+  const testDateEnv = typeof window !== 'undefined' ? process.env.NEXT_PUBLIC_TEST_DATE : undefined;
+  const effectiveToday = testDateEnv && testDateEnv.trim() !== '' ? new Date(testDateEnv) : new Date();
 
   // Fetch registration date for credit logic
   useEffect(() => {
