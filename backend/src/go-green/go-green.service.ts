@@ -149,6 +149,20 @@ export class GoGreenService {
   }
 
   /**
+   * Check if credits were already awarded for a specific vaccine
+   * Prevents duplicate credit awards when vaccines are marked/unmarked multiple times
+   */
+  async checkIfVaccineCredited(registrationId: string, milestoneId: string): Promise<boolean> {
+    const existingTransaction = await this.creditTransactionModel.findOne({
+      registrationId,
+      type: CreditType.VACCINATION,
+      'metadata.vaccineId': milestoneId,
+    }).exec();
+
+    return !!existingTransaction;
+  }
+
+  /**
    * Get credit transaction history
    */
   async getCreditHistory(registrationId: string, limit: number = 50, offset: number = 0) {

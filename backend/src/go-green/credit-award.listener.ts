@@ -24,6 +24,19 @@ export class CreditAwardListener {
     );
 
     try {
+      // Check if credits were already awarded for this specific vaccine
+      const existingTransaction = await this.goGreenService.checkIfVaccineCredited(
+        payload.registrationId,
+        payload.milestoneId
+      );
+
+      if (existingTransaction) {
+        this.logger.warn(
+          `Credits already awarded for vaccine ${payload.vaccineName} (milestone: ${payload.milestoneId}). Skipping duplicate credit award.`
+        );
+        return;
+      }
+
       const creditAmount = this.goGreenService.calculateVaccineCredits(payload.sequenceNumber);
 
       await this.goGreenService.awardCredits({
