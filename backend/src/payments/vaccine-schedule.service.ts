@@ -38,11 +38,11 @@ export class VaccineScheduleService {
         doc.on('end', () => resolve(Buffer.concat(chunks)));
         doc.on('error', reject);
 
-        const primaryColor = '#1e40af'; // Professional blue
+        const primaryColor = '#16a34a'; // Professional green (WombTo18 brand)
         const darkColor = '#1e293b';
         const mutedColor = '#64748b';
-        const completedColor = '#059669'; // Green
-        const upcomingColor = '#0284c7'; // Blue
+        const completedColor = '#059669'; // Dark green
+        const upcomingColor = '#0891b2'; // Cyan
         const dueColor = '#dc2626'; // Red
 
         // ─── Header with Logo Area ──────────────────────────────────────
@@ -60,7 +60,7 @@ export class VaccineScheduleService {
         doc
           .font('Helvetica')
           .fontSize(10)
-          .fillColor('#dbeafe')
+          .fillColor('#d1fae5')
           .text('WombTo18 Maternal & Child Health Platform', 30, 50, { align: 'center' });
 
         // ─── Child Information Card ─────────────────────────────────────
