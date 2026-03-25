@@ -11,7 +11,8 @@ import {
 } from '../registration/schemas/child-registration.schema';
 import { AuthGuard } from './guards/auth.guard';
 import { RolesGuard } from './guards/roles.guard';
-import { TwilioSmsService } from '../notifications/twilio-sms.service';
+import { Fast2SmsService } from '../notifications/fast2sms.service';
+import { BrevoEmailService } from '../notifications/brevo-email.service';
 import { GmailSmtpService } from '../notifications/gmail-smtp.service';
 import { NotificationsGateway } from '../notifications/notifications.gateway';
 import { NotificationsService } from '../notifications/notifications.service';
@@ -32,7 +33,8 @@ import { Msg91WhatsAppService } from '../notifications/msg91-whatsapp.service';
     AuthService, 
     AuthGuard, 
     RolesGuard, 
-    TwilioSmsService, 
+    Fast2SmsService, 
+    BrevoEmailService,
     GmailSmtpService, 
     Msg91WhatsAppService,
     NotificationsGateway, 

@@ -32,12 +32,14 @@ services:
         sync: false
       - key: EMAIL_PASS
         sync: false
-      - key: TWILIO_ACCOUNT_SID
+      - key: EMAIL_SERVICE
+        value: brevo
+      - key: FAST2SMS_API_KEY
         sync: false
-      - key: TWILIO_AUTH_TOKEN
+      - key: BREVO_API_KEY
         sync: false
-      - key: TWILIO_PHONE_NUMBER
-        sync: false
+      - key: BREVO_FROM_EMAIL
+        value: devansh.prabhakar@wombto18.org
       - key: CLOUDINARY_CLOUD_NAME
         sync: false
       - key: CLOUDINARY_API_KEY
@@ -48,8 +50,6 @@ services:
         sync: false
       - key: WATI_API_ENDPOINT
         value: https://live-mt-server.wati.io/326037
-      - key: USE_TWILIO
-        value: true
       - key: PAYMENT_TEST_MODE
         value: false
       - key: OTP_EMAIL_TEST_MODE

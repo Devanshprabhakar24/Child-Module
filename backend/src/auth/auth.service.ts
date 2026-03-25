@@ -20,7 +20,8 @@ import {
   VerifyPhoneOtpDto,
   UserRole,
 } from '@wombto18/shared';
-import { TwilioSmsService } from '../notifications/twilio-sms.service';
+import { Fast2SmsService } from '../notifications/fast2sms.service';
+import { BrevoEmailService } from '../notifications/brevo-email.service';
 import { GmailSmtpService } from '../notifications/gmail-smtp.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { NotificationsGateway } from '../notifications/notifications.gateway';
@@ -34,6 +35,7 @@ export class AuthService {
   private readonly otpSmsTestMode: boolean;
   private readonly otpTestCode: string;
   private readonly jwtSecret: string;
+  private readonly emailService: string;
 
   constructor(
     @InjectModel(User.name) private readonly userModel: Model<UserDocument>,
@@ -41,7 +43,8 @@ export class AuthService {
     @InjectModel(ChildRegistration.name)
     private readonly childRegModel: Model<ChildRegistrationDocument>,
     private readonly configService: ConfigService,
-    private readonly twilioSmsService: TwilioSmsService,
+    private readonly fast2SmsService: Fast2SmsService,
+    private readonly brevoEmailService: BrevoEmailService,
     private readonly gmailSmtpService: GmailSmtpService,
     private readonly notificationsService: NotificationsService,
     private readonly notificationsGateway: NotificationsGateway,
@@ -49,6 +52,7 @@ export class AuthService {
     this.otpSmsTestMode = this.configService.get<string>('OTP_SMS_TEST_MODE') === 'true';
     this.otpTestCode = this.configService.get<string>('OTP_TEST_CODE') ?? '123456';
     this.jwtSecret = this.configService.get<string>('JWT_SECRET') ?? 'wombto18-dev-secret';
+    this.emailService = this.configService.get<string>('EMAIL_SERVICE') ?? 'brevo';
 
     if (this.otpSmsTestMode) {
       this.logger.warn('⚠️  ========================================');
@@ -58,10 +62,13 @@ export class AuthService {
       this.logger.warn('⚠️  Set OTP_SMS_TEST_MODE=false to disable');
       this.logger.warn('⚠️  ========================================');
     } else {
-      this.logger.log('✅ Twilio SMS enabled for SMS OTP');
+      this.logger.log('✅ Fast2SMS enabled for SMS OTP');
     }
     
-    if (this.gmailSmtpService.isEnabled()) {
+    this.logger.log(`📧 Email Service: ${this.emailService.toUpperCase()}`);
+    if (this.emailService === 'brevo' && this.brevoEmailService.isEnabled()) {
+      this.logger.log('✅ Brevo API enabled for Email OTP');
+    } else if (this.emailService === 'gmail' && this.gmailSmtpService.isEnabled()) {
       this.logger.log('✅ Gmail SMTP enabled for Email OTP');
     }
   }
@@ -151,8 +158,18 @@ export class AuthService {
 
     let logMessage = `📧 Email OTP for ${dto.email}: ${code}`;
 
-    // Send Email OTP via Gmail SMTP
-    if (this.gmailSmtpService.isEnabled()) {
+    // Use configured email service
+    if (this.emailService === 'brevo' && this.brevoEmailService.isEnabled()) {
+      this.logger.log(`📤 Attempting to send email via Brevo API to ${dto.email}`);
+      const emailSent = await this.brevoEmailService.sendOTP(dto.email, code);
+      if (emailSent) {
+        logMessage += ` | ✅ Email sent via Brevo API`;
+        this.logger.log(`✅ Email OTP sent successfully to ${dto.email}`);
+      } else {
+        logMessage += ` | ❌ Email failed via Brevo API`;
+        this.logger.error(`❌ Failed to send email OTP via Brevo API to ${dto.email}`);
+      }
+    } else if (this.emailService === 'gmail' && this.gmailSmtpService.isEnabled()) {
       this.logger.log(`📤 Attempting to send email via Gmail SMTP to ${dto.email}`);
       const emailSent = await this.gmailSmtpService.sendOTP(dto.email, code);
       if (emailSent) {
@@ -163,8 +180,8 @@ export class AuthService {
         this.logger.error(`❌ Failed to send email OTP to ${dto.email}`);
       }
     } else {
-      logMessage += ` | ⚠️ Gmail SMTP not configured`;
-      this.logger.warn(`⚠️  Gmail SMTP service not enabled`);
+      logMessage += ` | ⚠️ No email service configured`;
+      this.logger.warn(`⚠️  No email service enabled`);
     }
 
     this.logger.log(logMessage);
@@ -223,18 +240,18 @@ export class AuthService {
 
     let logMessage = `📱 Phone OTP for ${normalizedPhone}: ${code}${this.otpSmsTestMode ? ' (TEST MODE)' : ''}`;
 
-    // Send SMS OTP via Twilio (skip if test mode)
+    // Send SMS OTP via Fast2SMS (skip if test mode)
     if (this.otpSmsTestMode) {
       logMessage += ` | ⚠️ SMS not sent (TEST MODE - use OTP: ${this.otpTestCode})`;
       this.logger.warn(`⚠️  SMS OTP test mode - SMS not sent to ${normalizedPhone}`);
     } else {
-      this.logger.log(`📤 Attempting to send SMS via Twilio to ${normalizedPhone}`);
-      const smsSent = await this.twilioSmsService.sendOTP(normalizedPhone, code);
+      this.logger.log(`📤 Attempting to send SMS via Fast2SMS to ${normalizedPhone}`);
+      const smsSent = await this.fast2SmsService.sendOTP(normalizedPhone, code);
       if (smsSent) {
-        logMessage += ` | ✅ SMS sent via Twilio`;
+        logMessage += ` | ✅ SMS sent via Fast2SMS`;
         this.logger.log(`✅ SMS OTP sent successfully to ${normalizedPhone}`);
       } else {
-        logMessage += ` | ❌ SMS failed via Twilio`;
+        logMessage += ` | ❌ SMS failed via Fast2SMS`;
         this.logger.error(`❌ Failed to send SMS OTP to ${normalizedPhone}`);
       }
     }

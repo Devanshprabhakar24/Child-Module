@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Msg91WhatsAppService } from './msg91-whatsapp.service';
+import { BrevoEmailService } from './brevo-email.service';
 import { GmailSmtpService } from './gmail-smtp.service';
 import { CertificateService } from '../registration/certificate.service';
 
@@ -37,16 +38,19 @@ export class NotificationsService {
   private readonly logger = new Logger(NotificationsService.name);
   private readonly testMode: boolean;
   private readonly baseUrl: string;
+  private readonly emailService: string;
 
   constructor(
     private readonly configService: ConfigService,
     private readonly whatsappService: Msg91WhatsAppService,
+    private readonly brevoEmailService: BrevoEmailService,
     private readonly gmailSmtpService: GmailSmtpService,
     private readonly certificateService: CertificateService,
   ) {
     this.testMode = this.configService.get<string>('NOTIFICATION_TEST_MODE') !== 'false';
     this.baseUrl = this.configService.get<string>('APP_BASE_URL') ?? 'https://wombto18.com';
-    this.logger.log('✅ NotificationsService initialized (WhatsApp + Gmail SMTP)');
+    this.emailService = this.configService.get<string>('EMAIL_SERVICE') ?? 'brevo';
+    this.logger.log(`✅ NotificationsService initialized (WhatsApp + ${this.emailService.toUpperCase()})`);
   }
 
   // ─── High-Level Event Dispatchers ─────────────────────────────────────
@@ -76,7 +80,25 @@ export class NotificationsService {
     );
     
     // Send Email with invoice PDF attachment
-    if (this.gmailSmtpService.isEnabled()) {
+    const emailHtml = this.getPaymentConfirmationEmailTemplate({
+      parentName: payload.parentName,
+      childName: payload.childName,
+      amount: payload.amount,
+      registrationId: payload.registrationId,
+      subscriptionPlan: payload.subscriptionPlan,
+    });
+    
+    let emailSent = false;
+    if (this.emailService === 'brevo' && this.brevoEmailService.isEnabled()) {
+      emailSent = await this.brevoEmailService.sendEmail(
+        payload.email,
+        'Payment Confirmation - WombTo18',
+        emailHtml
+      );
+      if (emailSent) {
+        this.logger.log(`✅ Payment confirmation sent via WhatsApp + Brevo API to ${payload.phone} / ${payload.email}`);
+      }
+    } else if (this.emailService === 'gmail' && this.gmailSmtpService.isEnabled()) {
       const emailHtml = this.getPaymentConfirmationEmailTemplate({
         parentName: payload.parentName,
         childName: payload.childName,
@@ -84,14 +106,18 @@ export class NotificationsService {
         registrationId: payload.registrationId,
         subscriptionPlan: payload.subscriptionPlan,
       });
-      await this.gmailSmtpService.sendEmail(
+      emailSent = await this.gmailSmtpService.sendEmail(
         payload.email,
         'Payment Confirmation - WombTo18',
         emailHtml
       );
-      this.logger.log(`✅ Payment confirmation sent via WhatsApp + Gmail SMTP to ${payload.phone} / ${payload.email}`);
-    } else {
-      this.logger.log(`✅ Payment confirmation sent via WhatsApp to ${payload.phone}`);
+      if (emailSent) {
+        this.logger.log(`✅ Payment confirmation sent via WhatsApp + Gmail SMTP to ${payload.phone} / ${payload.email}`);
+      }
+    }
+    
+    if (!emailSent) {
+      this.logger.log(`✅ Payment confirmation sent via WhatsApp only (email failed) to ${payload.phone}`);
     }
   }
 
@@ -118,7 +144,27 @@ export class NotificationsService {
     );
     
     // Send Email with full details
-    if (this.gmailSmtpService.isEnabled()) {
+    const emailHtml = this.getWelcomeEmailTemplate({
+      parentName: payload.parentName,
+      childName: payload.childName,
+      registrationId: payload.registrationId,
+      ageGroup: payload.ageGroup,
+      state: payload.state,
+      subscriptionAmount: payload.subscriptionAmount,
+      subscriptionPlan: payload.subscriptionPlan,
+    });
+    
+    let emailSent = false;
+    if (this.emailService === 'brevo' && this.brevoEmailService.isEnabled()) {
+      emailSent = await this.brevoEmailService.sendEmail(
+        payload.email,
+        'Welcome to WombTo18! 🌱',
+        emailHtml
+      );
+      if (emailSent) {
+        this.logger.log(`✅ Welcome message sent via WhatsApp + Brevo API to ${payload.phone} / ${payload.email}`);
+      }
+    } else if (this.emailService === 'gmail' && this.gmailSmtpService.isEnabled()) {
       const emailHtml = this.getWelcomeEmailTemplate({
         parentName: payload.parentName,
         childName: payload.childName,
@@ -128,14 +174,18 @@ export class NotificationsService {
         subscriptionAmount: payload.subscriptionAmount,
         subscriptionPlan: payload.subscriptionPlan,
       });
-      await this.gmailSmtpService.sendEmail(
+      emailSent = await this.gmailSmtpService.sendEmail(
         payload.email,
         'Welcome to WombTo18! 🌱',
         emailHtml
       );
-      this.logger.log(`✅ Welcome message sent via WhatsApp + Gmail SMTP to ${payload.phone} / ${payload.email}`);
-    } else {
-      this.logger.log(`✅ Welcome message sent via WhatsApp to ${payload.phone}`);
+      if (emailSent) {
+        this.logger.log(`✅ Welcome message sent via WhatsApp + Gmail SMTP to ${payload.phone} / ${payload.email}`);
+      }
+    }
+    
+    if (!emailSent) {
+      this.logger.warn(`⚠️  Welcome message sent via WhatsApp only (email failed) to ${payload.phone}`);
     }
   }
 
@@ -181,21 +231,42 @@ export class NotificationsService {
       );
 
       // Send via Email with PDF attachment
-      if (this.gmailSmtpService.isEnabled()) {
+      const emailHtml = this.getGoGreenCertificateEmailTemplate({
+        parentName: payload.parentName,
+        childName: payload.childName,
+        registrationId: payload.registrationId,
+        treeId: payload.treeId,
+      });
+      
+      let emailSent = false;
+      if (this.emailService === 'brevo' && this.brevoEmailService.isEnabled()) {
+        emailSent = await this.brevoEmailService.sendEmail(
+          payload.email,
+          `${payload.childName}'s Go Green Certificate - WombTo18`,
+          emailHtml
+        );
+        if (emailSent) {
+          this.logger.log(`✅ Go Green certificate sent via WhatsApp + Brevo API to ${payload.phone} / ${payload.email}`);
+        }
+      } else if (this.emailService === 'gmail' && this.gmailSmtpService.isEnabled()) {
         const emailHtml = this.getGoGreenCertificateEmailTemplate({
           parentName: payload.parentName,
           childName: payload.childName,
           registrationId: payload.registrationId,
           treeId: payload.treeId,
         });
-        await this.gmailSmtpService.sendEmail(
+        emailSent = await this.gmailSmtpService.sendEmail(
           payload.email,
           `${payload.childName}'s Go Green Certificate - WombTo18`,
           emailHtml
         );
-        this.logger.log(`✅ Go Green certificate sent via WhatsApp + Gmail SMTP to ${payload.phone} / ${payload.email}`);
-      } else {
-        this.logger.log(`✅ Go Green certificate sent via WhatsApp to ${payload.phone}`);
+        if (emailSent) {
+          this.logger.log(`✅ Go Green certificate sent via WhatsApp + Gmail SMTP to ${payload.phone} / ${payload.email}`);
+        }
+      }
+      
+      if (!emailSent) {
+        this.logger.log(`✅ Go Green certificate sent via WhatsApp only (email failed) to ${payload.phone}`);
       }
     } catch (error) {
       this.logger.error(`❌ Failed to generate/send Go Green certificate for ${payload.registrationId}:`, error);
@@ -274,22 +345,37 @@ export class NotificationsService {
     state: string;
     subscriptionAmount: number;
   }): Promise<void> {
-    if (this.gmailSmtpService.isEnabled()) {
-      const emailHtml = this.getRegistrationConfirmationEmailTemplate({
-        parentName: payload.parentName,
-        childName: payload.childName,
-        registrationId: payload.registrationId,
-        ageGroup: payload.ageGroup,
-        state: payload.state,
-      });
-      await this.gmailSmtpService.sendEmail(
+    const emailHtml = this.getRegistrationConfirmationEmailTemplate({
+      parentName: payload.parentName,
+      childName: payload.childName,
+      registrationId: payload.registrationId,
+      ageGroup: payload.ageGroup,
+      state: payload.state,
+    });
+    
+    let emailSent = false;
+    if (this.emailService === 'brevo' && this.brevoEmailService.isEnabled()) {
+      emailSent = await this.brevoEmailService.sendEmail(
         payload.email,
         `Registration Successful - ${payload.childName}`,
         emailHtml
       );
-      this.logger.log(`✅ Registration confirmation email sent to ${payload.email}`);
-    } else {
-      this.logger.warn(`⚠️  Gmail SMTP not configured, skipping registration confirmation email`);
+      if (emailSent) {
+        this.logger.log(`✅ Registration confirmation email sent via Brevo API to ${payload.email}`);
+      }
+    } else if (this.emailService === 'gmail' && this.gmailSmtpService.isEnabled()) {
+      emailSent = await this.gmailSmtpService.sendEmail(
+        payload.email,
+        `Registration Successful - ${payload.childName}`,
+        emailHtml
+      );
+      if (emailSent) {
+        this.logger.log(`✅ Registration confirmation email sent via Gmail SMTP to ${payload.email}`);
+      }
+    }
+    
+    if (!emailSent) {
+      this.logger.warn(`⚠️  No email service configured or all failed, skipping registration confirmation email`);
     }
   }
 
@@ -310,22 +396,37 @@ export class NotificationsService {
     }>;
     vaccinePdfBuffer?: Buffer;
   }): Promise<void> {
-    if (this.gmailSmtpService.isEnabled()) {
-      const emailHtml = this.getVaccinationScheduleEmailTemplate({
-        parentName: payload.parentName,
-        childName: payload.childName,
-        dateOfBirth: payload.dateOfBirth,
-        registrationId: payload.registrationId,
-        vaccineSchedule: payload.vaccineSchedule,
-      });
-      await this.gmailSmtpService.sendEmail(
+    const emailHtml = this.getVaccinationScheduleEmailTemplate({
+      parentName: payload.parentName,
+      childName: payload.childName,
+      dateOfBirth: payload.dateOfBirth,
+      registrationId: payload.registrationId,
+      vaccineSchedule: payload.vaccineSchedule,
+    });
+    
+    let emailSent = false;
+    if (this.emailService === 'brevo' && this.brevoEmailService.isEnabled()) {
+      emailSent = await this.brevoEmailService.sendEmail(
         payload.email,
         `${payload.childName}'s Vaccination Schedule - WombTo18`,
         emailHtml
       );
-      this.logger.log(`✅ Vaccination schedule email sent to ${payload.email} (${payload.vaccineSchedule.length} vaccines)`);
-    } else {
-      this.logger.warn(`⚠️  Gmail SMTP not configured, skipping vaccination schedule email`);
+      if (emailSent) {
+        this.logger.log(`✅ Vaccination schedule email sent via Brevo API to ${payload.email} (${payload.vaccineSchedule.length} vaccines)`);
+      }
+    } else if (this.emailService === 'gmail' && this.gmailSmtpService.isEnabled()) {
+      emailSent = await this.gmailSmtpService.sendEmail(
+        payload.email,
+        `${payload.childName}'s Vaccination Schedule - WombTo18`,
+        emailHtml
+      );
+      if (emailSent) {
+        this.logger.log(`✅ Vaccination schedule email sent via Gmail SMTP to ${payload.email} (${payload.vaccineSchedule.length} vaccines)`);
+      }
+    }
+    
+    if (!emailSent) {
+      this.logger.warn(`⚠️  No email service configured or all failed, skipping vaccination schedule email`);
     }
   }
 
