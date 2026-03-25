@@ -37,6 +37,30 @@ export class CreditAwardListener {
         return;
       }
 
+      // Get the vaccine milestone to check its due date
+      const milestone = await this.goGreenService.getVaccineMilestone(payload.milestoneId);
+      
+      if (!milestone) {
+        this.logger.error(`Vaccine milestone not found: ${payload.milestoneId}`);
+        return;
+      }
+
+      // Check if vaccine was due BEFORE today (past/overdue vaccine)
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      
+      const vaccineDueDate = new Date(milestone.dueDate);
+      vaccineDueDate.setHours(0, 0, 0, 0);
+
+      if (vaccineDueDate < today) {
+        this.logger.warn(
+          `Vaccine ${payload.vaccineName} was due on ${vaccineDueDate.toDateString()} (before today ${today.toDateString()}). ` +
+          `Credits will NOT be awarded for past/overdue vaccines. Only upcoming vaccines earn credits.`
+        );
+        return;
+      }
+
+      // Award credits only for vaccines due today or in the future
       const creditAmount = this.goGreenService.calculateVaccineCredits(payload.sequenceNumber);
 
       await this.goGreenService.awardCredits({
@@ -49,11 +73,12 @@ export class CreditAwardListener {
           vaccineName: payload.vaccineName,
           sequenceNumber: payload.sequenceNumber,
           completedDate: payload.completedDate,
+          dueDate: milestone.dueDate,
         },
       });
 
       this.logger.log(
-        `Credits awarded: ${creditAmount} to ${payload.registrationId}`,
+        `✅ Credits awarded: ${creditAmount} to ${payload.registrationId} for ${payload.vaccineName} (due: ${vaccineDueDate.toDateString()})`,
       );
 
       if (payload.sequenceNumber === 6) {

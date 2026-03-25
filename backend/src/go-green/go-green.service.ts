@@ -163,6 +163,20 @@ export class GoGreenService {
   }
 
   /**
+   * Get vaccine milestone by ID to check due date
+   */
+  async getVaccineMilestone(milestoneId: string): Promise<{ dueDate: Date } | null> {
+    try {
+      const Milestone = this.treeModel.db.model('Milestone');
+      const milestone = await Milestone.findById(milestoneId).select('dueDate').lean().exec();
+      return milestone;
+    } catch (error) {
+      this.logger.error(`Error fetching vaccine milestone ${milestoneId}:`, error);
+      return null;
+    }
+  }
+
+  /**
    * Get credit transaction history
    */
   async getCreditHistory(registrationId: string, limit: number = 50, offset: number = 0) {
