@@ -70,9 +70,9 @@ export function useChildData(): UseChildDataResult {
   };
 
   useEffect(() => {
-    const tok = typeof window !== "undefined" ? localStorage.getItem("wt18_token") : null;
+    const tok = localStorage.getItem("wt18_token");
     if (!tok) {
-      if (typeof window !== "undefined") window.location.href = "/login";
+      window.location.href = "/login";
       return;
     }
     setToken(tok);
@@ -139,6 +139,7 @@ export function useChildData(): UseChildDataResult {
         }
       } catch (err: any) {
         if (err.name === "AbortError") return;
+        console.error("Child data error:", err);
         setError(err.message || "Failed to load data");
       } finally {
         setLoading(false);

@@ -17,6 +17,8 @@ import {
 // Prevent prerendering
 export const dynamic = 'force-dynamic';
 
+const API_BASE = (process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000").replace(/\/$/, "");
+
 const AGE_GROUPS = [
   { key: '0-1 years', label: '0-1 Years', emoji: '👶', order: 1 },
   { key: '1-3 years', label: '1-3 Years', emoji: '🧒', order: 2 },
@@ -121,7 +123,7 @@ export default function MilestonesPage() {
       setLoadingMilestones(true);
       try {
         const response = await fetch(
-          `http://localhost:8000/dashboard/development-milestones/${profile.registrationId}`,
+          `${API_BASE}/dashboard/development-milestones/${profile.registrationId}`,
           {
             headers: {
               Authorization: `Bearer ${localStorage.getItem("wt18_token")}`,
@@ -161,7 +163,7 @@ export default function MilestonesPage() {
       setLoadingMilestones(true);
       try {
         const response = await fetch(
-          `http://localhost:8000/dashboard/milestones/${profile.registrationId}?ageGroup=${encodeURIComponent(selectedAgeGroup)}`,
+          `${API_BASE}/dashboard/milestones/${profile.registrationId}?ageGroup=${encodeURIComponent(selectedAgeGroup)}`,
           {
             headers: {
               Authorization: `Bearer ${localStorage.getItem("wt18_token")}`,
@@ -192,7 +194,7 @@ export default function MilestonesPage() {
         // Fetch milestones for all age groups
         const allMilestonesPromises = AGE_GROUPS.map(async (group) => {
           const response = await fetch(
-            `http://localhost:8000/dashboard/milestones/${profile.registrationId}?ageGroup=${encodeURIComponent(group.key)}`,
+            `${API_BASE}/dashboard/milestones/${profile.registrationId}?ageGroup=${encodeURIComponent(group.key)}`,
             {
               headers: {
                 Authorization: `Bearer ${localStorage.getItem("wt18_token")}`,
@@ -225,7 +227,7 @@ export default function MilestonesPage() {
     try {
       // First fetch templates for this age group
       const templatesResponse = await fetch(
-        `http://localhost:8000/cms/milestone-templates/${encodeURIComponent(ageGroup)}`,
+        `${API_BASE}/cms/milestone-templates/${encodeURIComponent(ageGroup)}`,
         {
           headers: {
             Authorization: `Bearer ${localStorage.getItem("wt18_token")}`,
@@ -252,7 +254,7 @@ export default function MilestonesPage() {
 
       // Seed milestones
       const response = await fetch(
-        'http://localhost:8000/dashboard/development-milestones/seed',
+        `${API_BASE}/dashboard/development-milestones/seed`,
         {
           method: 'POST',
           headers: {
@@ -272,7 +274,7 @@ export default function MilestonesPage() {
         
         // Refresh milestones for this age group
         const refreshResponse = await fetch(
-          `http://localhost:8000/dashboard/milestones/${profile.registrationId}?ageGroup=${encodeURIComponent(ageGroup)}`,
+          `${API_BASE}/dashboard/milestones/${profile.registrationId}?ageGroup=${encodeURIComponent(ageGroup)}`,
           {
             headers: {
               Authorization: `Bearer ${localStorage.getItem("wt18_token")}`,
@@ -287,7 +289,7 @@ export default function MilestonesPage() {
           // Also refresh allMilestones for overall progress
           const allMilestonesPromises = AGE_GROUPS.map(async (group) => {
             const response = await fetch(
-              `http://localhost:8000/dashboard/milestones/${profile.registrationId}?ageGroup=${encodeURIComponent(group.key)}`,
+              `${API_BASE}/dashboard/milestones/${profile.registrationId}?ageGroup=${encodeURIComponent(group.key)}`,
               {
                 headers: {
                   Authorization: `Bearer ${localStorage.getItem("wt18_token")}`,
@@ -331,7 +333,7 @@ export default function MilestonesPage() {
     setUpdatingMilestone(milestoneId);
     try {
       const response = await fetch(
-        `http://localhost:8000/dashboard/milestones/update/${milestoneId}`,
+        `${API_BASE}/dashboard/milestones/update/${milestoneId}`,
         {
           method: 'PATCH',
           headers: {
@@ -407,7 +409,7 @@ export default function MilestonesPage() {
   const updateMilestoneNotes = async (milestoneId: string, notes: string) => {
     try {
       const response = await fetch(
-        `http://localhost:8000/dashboard/milestones/notes/${milestoneId}`,
+        `${API_BASE}/dashboard/milestones/notes/${milestoneId}`,
         {
           method: 'PATCH',
           headers: {

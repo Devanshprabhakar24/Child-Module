@@ -50,11 +50,9 @@ export function useDashboardData(): UseDashboardDataResult {
   const [milestones, setMilestones] = useState<DashboardMilestone[]>([]);
 
   useEffect(() => {
-    const token = typeof window !== "undefined" ? localStorage.getItem("wt18_token") : null;
+    const token = localStorage.getItem("wt18_token");
     if (!token) {
-      if (typeof window !== "undefined") {
-        window.location.href = "/login";
-      }
+      window.location.href = "/login";
       return;
     }
 
@@ -76,9 +74,7 @@ export function useDashboardData(): UseDashboardDataResult {
         if (familyRes.status === 401) {
           localStorage.removeItem("wt18_token");
           localStorage.removeItem("wt18_user");
-          if (typeof window !== "undefined") {
-            window.location.href = "/login";
-          }
+          window.location.href = "/login";
           return;
         }
 
@@ -115,6 +111,7 @@ export function useDashboardData(): UseDashboardDataResult {
         setMilestones(Array.isArray(milData) ? milData : []);
       } catch (err: any) {
         if (err.name === "AbortError") return;
+        console.error("Dashboard data error:", err);
         setError(err.message || "Failed to load dashboard data");
       } finally {
         setLoading(false);

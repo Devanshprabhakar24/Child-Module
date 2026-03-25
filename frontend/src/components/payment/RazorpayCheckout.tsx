@@ -2,6 +2,8 @@
 
 import { useState } from "react";
 
+const API_BASE = (process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000").replace(/\/$/, "");
+
 interface RazorpayCheckoutProps {
   registrationId: string;
   childName: string;
@@ -53,7 +55,7 @@ export default function RazorpayCheckout({
       }
 
       // Get the order ID from registration (already created during registration)
-      const registrationResponse = await fetch(`http://localhost:8000/registration/${registrationId}`);
+      const registrationResponse = await fetch(`${API_BASE}/registration/${registrationId}`);
       
       if (!registrationResponse.ok) {
         throw new Error("Failed to fetch registration details");
@@ -88,7 +90,7 @@ export default function RazorpayCheckout({
           
           // Verify payment on backend
           try {
-            const verifyResponse = await fetch(`http://localhost:8000/registration/verify-payment`, {
+            const verifyResponse = await fetch(`${API_BASE}/registration/verify-payment`, {
               method: "POST",
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({
