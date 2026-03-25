@@ -51,7 +51,7 @@ export default function SuccessHero() {
     
     setDownloading(true);
     try {
-      const res = await fetch(`${API_BASE}/payments/${encodeURIComponent(id)}/invoice`);
+      const res = await fetch(`${API_BASE}/payments/invoice/${encodeURIComponent(id)}`);
       if (!res.ok) throw new Error("Invoice not ready yet");
       const blob = await res.blob();
       const url = URL.createObjectURL(blob);
