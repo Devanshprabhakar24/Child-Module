@@ -82,25 +82,39 @@ export class GmailSmtpService {
   }
 
   /**
-   * Send generic email via Gmail SMTP
+   * Send generic email via Gmail SMTP with optional PDF attachment
    */
-  async sendEmail(to: string, subject: string, html: string): Promise<boolean> {
+  async sendEmail(to: string, subject: string, html: string, pdfBuffer?: Buffer, pdfFilename?: string): Promise<boolean> {
     if (!this.enabled || !this.transporter) {
       this.logger.warn('⚠️  Gmail SMTP not configured');
       return false;
     }
 
     try {
-      this.logger.log(`📧 Sending email via Gmail SMTP to ${to}`);
+      this.logger.log(`📧 Sending email via Gmail SMTP to ${to}${pdfBuffer ? ' with PDF attachment' : ''}`);
       
-      const info = await this.transporter.sendMail({
+      const mailOptions: any = {
         from: `"${this.fromName}" <${this.fromEmail}>`,
         to,
         subject,
         html,
-      });
+      };
 
-      this.logger.log(`✅ Email sent successfully via Gmail SMTP to ${to}`);
+      // Add PDF attachment if provided
+      if (pdfBuffer && pdfFilename) {
+        mailOptions.attachments = [
+          {
+            filename: pdfFilename,
+            content: pdfBuffer,
+            contentType: 'application/pdf',
+          },
+        ];
+        this.logger.debug(`📎 Adding PDF attachment: ${pdfFilename} (${pdfBuffer.length} bytes)`);
+      }
+      
+      const info = await this.transporter.sendMail(mailOptions);
+
+      this.logger.log(`✅ Email sent successfully via Gmail SMTP to ${to}${pdfBuffer ? ' with PDF' : ''}`);
       this.logger.debug(`Message ID: ${info.messageId}`);
       return true;
     } catch (error) {
