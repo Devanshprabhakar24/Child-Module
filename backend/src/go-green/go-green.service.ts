@@ -177,6 +177,22 @@ export class GoGreenService {
   }
 
   /**
+   * Get child registration to check registration date
+   */
+  async getChildRegistration(registrationId: string): Promise<{ createdAt: Date } | null> {
+    try {
+      const child = await this.childModel.findOne({ registrationId })
+        .select('createdAt')
+        .lean()
+        .exec();
+      return child;
+    } catch (error) {
+      this.logger.error(`Error fetching child registration ${registrationId}:`, error);
+      return null;
+    }
+  }
+
+  /**
    * Get credit transaction history
    */
   async getCreditHistory(registrationId: string, limit: number = 50, offset: number = 0) {

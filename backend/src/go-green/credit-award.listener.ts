@@ -37,30 +37,42 @@ export class CreditAwardListener {
         return;
       }
 
-      // Get the vaccine milestone to check its due date
-      const milestone = await this.goGreenService.getVaccineMilestone(payload.milestoneId);
+      // Get the vaccine milestone and child registration to check dates
+      const [milestone, childRegistration] = await Promise.all([
+        this.goGreenService.getVaccineMilestone(payload.milestoneId),
+        this.goGreenService.getChildRegistration(payload.registrationId)
+      ]);
       
       if (!milestone) {
         this.logger.error(`Vaccine milestone not found: ${payload.milestoneId}`);
         return;
       }
 
-      // Check if vaccine was due BEFORE today (past/overdue vaccine)
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
+      if (!childRegistration) {
+        this.logger.error(`Child registration not found: ${payload.registrationId}`);
+        return;
+      }
+
+      // Get registration date (when child was registered in the system)
+      const registrationDate = new Date(childRegistration.createdAt);
+      registrationDate.setHours(0, 0, 0, 0);
       
       const vaccineDueDate = new Date(milestone.dueDate);
       vaccineDueDate.setHours(0, 0, 0, 0);
 
-      if (vaccineDueDate < today) {
+      // OLD VACCINE: Due date is BEFORE registration date (past vaccine at time of registration)
+      // NEW VACCINE: Due date is ON or AFTER registration date (upcoming vaccine at time of registration)
+      if (vaccineDueDate < registrationDate) {
         this.logger.warn(
-          `Vaccine ${payload.vaccineName} was due on ${vaccineDueDate.toDateString()} (before today ${today.toDateString()}). ` +
-          `Credits will NOT be awarded for past/overdue vaccines. Only upcoming vaccines earn credits.`
+          `Vaccine ${payload.vaccineName} was due on ${vaccineDueDate.toDateString()} ` +
+          `(BEFORE registration date ${registrationDate.toDateString()}). ` +
+          `This is an OLD vaccine. Credits will NOT be awarded. ` +
+          `Only NEW/UPCOMING vaccines (due on or after registration date) earn credits.`
         );
         return;
       }
 
-      // Award credits only for vaccines due today or in the future
+      // Award credits only for NEW vaccines (due on or after registration date)
       const creditAmount = this.goGreenService.calculateVaccineCredits(payload.sequenceNumber);
 
       await this.goGreenService.awardCredits({
@@ -74,11 +86,13 @@ export class CreditAwardListener {
           sequenceNumber: payload.sequenceNumber,
           completedDate: payload.completedDate,
           dueDate: milestone.dueDate,
+          registrationDate: childRegistration.createdAt,
         },
       });
 
       this.logger.log(
-        `✅ Credits awarded: ${creditAmount} to ${payload.registrationId} for ${payload.vaccineName} (due: ${vaccineDueDate.toDateString()})`,
+        `✅ Credits awarded: ${creditAmount} to ${payload.registrationId} for ${payload.vaccineName} ` +
+        `(NEW vaccine - due: ${vaccineDueDate.toDateString()}, registered: ${registrationDate.toDateString()})`,
       );
 
       if (payload.sequenceNumber === 6) {
